@@ -27,23 +27,41 @@ To maintain architectural clarity, the repository explicitly distinguishes betwe
   and secret absence.
 
 ### Planned Structure (Phases `DS-01` through `DS-09`)
+The repository is a monorepo containing two independently testable
+applications. The backend is a Python modular monolith; the web application is
+a React and TypeScript client. They share public contracts over the loopback
+API, not source-level domain implementations.
+
 The modular codebase structure planned for subsequent phases:
 
 ```text
 optees-decision-simulator/
 ├── apps/
-│   ├── api/                  # Planned (DS-03): FastAPI composition root & loopback transport
-│   └── web/                  # Planned (DS-09): React + TypeScript + Vite web interface
-├── src/
-│   └── simulator/            # Planned (DS-01+): Python application package
-│       ├── domain/           # Planned (DS-01): Pure domain model, accounting, canonicalization
-│       ├── application/      # Planned (DS-01): Harness services & port definitions
-│       ├── infrastructure/   # Planned (DS-02, DS-03): SQLite, datasets, Optees MCP/REST adapters
-│       └── interfaces/       # Planned (DS-03): CLI and API adapters
-├── tests/                    # Planned (DS-01+): Unit, integration, and replay test suites
+│   ├── backend/
+│   │   ├── src/
+│   │   │   └── simulator/    # Planned (DS-01+): Python application package
+│   │   │       ├── domain/           # Pure entities, values, invariants, and services
+│   │   │       ├── application/      # Use cases, ports, commands, queries, and DTOs
+│   │   │       ├── infrastructure/   # Driven adapters: SQLite, files, datasets, Optees
+│   │   │       ├── interfaces/       # Driving adapters: FastAPI and CLI
+│   │   │       └── bootstrap/        # Configuration, dependency wiring, app factories
+│   │   └── tests/             # Unit, integration, contract, and replay suites
+│   └── web/
+│       ├── src/
+│       │   ├── domain/        # Client-side read models and display semantics
+│       │   ├── application/   # UI use cases and frontend ports
+│       │   ├── data/          # API clients, codecs, caches, and port implementations
+│       │   └── presentation/  # React feature views and view models
+│       └── tests/             # Component, accessibility, contract, and end-to-end suites
 ├── tools/                    # Implemented: Contract validation & verification scripts
 └── docs/                     # Implemented: Architecture, roadmaps, contracts, threat model
 ```
+
+Feature-oriented subpackages may be used inside each layer, but must not invert
+the layer dependencies. For example, a web dashboard belongs under
+`presentation/features/dashboard/` and may contain `DashboardView.tsx` and
+`useDashboardViewModel.ts`; it must not create a second authoritative account
+or scoring model.
 
 ---
 
@@ -53,28 +71,54 @@ The simulator follows a clean hexagonal (ports and adapters) architecture. The d
 
 ```mermaid
 flowchart TB
-    Web["React Presentation (apps/web)"] --> HTTP["HTTP API Layer (apps/api)"]
-    HTTP --> Interfaces["Driving Interfaces (src/simulator/interfaces)"]
-    Interfaces --> Application["Application Services (src/simulator/application)"]
-    Application --> Domain["Domain Core (src/simulator/domain)"]
-    Infrastructure["Infrastructure Adapters (src/simulator/infrastructure)"] --> Application
+    Web["React Web Application (apps/web)"] --> Interfaces["Driving Interfaces: FastAPI / CLI"]
+    Interfaces --> Application["Application Use Cases and Ports"]
+    Application --> Domain["Domain Core"]
+    Infrastructure["Infrastructure / Driven Adapters"] --> Application
     Infrastructure --> Domain
+    Bootstrap["Bootstrap / Composition Root"] --> Interfaces
+    Bootstrap --> Application
+    Bootstrap --> Infrastructure
 ```
 
 ### Dependency Inversion & Layer Boundaries
 
-1. **Domain Layer (`src/simulator/domain/`):**
-   - **Responsibility:** Pure business logic, entity definitions, virtual account state mutations, deterministic clock invariants, and RFC 8785 canonical JSON serialization / hashing.
+1. **Domain Layer (`apps/backend/src/simulator/domain/`):**
+   - **Responsibility:** Pure entities, value objects, invariants, domain errors,
+     virtual-account transitions, accounting rules, time semantics, replay
+     semantics, and canonicalization/hashing rules.
    - **Import Rule:** **Zero external dependencies.** The domain layer must never import FastAPI, SQLite/SQLAlchemy, Pydantic, Requests, MCP SDKs, or Optees internal code.
-2. **Application Layer (`src/simulator/application/`):**
-   - **Responsibility:** Orchestrating simulation rounds, coordinating policies, enforcing knowledge cutoffs, evaluating proposals, triggering account transitions, running replay verification, and defining port interfaces.
-   - **Import Rule:** Depends only on `domain`. Defines abstract ports (`ClockPort`, `DatasetPort`, `PersistencePort`, `OpteesClientPort`, `ExportPort`).
-3. **Infrastructure Layer (`src/simulator/infrastructure/`):**
-   - **Responsibility:** Implementing ports: SQLite repository, dataset snapshot loaders, file storage, `McpOpteesClient`, and `RestOpteesClient`.
+2. **Application Layer (`apps/backend/src/simulator/application/`):**
+   - **Responsibility:** Commands, queries, use-case services, application
+     policies, boundary DTOs, and orchestration of simulation rounds, knowledge
+     cutoffs, proposals, transitions, exports, and replay verification.
+   - **Import Rule:** Depends only on `domain`. Defines abstract ports
+     (`ClockPort`, `DatasetPort`, `PersistencePort`, `OpteesClientPort`,
+     `ExportPort`) consumed by its use cases.
+3. **Infrastructure Layer (`apps/backend/src/simulator/infrastructure/`):**
+   - **Responsibility:** Implementing driven ports: SQLite repositories,
+     dataset snapshot loaders, filesystem artifact storage, process and clock
+     adapters, `McpOpteesClient`, `RestOpteesClient`, and test fakes where
+     appropriate. The name `infrastructure` is intentional: this layer owns
+     more than data access.
    - **Import Rule:** Implements interfaces defined in `application` and converts infrastructure records into domain entities.
-4. **Interfaces & Apps (`src/simulator/interfaces/`, `apps/api/`, `apps/web/`):**
-   - **Responsibility:** Driving adapters (FastAPI routers, CLI commands, React frontend).
-   - **Import Rule:** Thin presentation and translation layers that delegate all execution to application services.
+4. **Interfaces Layer (`apps/backend/src/simulator/interfaces/`):**
+   - **Responsibility:** Driving adapters such as FastAPI routes and CLI
+     commands, including request decoding, response encoding, and error/status
+     mapping.
+   - **Import Rule:** Depends on `application` and public domain types only when
+     necessary. It remains thin and delegates execution to application use
+     cases. Backend interfaces do not use MVVM and do not own business rules.
+5. **Bootstrap Layer (`apps/backend/src/simulator/bootstrap/`):**
+   - **Responsibility:** Settings, dependency injection, adapter selection,
+     lifecycle management, and API/CLI application factories.
+   - **Import Rule:** This is the composition root and the only backend layer
+     allowed to wire concrete infrastructure into interfaces and application
+     ports. Other layers must not import `bootstrap`.
+
+The effective backend direction is `interfaces -> application -> domain`;
+`infrastructure` implements inward-owned ports, and `bootstrap` composes the
+complete graph. The backend does not adopt frontend MVVM terminology.
 
 ---
 
@@ -94,6 +138,23 @@ FastAPI is used exclusively as a thin loopback transport over application servic
 
 ## 4. Frontend Responsibilities
 
+The web application uses MVVM inside a layered frontend:
+
+- `domain` contains client-side read models, identifiers, value semantics, and
+  display-safe invariants. It is not a TypeScript copy of the authoritative
+  Python domain;
+- `application` contains UI-oriented use cases and ports, such as loading an
+  episode comparison or requesting an export;
+- `data` implements those ports through generated or hand-maintained API
+  codecs, HTTP/SSE clients, caches, and repositories;
+- `presentation` contains React views and feature-local view models. Views
+  render state and emit user intent; view models coordinate frontend use cases
+  and expose explicit loading, empty, success, partial, and failure states.
+
+React, TypeScript, and Vite are the selected v1 web stack. REST is the default
+command/query transport and Server-Sent Events are preferred for one-way live
+episode progress. WebSockets require a demonstrated bidirectional use case.
+
 - Episode configuration and submission;
 - Policy version selection and inspection;
 - Round-by-round timeline and trajectory comparison;
@@ -106,6 +167,12 @@ The frontend must **never**:
 - Formulate authoritative solver payloads or modify constraints;
 - Compute official portfolio valuations or scores;
 - Filter or hide rejected decisions.
+
+Frontend information architecture and reusable visual foundations may be
+designed once the deterministic kernel and its states are stable. Functional
+views should be added incrementally as backend read contracts freeze; `DS-09`
+owns final integration, accessibility, responsive polish, and publication
+quality rather than the first appearance of all UI code.
 
 ---
 
