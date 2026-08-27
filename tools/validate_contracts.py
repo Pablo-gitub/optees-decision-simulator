@@ -2,24 +2,26 @@
 """Validation and verification tool for Optees Decision Simulator core contracts (DS-00).
 
 This script performs comprehensive checks without requiring third-party dependencies:
-1. Validates all JSON Schemas and ensures the schema inventory is complete.
+1. Validates the JSON Schema vocabulary used by v1 and ensures the inventory is complete.
 2. Validates all valid example files against their respective JSON schemas.
-3. Verifies RFC 8785 (JCS) canonicalization and SHA-256 hash properties.
+3. Verifies RFC 8785 (JCS) golden vectors and SHA-256 hash properties.
 4. Verifies temporal cutoff and anti-leakage invariants on observation examples.
-5. Verifies that invalid examples trigger expected invariant violations.
+5. Proves that invalid examples trigger their expected schema or semantic violations.
 6. Scans example and schema files for unredacted secrets.
 7. Validates documentation link integrity across all markdown files.
 """
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
+import math
 import re
 import sys
-import unicodedata
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCHEMAS_DIR = REPO_ROOT / "docs" / "contracts" / "schemas"
@@ -38,34 +40,76 @@ def canonicalize_json(obj: Any) -> str:
     elif isinstance(obj, bool):
         return "true" if obj else "false"
     elif isinstance(obj, int):
+        if abs(obj) > 9_007_199_254_740_992:
+            raise ValueError("JCS numbers must be exactly representable as IEEE 754 doubles")
         return str(obj)
     elif isinstance(obj, float):
-        if not (obj == obj and obj != float("inf") and obj != float("-inf")):
+        if not math.isfinite(obj):
             raise ValueError(f"Non-finite float value is forbidden by RFC 8785: {obj}")
-        if obj == 0.0:
-            return "0"
-        # ECMAScript number formatting for floats
-        # Format with high precision and strip trailing unnecessary digits
-        s = f"{obj:.16g}"
-        # Parse through json standard to match ECMAScript float format
-        return json.dumps(obj)
+        return _serialize_ecmascript_number(obj)
     elif isinstance(obj, str):
-        norm = unicodedata.normalize("NFC", obj)
-        return json.dumps(norm, ensure_ascii=False, separators=(",", ":"))
+        _reject_lone_surrogates(obj)
+        return json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
     elif isinstance(obj, list):
         return "[" + ",".join(canonicalize_json(item) for item in obj) + "]"
     elif isinstance(obj, dict):
         def utf16_key(k: str) -> bytes:
-            return unicodedata.normalize("NFC", k).encode("utf-16-be")
+            if not isinstance(k, str):
+                raise TypeError("JCS object keys must be strings")
+            _reject_lone_surrogates(k)
+            return k.encode("utf-16-be")
         sorted_keys = sorted(obj.keys(), key=utf16_key)
         parts = []
         for k in sorted_keys:
-            key_str = json.dumps(unicodedata.normalize("NFC", k), ensure_ascii=False)
+            key_str = json.dumps(k, ensure_ascii=False)
             val_str = canonicalize_json(obj[k])
             parts.append(f"{key_str}:{val_str}")
         return "{" + ",".join(parts) + "}"
     else:
         raise TypeError(f"Unsupported data type for JSON canonicalization: {type(obj)}")
+
+
+def _reject_lone_surrogates(value: str) -> None:
+    if any(0xD800 <= ord(char) <= 0xDFFF for char in value):
+        raise ValueError("JCS forbids lone Unicode surrogate code points")
+
+
+def _serialize_ecmascript_number(value: float) -> str:
+    """Render a finite binary64 using the ECMAScript/JCS exponent thresholds.
+
+    Python and ECMAScript use shortest round-trip binary64 formatting but choose
+    fixed versus exponent notation at different thresholds.  This normalizes
+    Python's representation to the RFC 8785 form and is exercised below with
+    the RFC's edge vectors.
+    """
+    if value == 0.0:
+        return "0"
+
+    sign = "-" if value < 0 else ""
+    magnitude = abs(value)
+    rendered = repr(magnitude).lower()
+    if "e" in rendered:
+        mantissa, exponent_text = rendered.split("e", 1)
+        exponent = int(exponent_text)
+        digits = mantissa.replace(".", "")
+        decimal_position = 1 + exponent
+    else:
+        digits = rendered.replace(".", "")
+        decimal_position = rendered.find(".") if "." in rendered else len(rendered)
+
+    if 1e-6 <= magnitude < 1e21:
+        if decimal_position <= 0:
+            body = "0." + ("0" * -decimal_position) + digits
+        elif decimal_position >= len(digits):
+            body = digits + ("0" * (decimal_position - len(digits)))
+        else:
+            body = digits[:decimal_position] + "." + digits[decimal_position:]
+        return sign + body
+
+    exponent = decimal_position - 1
+    mantissa = digits[0] + (("." + digits[1:]) if len(digits) > 1 else "")
+    exponent_sign = "+" if exponent >= 0 else "-"
+    return f"{sign}{mantissa}e{exponent_sign}{abs(exponent)}"
 
 
 def compute_record_hash(obj: Any) -> str:
@@ -129,9 +173,21 @@ def validate_data(data: Any, schema: dict[str, Any], path: str = "root") -> list
             errors.append(f"{path}: string length {len(data)} < minLength {schema['minLength']}")
         if "maxLength" in schema and len(data) > schema["maxLength"]:
             errors.append(f"{path}: string length {len(data)} > maxLength {schema['maxLength']}")
+        if schema.get("format") == "uri":
+            parsed = urlparse(data)
+            if not parsed.scheme:
+                errors.append(f"{path}: string {data!r} is not an absolute URI")
+        pattern = schema.get("pattern", "")
+        if pattern.startswith("^\\d{4}-\\d{2}-\\d{2}T") and re.search(pattern, data):
+            try:
+                datetime.fromisoformat(data[:-1] + "+00:00")
+            except ValueError:
+                errors.append(f"{path}: timestamp {data!r} is not a valid UTC date-time")
 
     # Number checks
     if isinstance(data, (int, float)) and not isinstance(data, bool):
+        if isinstance(data, float) and not math.isfinite(data):
+            errors.append(f"{path}: non-finite numbers are forbidden")
         if "minimum" in schema and data < schema["minimum"]:
             errors.append(f"{path}: number {data} < minimum {schema['minimum']}")
         if "maximum" in schema and data > schema["maximum"]:
@@ -145,6 +201,8 @@ def validate_data(data: Any, schema: dict[str, Any], path: str = "root") -> list
             serialized_items = [json.dumps(x, sort_keys=True) for x in data]
             if len(serialized_items) != len(set(serialized_items)):
                 errors.append(f"{path}: array items are not unique")
+        if "maxItems" in schema and len(data) > schema["maxItems"]:
+            errors.append(f"{path}: array length {len(data)} > maxItems {schema['maxItems']}")
         if "items" in schema:
             item_schema = schema["items"]
             for idx, item in enumerate(data):
@@ -189,8 +247,11 @@ def test_schemas_and_inventory() -> tuple[bool, dict[str, dict[str, Any]]]:
     print(f"Checking {len(inventory['schemas'])} schemas from inventory...")
 
     all_passed = True
+    inventory_paths: set[Path] = set()
+    schema_ids: set[str] = set()
     for entry in inventory["schemas"]:
         schema_path = REPO_ROOT / entry["file_path"]
+        inventory_paths.add(schema_path.resolve())
         if not schema_path.exists():
             print(f"  FAIL: Schema file {schema_path} does not exist!")
             all_passed = False
@@ -208,9 +269,28 @@ def test_schemas_and_inventory() -> tuple[bool, dict[str, dict[str, Any]]]:
             print(f"  FAIL: Schema ID mismatch in {schema_path.name}")
             all_passed = False
 
+        if schema_json.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
+            print(f"  FAIL: Unsupported or missing meta-schema in {schema_path.name}")
+            all_passed = False
+        if entry["schema_id"] in schema_ids:
+            print(f"  FAIL: Duplicate schema ID {entry['schema_id']}")
+            all_passed = False
+        schema_ids.add(entry["schema_id"])
+
         type_disc = entry["type_discriminator"]
         schemas[type_disc] = schema_json
         print(f"  OK: {entry['type_discriminator']} ({entry['schema_version']}) -> {schema_path.name}")
+
+    discovered_paths = {
+        path.resolve()
+        for path in SCHEMAS_DIR.glob("*.json")
+        if path.name != "schema_inventory.json"
+    }
+    if inventory_paths != discovered_paths:
+        missing = sorted(str(path) for path in discovered_paths - inventory_paths)
+        stale = sorted(str(path) for path in inventory_paths - discovered_paths)
+        print(f"  FAIL: Schema inventory mismatch; missing={missing}, stale={stale}")
+        all_passed = False
 
     return all_passed, schemas
 
@@ -276,13 +356,14 @@ def test_knowledge_cutoff_invariants() -> bool:
         data = json.load(f)
 
     target_cutoff = data["target_cutoff"]
+    target_cutoff_value = _parse_utc_timestamp(target_cutoff)
     expected = data["expected_eligibility_at_target_cutoff"]
 
     all_passed = True
     for obs in data["observations"]:
         obs_id = obs["observation_id"]
         k_time = obs["knowledge_time"]
-        is_eligible = k_time <= target_cutoff
+        is_eligible = _parse_utc_timestamp(k_time) <= target_cutoff_value
         exp = expected[obs_id]
 
         if is_eligible == exp:
@@ -333,10 +414,36 @@ def test_canonical_json_and_hashing() -> bool:
         print("  FAIL: Semantic mutation did not change hash!")
         return False
 
+    # RFC 8785 Section 3.2.2.3 and Appendix B representative vectors.
+    vectors = [
+        (0.0, "0"),
+        (-0.0, "0"),
+        (5e-324, "5e-324"),
+        (-5e-324, "-5e-324"),
+        (1.7976931348623157e308, "1.7976931348623157e+308"),
+        (333333333.33333329, "333333333.3333333"),
+        (1e30, "1e+30"),
+        (4.5, "4.5"),
+        (0.002, "0.002"),
+        (1e-27, "1e-27"),
+        (1e-6, "0.000001"),
+        (1e20, "100000000000000000000"),
+        (295147905179352825856.0, "295147905179352830000"),
+    ]
+    for value, expected in vectors:
+        actual = canonicalize_json(value)
+        if actual != expected:
+            print(f"  FAIL: JCS number vector {value!r}: {actual!r} != {expected!r}")
+            return False
+    if canonicalize_json("e\u0301") == canonicalize_json("é"):
+        print("  FAIL: JCS must preserve canonically equivalent Unicode strings as-is")
+        return False
+    print("  OK: Representative RFC 8785 number and Unicode vectors verified")
+
     return True
 
 
-def test_invalid_examples() -> bool:
+def test_invalid_examples(schemas: dict[str, dict[str, Any]]) -> bool:
     """Verify that all invalid examples demonstrate the documented violation."""
     print("\nTesting invalid examples for expected invariant violations...")
     invalid_dir = EXAMPLES_DIR / "invalid"
@@ -358,13 +465,85 @@ def test_invalid_examples() -> bool:
 
         v_type = data.get("violation_type")
         expected_type = expected_violations.get(ivf.name)
-        if v_type == expected_type:
-            print(f"  OK: {ivf.name} declares expected violation {v_type}")
-        else:
+        if v_type != expected_type:
             print(f"  FAIL: {ivf.name} expected {expected_type}, got {v_type}")
+            all_passed = False
+            continue
+
+        violation_found = _verify_invalid_fixture(ivf.name, data, schemas)
+        if violation_found:
+            print(f"  OK: {ivf.name} demonstrates {v_type}")
+        else:
+            print(f"  FAIL: {ivf.name} merely declares {v_type}; no violation was proven")
             all_passed = False
 
     return all_passed
+
+
+def _parse_utc_timestamp(value: str) -> datetime:
+    if not isinstance(value, str) or not value.endswith("Z"):
+        raise ValueError(f"not a strict UTC timestamp: {value!r}")
+    parsed = datetime.fromisoformat(value[:-1] + "+00:00")
+    if parsed.utcoffset() is None or parsed.utcoffset().total_seconds() != 0:
+        raise ValueError(f"not a UTC timestamp: {value!r}")
+    return parsed
+
+
+def _verify_invalid_fixture(
+    filename: str,
+    data: dict[str, Any],
+    schemas: dict[str, dict[str, Any]],
+) -> bool:
+    if filename == "invalid_future_leakage.json":
+        observation = data["leaked_observation"]
+        decision = data["invalid_proposed_decision"]
+        if validate_data(observation, schemas["observation"]):
+            return False
+        if validate_data(decision, schemas["proposed_decision"]):
+            return False
+        return _parse_utc_timestamp(observation["knowledge_time"]) > _parse_utc_timestamp(
+            data["round_knowledge_cutoff"]
+        )
+
+    if filename == "invalid_duplicate_identity.json":
+        episode = data["invalid_episode_definition"]
+        errors = validate_data(episode, schemas["episode_definition"])
+        return any("not unique" in error for error in errors)
+
+    if filename == "invalid_mutable_version.json":
+        original = data["original_frozen_policy_version"]
+        mutation = data["illegal_mutation_attempt"]
+        if validate_data(original, schemas["policy_version"]):
+            return False
+        if validate_data(mutation, schemas["policy_version"]):
+            return False
+        return (
+            original["policy_version_id"] == mutation["policy_version_id"]
+            and compute_record_hash(original) != compute_record_hash(mutation)
+        )
+
+    if filename == "invalid_non_finite_number.json":
+        metric = data["invalid_metric_record_with_nan"]
+        return bool(validate_data(metric, schemas["metric_record"]))
+
+    if filename == "invalid_timezone_ambiguous.json":
+        observation_errors = validate_data(
+            data["invalid_observation_with_local_offset"], schemas["observation"]
+        )
+        round_errors = validate_data(data["invalid_round_with_naive_timestamp"], schemas["round"])
+        return bool(observation_errors and round_errors)
+
+    if filename == "invalid_cross_policy_account_reference.json":
+        decision = data["invalid_cross_policy_proposed_decision"]
+        if validate_data(decision, schemas["proposed_decision"]):
+            return False
+        policy_id = decision["policy_id"]
+        return any(
+            action.get("parameters", {}).get("source_policy_id") not in (None, policy_id)
+            for action in decision["requested_actions"]
+        )
+
+    return False
 
 
 def test_secret_redaction() -> bool:
@@ -437,7 +616,7 @@ def main() -> int:
     t2 = test_valid_examples(schemas) if t1 else False
     t3 = test_knowledge_cutoff_invariants()
     t4 = test_canonical_json_and_hashing()
-    t5 = test_invalid_examples()
+    t5 = test_invalid_examples(schemas) if t1 else False
     t6 = test_secret_redaction()
     t7 = test_documentation_links()
 

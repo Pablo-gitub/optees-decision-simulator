@@ -193,23 +193,32 @@ flowchart TD
 
 ### 6.1 Standard Selection: RFC 8785 (JSON Canonicalization Scheme - JCS)
 
-To ensure bit-for-bit cryptographic reproducibility across heterogeneous runtimes (Python backend, JavaScript/TypeScript frontend, CLI tools, external verifiers), the simulator adopts **IETF RFC 8785 (JSON Canonicalization Scheme)**.
+To ensure bit-for-bit cryptographic reproducibility across heterogeneous runtimes (Python backend, JavaScript/TypeScript frontend, CLI tools, external verifiers), the simulator adopts [IETF RFC 8785 (JSON Canonicalization Scheme)](https://www.rfc-editor.org/rfc/rfc8785.html).
 
 #### Justification for RFC 8785:
-- It is an open, formal international standard with proven reference implementations in Python (`canonicaljson`, `jcs`) and JavaScript/TypeScript (`canonicalize`).
-- It completely eliminates serialization ambiguity without requiring custom ad-hoc sorting or delimiter rules.
+- It is an open, formal specification with implementations available for
+  Python and JavaScript/TypeScript. A library name alone is not evidence of JCS
+  conformance; the selected runtime libraries must pass the frozen vectors.
+- It eliminates serialization ambiguity when every producer preserves the
+  original Unicode scalar values and uses a conforming implementation of the
+  ECMAScript binary64 serialization rules.
 
 ### 6.2 Canonicalization Rules
 
 1. **UTF-8 Encoding:** All canonical payloads are serialized as raw UTF-8 bytes without Byte Order Mark (BOM).
 2. **Key Ordering:** Object keys are sorted lexicographically by UTF-16 code unit values.
 3. **Whitespace:** Zero insignificant whitespace (no spaces after colons or commas).
-4. **String Normalization:** All Unicode string values are normalized to **Unicode Normalization Form C (NFC)** prior to serialization.
+4. **Unicode Preservation:** Unicode strings are preserved exactly as received.
+   JCS does not perform NFC or any other Unicode normalization; canonically
+   equivalent but byte-distinct strings therefore remain distinct. Lone
+   surrogate code points are rejected.
 5. **Escape Sequences:** Only required characters are escaped (`\"`, `\\`, and control characters `\u0000` through `\u001F`). Forward slashes (`/`) are **never** escaped.
 6. **Number Representation:**
    - Numbers are formatted per ECMAScript `ToString(Number)` specification (IEEE 754 double precision float).
    - Negative zero (`-0.0`) is normalized to `0`.
    - Non-finite numbers (`NaN`, `Infinity`, `-Infinity`) are strictly forbidden and rejected.
+   - Integer-valued JSON numbers used by the Simulator must not exceed
+     $2^{53}$ in magnitude; larger exact identifiers or quantities are strings.
 7. **Exact Quantities & Currency:** For high-precision financial or accounting balances where floating-point rounding is hazardous, values **MUST** be encoded as canonical decimal strings (e.g., `"10000.00"`, `"-2003.00"`).
 
 ### 6.3 Hashing Specification
@@ -223,6 +232,12 @@ To ensure bit-for-bit cryptographic reproducibility across heterogeneous runtime
   - Every `VirtualAccountState` contains `parent_state_hash`.
   - The final state hash of an episode run forms a cryptographic proof of the entire historical execution trajectory.
 - **Redaction Policy:** Authorization tokens, passwords, raw environment variables, and local OS paths are strictly redacted prior to serialization and hashing.
+
+The DS-C verification tool contains a small dependency-free JCS implementation
+for contract fixtures. It is checked against representative RFC 8785 number
+vectors, including exponent thresholds and binary64 edge cases. Production
+code may replace it with a maintained conforming library, but must retain the
+same golden vectors and add a Python/JavaScript cross-runtime conformance gate.
 
 ---
 

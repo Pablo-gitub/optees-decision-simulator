@@ -120,10 +120,14 @@ flowchart TB
 - **Attack / Failure Mode:** Replay fails spuriously across platforms; verification tools reject valid runs.
 - **Mitigation:**
   - Universal adoption of **RFC 8785 (JSON Canonicalization Scheme - JCS)**.
-  - All text strings are normalized to Unicode NFC prior to hashing.
+  - Unicode strings are preserved exactly as required by RFC 8785; lone
+    surrogate code points are rejected instead of being normalized.
   - Exact quantities are encoded as decimal strings (e.g. `"100.50"`) to avoid floating-point engine discrepancies.
   - SHA-256 is computed strictly over the UTF-8 bytes of the RFC 8785 canonical string.
-- **Residual Risk:** Negligible; RFC 8785 is an established formal standard.
+- **Residual Risk:** Low but non-zero. A non-conforming runtime implementation,
+  especially around binary64 formatting or Unicode handling, can still produce
+  divergent hashes; golden vectors and Python/JavaScript conformance tests are
+  required before runtime hashing ships.
 
 ### Threat Vector 6: Path Traversal & Untrusted Imported Episode Files
 - **Description:** An imported episode file or dataset manifest contains relative or absolute file paths attempting to read or write arbitrary host files (e.g., `../../etc/passwd`).

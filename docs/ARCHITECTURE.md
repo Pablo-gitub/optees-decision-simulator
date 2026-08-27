@@ -21,7 +21,10 @@ To maintain architectural clarity, the repository explicitly distinguishes betwe
 - **Documentation & Specifications:** `docs/contracts/` containing canonical contracts, temporal semantics, replay taxonomy, and threat model.
 - **Contract Schemas:** `docs/contracts/schemas/` containing 15 versioned JSON Schema Draft 2020-12 specifications and `schema_inventory.json`.
 - **Validation Fixtures:** `docs/contracts/examples/` containing valid and invalid canonical JSON fixtures.
-- **Contract Verification Tooling:** `tools/validate_contracts.py` verifying schema compliance, RFC 8785 canonicalization, SHA-256 hash properties, cutoff filtering, and secret absence.
+- **Contract Verification Tooling:** `tools/validate_contracts.py` verifying the
+  schema subset used by the v1 contracts, representative RFC 8785 golden
+  vectors, SHA-256 hash properties, cutoff filtering, semantic invalid fixtures,
+  and secret absence.
 
 ### Planned Structure (Phases `DS-01` through `DS-09`)
 The modular codebase structure planned for subsequent phases:
