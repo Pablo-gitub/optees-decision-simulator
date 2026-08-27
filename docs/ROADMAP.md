@@ -1,126 +1,252 @@
-# Delivery Roadmap
+# Optees Decision Simulator Roadmap
 
-## Strategy
+## Document Status
 
-Build a deterministic harness first, then add Optees-backed policies, and only
-then depend on future Optees capabilities. Each phase must leave a usable,
-testable product increment.
+- **State:** in progress
+- **Authority:** this document owns Simulator sequencing and cross-repository
+  integration gates
+- **First detailed work unit:** `roadmaps/core-contracts-and-time-semantics.md`
+- **Optees program dependency:** `docs/roadmaps/case-study/ROADMAP.md`
+  in the sibling Optees repository
+- **Current implementation:** documentation only
 
-## Phase 0 - Contracts And Threat Model
+## Product Thesis
 
-- [ ] Freeze episode, policy, round, observation, decision, transition, account,
-  and metric schemas.
-- [ ] Freeze event, knowledge, execution, and effective time semantics.
-- [ ] Define dataset adapter and deterministic clock ports.
-- [ ] Define `OpteesClientPort` and normalized failure categories.
-- [ ] Define persistence, canonical JSON, hashing, and replay rules.
-- [ ] Threat-model leakage, malformed datasets, cross-policy contamination,
-  process failure, resource exhaustion, and report injection.
-- [ ] Decide workspace tooling and package layout.
+Build a local-first, reproducible case study showing how versioned Optees
+capabilities can be orchestrated into repeated decisions over time. The same
+experiments must expose mathematical, contractual, and workflow limitations
+that should guide the next bounded expansion of Optees.
 
-## Phase 1 - Deterministic Backend MVP
+The first domain uses frozen public market time series—initially daily crypto
+or similarly tractable data—because they are accessible and stress forecasting,
+risk, robust decisions, discrete transitions, and repeated orchestration. The
+Simulator remains paper-only: no credentials, order placement, real
+transactions, personalized advice, or profitability claims.
 
-Available without new Optees work:
+## Success Has Two Outputs
 
-- [ ] Implement virtual accounts and deterministic transitions.
-- [ ] Implement episodes and isolated decision rounds.
-- [ ] Implement SQLite persistence and immutable version records.
-- [ ] Add static and reactive baselines.
-- [ ] Add machine-readable export and deterministic replay.
-- [ ] Add FastAPI endpoints over application services.
-- [ ] Add unit, property, temporal-leakage, and replay tests.
+1. A fair, replayable comparison of decision policies under identical
+   knowledge-time information.
+2. A capability-gap record showing where Optees contracts, algorithms,
+   validation, or reusable workflow infrastructure should improve.
 
-## Phase 2 - Optees MCP Vertical Slice
+A negative or neutral performance result is valid evidence. The project must
+not select favorable periods or redefine success after observing private or
+forward results.
 
-Available with released Optees capabilities:
+## Ownership Boundary
 
-- [ ] Implement the MCP stdio client adapter.
-- [ ] Implement the REST parity adapter.
-- [ ] Discover and pin capability contracts per episode.
-- [ ] Add univariate point forecasting.
-- [ ] Add LP/MILP decision formulation with transition costs.
-- [ ] Persist validation receipts and result provenance.
-- [ ] Add hard transition-count and penalized-transition policies.
-- [ ] Verify fake/MCP/REST behavioral parity on analytic cases.
+The Simulator owns time, market-data interpretation, episode state, policies,
+virtual accounting, transition costs, scoring, replay, and comparison. Optees
+owns domain-neutral mathematical capabilities, versioned contracts, solver
+execution, validation, artifacts, reports, and the future registration of
+externally defined validated workflows.
 
-## Phase 3 - Web MVP
+The Simulator may discover an orchestration with an agent or implement it in a
+program. Optees Workflow Registry may later validate, freeze, version, and
+recall that definition; it must not invent or preinstall the market policy.
 
-- [ ] Scaffold React, TypeScript, and Vite.
-- [ ] Add episode configuration and validation.
-- [ ] Add policy inventory and immutable version details.
-- [ ] Add round timeline and virtual-account views.
-- [ ] Add policy value trajectories and separate explanatory metrics.
-- [ ] Show Optees assumptions, validation, and failures.
-- [ ] Add export and report requests.
-- [ ] Verify desktop and mobile browser layouts.
+## Workstream Model
 
-## Phase 4 - First Publishable Benchmark
+Two repositories may advance in parallel when they do not define opposite
+sides of the same unfrozen contract.
 
-- [ ] Add one licensed public time-series adapter.
-- [ ] Add one synthetic analytic adapter.
-- [ ] Freeze an exploratory, calibration, private, and forward interval.
-- [ ] Run baseline and Optees policies over identical information.
-- [ ] Publish full manifests, checksums, negative results, and limitations.
-- [ ] Produce a compact web demonstration without operational claims.
+| Simulator work | Parallel Optees work | Synchronization rule |
+| --- | --- | --- |
+| Core contracts, time, accounting | QP contract and vertical slice | Independent until QP fixture gate |
+| Dataset adapter and baselines | QP implementation | No QP production DTOs before `QP-I` |
+| Persistence, replay, fake client | Robust contract design | Fake fixtures clearly marked provisional |
+| QP policies | QP GUI/packaging hardening | Consume frozen public contract only |
+| Robust policies | Forecasting expansion | Share frozen scenario packages |
+| MIQP policies | MIQP implementation | Wait for `MIQP-I` fixtures |
+| Registered policy execution | Workflow Registry | Wait for `WF-R` lifecycle contract |
 
-## Phase 5 - Forecast Uncertainty
+Each integration checkpoint records repository commits, Optees version,
+capability ID, contract versions, fixture hashes, and verification results.
 
-Blocked until Optees exposes calibrated uncertainty:
+## Phase DS-00 — Core Contracts And Threat Model
 
-- [ ] Consume forecast intervals, quantiles, or scenarios.
-- [ ] Evaluate empirical coverage chronologically.
-- [ ] Add forecast-fan and calibration views.
-- [ ] Separate forecast uncertainty from decision risk.
+- Freeze episode, policy, round, observation, decision, transition, account,
+  metric, dataset-manifest, capability-call, and replay-report semantics.
+- Freeze event, knowledge, execution, and effective time.
+- Define canonical JSON, hashing, immutability, versioning, and replay versus
+  numerical re-execution.
+- Define ports for dataset, clock, persistence, and Optees without selecting
+  concrete frameworks as domain owners.
+- Threat-model temporal leakage, policy contamination, malformed imports,
+  process failure, resource exhaustion, report injection, and secret exposure.
+- Decide Python package layout and verification tooling.
 
-## Phase 6 - Robust And Stochastic Policies
+Detailed plan: `roadmaps/core-contracts-and-time-semantics.md`.
 
-Blocked until corresponding Optees contracts exist:
+**Gate DS-C:** contracts can be reviewed without FastAPI, SQLite, React, MCP,
+or a market provider.
 
-- [ ] Add robust max-min decisions over common scenarios.
-- [ ] Add expected-value optimization.
-- [ ] Add CVaR with explicit confidence and loss semantics.
-- [ ] Compare all policies using identical scenario packages.
+## Phase DS-01 — Deterministic Episode Kernel
 
-## Phase 7 - QP And MIQP Policies
+- Implement immutable episode configuration and isolated policy state.
+- Implement deterministic rounds, virtual accounts, transitions, and costs.
+- Deliver identical eligible observations to every policy at each cutoff.
+- Add pause between rounds, idempotent resume, cancellation, canonical export,
+  and divergence-aware replay.
+- Add static, cash, equal-allocation, and simple reactive fake policies.
+- Prove temporal leakage and cross-policy contamination are rejected.
 
-Blocked until Optees adds convex QP and later MIQP:
+**Gate DS-K:** a synthetic analytic episode completes and replays without
+Optees, a database, network, or web UI.
 
-- [ ] Add quadratic concentration and diversification penalties.
-- [ ] Add risk-return trade-off policies with visible coefficients.
-- [ ] Add fixed transition decisions through MIQP.
-- [ ] Preserve exact solver status and independent validation.
+## Phase DS-02 — Market Dataset And Baseline Evidence
 
-## Phase 8 - Workflow Registry And Experiment Ledger
+- Select one licensed, redistributable or reproducibly retrievable daily
+  market dataset; prefer the simplest honest calendar for the first adapter.
+- Freeze source, license, retrieval time, checksum, asset identities, units,
+  timestamp normalization, missing data, valuation price, and corrections.
+- Separate exploratory, calibration, private evaluation, and forward periods.
+- Add synthetic stable, trend, reversal, volatile, and structural-break data.
+- Implement market-specific valuation and transition rules outside the core.
+- Run static and reactive baselines before any Optees-backed policy.
 
-Blocked until the Optees workflow platform is available:
+**Gate DS-D:** the same frozen observations and valuations reproduce the same
+baseline episode hashes.
 
-- [ ] Register reviewed policies as immutable workflows.
-- [ ] Run routine episodes without frontier-model reasoning.
-- [ ] Link later observations to earlier forecasts and decisions.
-- [ ] Add idempotent restart, promotion, rollback, and comparison.
-- [ ] Import signed workflow versions without arbitrary Python execution.
+## Phase DS-03 — Persistence, API, And Existing Optees Capabilities
 
-## Phase 9 - Sequential Adaptation Study
+- Add SQLite behind application-owned repository ports and immutable version
+  records.
+- Add FastAPI as a thin loopback interface over application services.
+- Implement `FakeOpteesClient`, then MCP stdio and REST parity adapters.
+- Pin descriptors and persist exact payload/result hashes and validation
+  receipts.
+- Add current Forecasting, LP, and MILP policies with explicit fallback rules.
+- Record capability gaps without silently changing a policy objective.
 
-- [ ] Define deterministic degradation and review triggers.
-- [ ] Compare frozen policies with explicitly approved revisions.
-- [ ] Add generic ex-post forecast and decision evaluation.
-- [ ] Evaluate DP, MDP, bandit, or external policy-engine approaches.
-- [ ] Ensure adaptive policies cannot learn from private future intervals.
+MCP usability is not the research question; prior Claude and Qwen work already
+established practical agent orchestration. Transport parity remains a
+regression requirement.
 
-## Phase 10 - Multi-Dataset Generalization
+**Gate DS-O:** baseline and released-capability policies complete the identical
+episode with reproducible provenance.
 
-- [ ] Add structurally different non-market datasets.
-- [ ] Test stable, growing, declining, seasonal, and volatile regimes.
-- [ ] Compare episode variance across windows.
-- [ ] Report where forecasting improves predictions but not decisions.
-- [ ] Keep domain adapters outside Optees and the simulator core.
+## Phase DS-04 — Convex QP Policy Family
 
-## Release Gate For The MVP
+Blocked until Optees gate `QP-I`.
 
-- [ ] One baseline and two Optees-backed policies complete the same episode.
-- [ ] Temporal leakage and policy isolation tests pass.
-- [ ] Replay reproduces all round and final hashes.
-- [ ] MCP and REST adapters normalize the same results.
-- [ ] The web UI exposes assumptions, failures, and validation.
-- [ ] No real-world execution path or secret-bearing connector exists.
+- Consume the frozen Convex QP descriptor and fixtures.
+- Add domain-specific formulators for return/risk, concentration, target
+  tracking, and quadratic transition penalties.
+- Keep estimated inputs, policy coefficients, constraints, and assumptions
+  visible.
+- Compare LP/MILP and QP policies across identical rounds and cost rules.
+- Sweep risk and transition coefficients only on the declared calibration
+  interval; never tune on private or forward periods.
+
+**Gate DS-QP:** every QP decision can be reconstructed from visible inputs and
+the retained Optees problem/result pair.
+
+## Phase DS-05 — Scenario Min-max And Max-min Policies
+
+Blocked until Optees gate `ROBUST-C`.
+
+- Build one versioned scenario package shared by expected-value and worst-case
+  policies.
+- Add `maximize_minimum_reward` and `minimize_maximum_loss` policies without
+  treating them as interchangeable labels.
+- Report scenario values, binding scenarios, guarantee, costs, and realized
+  outcome separately.
+- Compare robustness, return, drawdown, volatility, and turnover without a
+  hidden combined score.
+- Record when worst-case protection reduces performance without improving the
+  declared risk measure.
+
+## Phase DS-06 — Evidence-driven Forecasting Expansion
+
+Consume only Forecasting outputs that pass Optees gate `FC-E`.
+
+- Compare level, return, and volatility information where supported.
+- Evaluate every forecast chronologically and retain its training cutoff.
+- Test whether improved predictive metrics improve downstream decisions.
+- Separate forecast uncertainty from decision risk.
+- Reject post-hoc method selection and future-data leakage.
+
+This phase may overlap DS-05 when scenario construction needs newly frozen
+forecast outputs.
+
+## Phase DS-07 — Convex MIQP Policy Family
+
+Blocked until Optees gate `MIQP-I`.
+
+- Add cardinality, fixed transition, minimum quantity, and discrete rebalance
+  policies.
+- Retain incumbent, best bound, gap, time limit, and validation status.
+- Compare expressiveness and solution cost against continuous QP and linear
+  MILP alternatives.
+- Freeze behavior for feasible incumbents, timeout without incumbent,
+  infeasibility, and validation failure.
+
+## Phase DS-08 — Workflow Registration Study
+
+Blocked until Optees gate `WF-R`.
+
+- Select orchestrations already implemented and validated in prior phases.
+- Serialize candidate definitions outside Optees.
+- Validate and promote immutable versions through Workflow Registry.
+- Recall and execute registered versions without an agent.
+- Compare direct program, agent-built, and registered execution for result
+  parity, latency, tool calls, tokens, failures, auditability, and replay.
+- Keep episode scheduling, accounts, and scoring in the Simulator.
+
+The Registry does not ship preimplemented market workflows. It stores and
+recalls definitions promoted after external validation.
+
+## Phase DS-09 — Web Inspection And Publishable Case Study
+
+- Build React/TypeScript views only after backend episode and replay contracts
+  are stable.
+- Expose configuration, immutable policy versions, round timeline, accounts,
+  forecasts, decisions, scenario results, validation, failures, and provenance.
+- Keep official accounting and scoring server-side.
+- Export complete machine-readable evidence and compact human reports.
+- Publish manifests, checksums, negative results, limitations, and the exact
+  Optees versions used.
+- State prominently that market experiments are paper simulations and not
+  evidence of future profitability.
+
+## Phase DS-10 — Generalization Decisions
+
+After the first case study:
+
+- test at least one structurally different non-market dataset;
+- decide whether QP, robust, Forecasting, MIQP, and Registry evidence justifies
+  further Optees investment;
+- consider CVaR only after loss/probability semantics are frozen;
+- evaluate decision trees, ensembles, deep learning, DP/MDP, bandits, or an
+  external policy engine only against specific measured limitations;
+- keep domain adapters outside Optees and the Simulator core.
+
+## Capability-gap Record
+
+Every proposed Optees improvement must retain:
+
+- episode, round, and policy identifiers;
+- Optees capability and contract versions;
+- observed limitation and reproducible fixture;
+- workaround, if any;
+- effect on validity, performance, robustness, or operability;
+- frequency and cross-domain generality;
+- proposed owner: Simulator, Optees capability, Workflow Registry, or dataset
+  adapter;
+- acceptance evidence required to close the gap.
+
+## Program Completion Gate
+
+The first program is successful when:
+
+- baseline, current Optees, QP, robust, and MIQP policies receive identical
+  eligible information and complete reproducible episodes;
+- registered versions of previously validated orchestrations run without an
+  LLM and retain full provenance;
+- replay reproduces state hashes or explains numerical divergence;
+- assumptions, failures, costs, statuses, and negative results remain visible;
+- no real-world execution or secret-bearing connector exists;
+- the evidence supports a concrete next decision about Optees rather than an
+  open-ended expansion of mathematics.

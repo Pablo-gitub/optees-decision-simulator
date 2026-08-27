@@ -52,6 +52,7 @@ Start with:
 
 - [Product specification](docs/PRODUCT_SPEC.md)
 - [Delivery roadmap](docs/ROADMAP.md)
+- [First detailed work unit: core contracts and time semantics](docs/roadmaps/core-contracts-and-time-semantics.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Benchmark protocol](docs/BENCHMARK_PROTOCOL.md)
 - [Optees integration](docs/OPTEES_INTEGRATION.md)
