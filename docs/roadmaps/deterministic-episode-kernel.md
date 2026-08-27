@@ -347,14 +347,27 @@ implementation is one reviewed atomic commit.
 
 ### Verification Results (Gate `DS-K` Satisfied)
 
-- **Backend Pytest Suite:** 43 passed tests in `apps/backend/tests/`
+- **Backend Pytest Suite:** 45 passed tests in `apps/backend/tests/` after
+  review corrections
   - `tests/unit/domain/`: Canonical JSON, ECMAScript number formatting, UTC time semantics, lifecycle machine, frozen record immutability, duplicate identity rejection.
   - `tests/unit/application/`: Cutoff filtering ($t_{knowledge} \le T_k$), late observation revisions, tie-breaking ordering, proposal feasibility validation, cost and delta calculations, metric evaluation, baseline policies (`StaticBaselinePolicy`, `AllReferenceCashPolicy`, `EqualAllocationPolicy`, `ReactiveObservationPolicy`).
   - `tests/unit/infrastructure/`: `InMemoryStore` immutability and record uniqueness, `SyntheticDatasetAdapter` manifest and observations.
-  - `tests/integration/`: 3-round synthetic episode execution, per-round Merkle state chaining, pause/idempotent resume/cancel, record replay bit-for-bit hash verification, deterministic re-execution parity, divergence classification on tampered state, Node.js cross-runtime canonicalization parity.
+  - `tests/integration/`: 3-round synthetic episode execution with fixed golden
+    hashes, per-round Merkle state chaining, multiple runs in one store,
+    transactional commit failure, pause/idempotent resume/cancel, record replay
+    bit-for-bit verification, deterministic re-execution parity, divergence
+    classification on tampered state, and Node.js cross-runtime canonicalization
+    parity.
   - `tests/contract/`: Full round-trip validation of all 15 entity types against the authoritative v1 JSON Schemas (`docs/contracts/schemas/`), and architectural boundary validation asserting zero forbidden imports.
 - **Linter & Formatter:** Ruff passes cleanly with zero warnings (`ruff check apps/backend` and `ruff format --check apps/backend`).
 - **Core Contracts Validation:** `python3 tools/validate_contracts.py` passes all checks across schemas, examples, cutoff invariants, and links.
+
+Review additionally reproduced and corrected non-atomic multi-write round
+publication and cross-run record-ID collisions. The persistence port now owns
+a transactional `RoundCommit`; the in-memory adapter validates the complete
+batch before publishing it, run identifiers participate in round-derived
+identities, final metrics cover all rounds, monotonic timing is provided by the
+clock port, and fixed analytic round/account hashes guard the gate evidence.
 
 After `DS-K`, stop. Do not start dataset selection, SQLite/API work, Optees
 integration, or frontend design in the same execution task.

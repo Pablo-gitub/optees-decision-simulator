@@ -24,11 +24,11 @@ To maintain architectural clarity, the repository explicitly distinguishes betwe
 - **Contract Verification Tooling:** `tools/validate_contracts.py` verifying schemas, RFC 8785 canonical JSON golden vectors, SHA-256 hash properties, cutoff filtering, and secret absence.
 - **Deterministic Episode Kernel Backend (`apps/backend/`):**
   - `src/simulator/domain/`: Immutable dataclass entities (`EpisodeDefinition`, `EpisodeRun`, `RoundRecord`, `VirtualAccountState`, `ProposedDecision`, `DecisionOutcome`, `TransitionRecord`, `MetricRecord`, `ReplayReport`, `DivergenceReport`, etc.), RFC 8785 canonical JSON serializer, SHA-256 hasher, state Merkle tree builder, strict UTC ISO 8601 parsing (`Z`), Decimal arithmetic, and domain error codes.
-  - `src/simulator/application/`: Abstract ports (`ClockPort`, `DatasetPort`, `PersistencePort`, `PolicyPort`, `ExportPort`, `OpteesClientPort`), baseline policies (`StaticBaselinePolicy`, `AllReferenceCashPolicy`, `EqualAllocationPolicy`, `ReactiveObservationPolicy`), `EligibilityService` (knowledge-time cutoff filtering and revision deduplication), `ExecutionService` (proposal validation, acceptance, cost calculations, transition application), `EvaluatorService` (valuation, metrics, drawdowns), `EpisodeRunner` (lifecycle state machine, atomic round execution, pause/resume/cancel), and `ReplayService` (record replay, deterministic re-execution, and divergence analysis).
+  - `src/simulator/application/`: Abstract ports (`ClockPort`, `DatasetPort`, `PersistencePort`, `PolicyPort`, `ExportPort`, `OpteesClientPort`), baseline policies (`StaticBaselinePolicy`, `AllReferenceCashPolicy`, `EqualAllocationPolicy`, `ReactiveObservationPolicy`), `EligibilityService` (knowledge-time cutoff filtering and revision deduplication), `ExecutionService` (proposal validation, acceptance, cost calculations, transition application), `EvaluatorService` (valuation, metrics, drawdowns), `EpisodeRunner` (lifecycle state machine, transactional round commit, pause/resume/cancel), and `ReplayService` (record replay, deterministic re-execution, and divergence analysis).
   - `src/simulator/infrastructure/`: In-memory adapters (`InMemoryStore`, `InMemoryClock`, `InMemoryExportAdapter`, `SyntheticDatasetAdapter`).
-  - `tests/`: 43 automated tests across unit (domain, application, infrastructure), integration (synthetic 3-round episode, pause/idempotent resume/cancel, replay/divergence, Node.js canonical parity), and contract (all 15 schemas roundtrip validation, strict architectural boundary verification).
+  - `tests/`: 45 automated tests across unit (domain, application, infrastructure), integration (synthetic 3-round episode, repeated-run identity isolation, transactional failure, pause/idempotent resume/cancel, replay/divergence, Node.js canonical parity), and contract (all 15 schemas roundtrip validation, strict architectural boundary verification).
 
-### Planned Structure (Phases `DS-01` through `DS-09`)
+### Implemented Skeleton and Planned Expansion (Phases `DS-02` through `DS-09`)
 The repository is a monorepo containing two independently testable
 applications. The backend is a Python modular monolith; the web application is
 a React and TypeScript client. They share public contracts over the loopback
@@ -41,13 +41,13 @@ optees-decision-simulator/
 ├── apps/
 │   ├── backend/
 │   │   ├── src/
-│   │   │   └── simulator/    # Planned (DS-01+): Python application package
-│   │   │       ├── domain/           # Pure entities, values, invariants, and services
-│   │   │       ├── application/      # Use cases, ports, commands, queries, and DTOs
-│   │   │       ├── infrastructure/   # Driven adapters: SQLite, files, datasets, Optees
-│   │   │       ├── interfaces/       # Driving adapters: FastAPI and CLI
-│   │   │       └── bootstrap/        # Configuration, dependency wiring, app factories
-│   │   └── tests/             # Unit, integration, contract, and replay suites
+│   │   │   └── simulator/    # Implemented (DS-01): Python application package
+│   │   │       ├── domain/           # Implemented pure kernel
+│   │   │       ├── application/      # Implemented use cases and ports
+│   │   │       ├── infrastructure/   # In-memory adapters; production adapters planned
+│   │   │       ├── interfaces/       # Placeholder; FastAPI and CLI planned
+│   │   │       └── bootstrap/        # Placeholder; production wiring planned
+│   │   └── tests/             # Implemented unit, integration, contract, replay suites
 │   └── web/
 │       ├── src/
 │       │   ├── domain/        # Client-side read models and display semantics

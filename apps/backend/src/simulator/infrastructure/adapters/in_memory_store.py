@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from simulator.application.ports.persistence import PersistencePort
+from simulator.application.ports.persistence import PersistencePort, RoundCommit
 from simulator.domain.errors import (
     DuplicateIdentityError,
     FrozenRecordMutationError,
@@ -102,6 +102,83 @@ class InMemoryStore(PersistencePort):
             )
         rounds.append(round_record)
 
+    def commit_round(self, commit: RoundCommit) -> None:
+        """Validate the complete batch before publishing any of its records."""
+        run_id = commit.run.run_id
+        if commit.round_record.run_id != run_id:
+            raise FrozenRecordMutationError("Round commit run identifiers do not match")
+
+        rounds = self._rounds.get(run_id, [])
+        if rounds and rounds[-1].round_index >= commit.round_record.round_index:
+            raise FrozenRecordMutationError(
+                f"Round {commit.round_record.round_index} cannot be appended after "
+                f"round {rounds[-1].round_index}"
+            )
+
+        self._require_new_ids(
+            (item.decision_id for item in commit.proposed_decisions),
+            self._proposed_decisions,
+            "ProposedDecision",
+        )
+        self._require_new_ids(
+            (item.outcome_id for item in commit.decision_outcomes),
+            self._decision_outcomes,
+            "DecisionOutcome",
+        )
+        self._require_new_ids(
+            (item.transition_id for item in commit.transitions),
+            self._transitions,
+            "TransitionRecord",
+        )
+
+        staged_state_ids: set[str] = set()
+        for state in commit.account_states:
+            if state.account_state_id in staged_state_ids:
+                raise DuplicateIdentityError(
+                    f"VirtualAccountState {state.account_state_id} appears twice in one commit"
+                )
+            staged_state_ids.add(state.account_state_id)
+            existing = self._account_states.get((run_id, state.policy_id), [])
+            if any(item.account_state_id == state.account_state_id for item in existing):
+                raise DuplicateIdentityError(
+                    f"VirtualAccountState {state.account_state_id} already exists"
+                )
+            if existing and existing[-1].round_index >= state.round_index:
+                raise FrozenRecordMutationError(
+                    f"Account state round {state.round_index} does not follow "
+                    f"round {existing[-1].round_index}"
+                )
+
+        existing_metric_ids = {
+            metric.metric_record_id for metrics in self._metrics.values() for metric in metrics
+        }
+        self._require_new_ids(
+            (item.metric_record_id for item in commit.metrics),
+            existing_metric_ids,
+            "MetricRecord",
+        )
+
+        for item in commit.proposed_decisions:
+            self._proposed_decisions[item.decision_id] = item
+        for item in commit.decision_outcomes:
+            self._decision_outcomes[item.outcome_id] = item
+        for item in commit.transitions:
+            self._transitions[item.transition_id] = item
+        for item in commit.account_states:
+            self._account_states.setdefault((run_id, item.policy_id), []).append(item)
+        self._rounds.setdefault(run_id, []).append(commit.round_record)
+        for item in commit.metrics:
+            self._metrics.setdefault(item.run_id, []).append(item)
+        self._episode_runs[run_id] = commit.run
+
+    @staticmethod
+    def _require_new_ids(ids, existing, record_type: str) -> None:
+        seen: set[str] = set()
+        for record_id in ids:
+            if record_id in seen or record_id in existing:
+                raise DuplicateIdentityError(f"{record_type} {record_id} already exists")
+            seen.add(record_id)
+
     def get_rounds(self, run_id: str) -> list[RoundRecord]:
         return list(self._rounds.get(run_id, []))
 
@@ -121,6 +198,15 @@ class InMemoryStore(PersistencePort):
     def get_decision_outcome(self, outcome_id: str) -> DecisionOutcome | None:
         return self._decision_outcomes.get(outcome_id)
 
+    def get_decision_outcomes(
+        self, run_id: str, policy_id: str | None = None
+    ) -> list[DecisionOutcome]:
+        round_ids = {record.round_id for record in self._rounds.get(run_id, [])}
+        values = [item for item in self._decision_outcomes.values() if item.round_id in round_ids]
+        if policy_id is not None:
+            values = [item for item in values if item.policy_id == policy_id]
+        return values
+
     def save_transition(self, transition: TransitionRecord) -> None:
         if transition.transition_id in self._transitions:
             raise DuplicateIdentityError(
@@ -131,11 +217,26 @@ class InMemoryStore(PersistencePort):
     def get_transition(self, transition_id: str) -> TransitionRecord | None:
         return self._transitions.get(transition_id)
 
+    def get_transitions(self, run_id: str, policy_id: str | None = None) -> list[TransitionRecord]:
+        round_ids = {record.round_id for record in self._rounds.get(run_id, [])}
+        values = [item for item in self._transitions.values() if item.round_id in round_ids]
+        if policy_id is not None:
+            values = [item for item in values if item.policy_id == policy_id]
+        return values
+
     def save_account_state(self, run_id: str, state: VirtualAccountState) -> None:
         key = (run_id, state.policy_id)
-        if key not in self._account_states:
-            self._account_states[key] = []
-        self._account_states[key].append(state)
+        states = self._account_states.setdefault(key, [])
+        if any(item.account_state_id == state.account_state_id for item in states):
+            raise DuplicateIdentityError(
+                f"VirtualAccountState {state.account_state_id} already exists"
+            )
+        if states and states[-1].round_index >= state.round_index:
+            raise FrozenRecordMutationError(
+                f"Account state round {state.round_index} does not follow "
+                f"round {states[-1].round_index}"
+            )
+        states.append(state)
 
     def get_latest_account_state(self, run_id: str, policy_id: str) -> VirtualAccountState | None:
         states = self._account_states.get((run_id, policy_id), [])

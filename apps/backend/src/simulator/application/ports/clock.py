@@ -12,6 +12,11 @@ class ClockPort(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def monotonic_seconds(self) -> float:
+        """Return a monotonic duration source supplied by the adapter."""
+        raise NotImplementedError
+
+    @abstractmethod
     def advance_to(self, timestamp: str) -> None:
         """Advance the simulated clock to a target UTC timestamp."""
         raise NotImplementedError

@@ -4,12 +4,11 @@ and atomic persistence.
 
 from __future__ import annotations
 
-import time
 from decimal import Decimal
 
 from simulator.application.ports.clock import ClockPort
 from simulator.application.ports.dataset import DatasetPort
-from simulator.application.ports.persistence import PersistencePort
+from simulator.application.ports.persistence import PersistencePort, RoundCommit
 from simulator.application.ports.policy import PolicyContext, PolicyPort
 from simulator.application.services.eligibility import EligibilityService
 from simulator.application.services.evaluator import EvaluatorService
@@ -74,7 +73,7 @@ class EpisodeRunner:
                     unalloc_cash = b.quantity
 
             initial_state = VirtualAccountState(
-                account_state_id=f"acc-state_genesis_{init_acc.policy_id}",
+                account_state_id=f"acc-state_{run_id}_genesis_{init_acc.policy_id}",
                 policy_id=init_acc.policy_id,
                 round_index=0,
                 as_of_time=episode_def.created_at,
@@ -215,7 +214,7 @@ class EpisodeRunner:
             raise InvariantViolationError(f"Episode definition {run.episode_id} not found")
 
         round_idx = run.current_round_index
-        round_id = f"rnd_round_{round_idx}"
+        round_id = f"rnd_{run_id}_round_{round_idx}"
         cutoff = episode_def.calendar.round_cutoffs[round_idx]
         effective_time = cutoff  # In discrete synchronous simulation, effective at cutoff
 
@@ -224,7 +223,7 @@ class EpisodeRunner:
         parent_round_hash = existing_rounds[-1].compute_hash() if existing_rounds else None
 
         exec_start_time = self._clock.now_utc()
-        t0_perf = time.perf_counter()
+        elapsed_start = self._clock.monotonic_seconds()
 
         # Step 1: Extract eligible observations once for all policies
         all_obs = self._dataset.get_all_observations()
@@ -317,18 +316,6 @@ class EpisodeRunner:
             state_merkle_hash=state_merkle_hash,
         )
 
-        # Atomic commit to persistence port
-        for prop in staged_proposals:
-            self._persistence.save_proposed_decision(prop)
-        for out in staged_outcomes:
-            self._persistence.save_decision_outcome(out)
-        for trn in staged_transitions:
-            self._persistence.save_transition(trn)
-        for acc in staged_account_states:
-            self._persistence.save_account_state(run_id, acc)
-        self._persistence.append_round(round_record)
-
-        # Update run progress
         next_round_idx = round_idx + 1
         is_completed = next_round_idx >= run.total_rounds
         final_status = LifecycleStatus.COMPLETED if is_completed else LifecycleStatus.RUNNING
@@ -345,29 +332,46 @@ class EpisodeRunner:
             total_rounds=run.total_rounds,
             final_state_hash=final_state_hash,
         )
-        self._persistence.save_episode_run(updated_run)
-
-        # If completed, calculate final metric records
+        staged_metrics = []
         if is_completed:
-            wall_time = time.perf_counter() - t0_perf
+            wall_time = self._clock.monotonic_seconds() - elapsed_start
             for p_ver in episode_def.policy_versions:
-                all_states = self._persistence.get_account_states(run_id, p_ver.policy_id)
+                all_states = self._persistence.get_account_states(run_id, p_ver.policy_id) + [
+                    state for state in staged_account_states if state.policy_id == p_ver.policy_id
+                ]
                 init_state = all_states[0]
                 run_states = all_states[1:]
-                outcomes = [o for o in staged_outcomes if o.policy_id == p_ver.policy_id]
-                transitions = [t for t in staged_transitions if t.policy_id == p_ver.policy_id]
+                outcomes = self._persistence.get_decision_outcomes(run_id, p_ver.policy_id) + [
+                    o for o in staged_outcomes if o.policy_id == p_ver.policy_id
+                ]
+                transitions = self._persistence.get_transitions(run_id, p_ver.policy_id) + [
+                    t for t in staged_transitions if t.policy_id == p_ver.policy_id
+                ]
 
-                metrics = EvaluatorService.calculate_metrics(
-                    run_id=run_id,
-                    policy_id=p_ver.policy_id,
-                    initial_account=init_state,
-                    account_states=run_states,
-                    outcomes=outcomes,
-                    transitions=transitions,
-                    wall_time_seconds=wall_time,
-                    calculated_at=self._clock.now_utc(),
+                staged_metrics.append(
+                    EvaluatorService.calculate_metrics(
+                        run_id=run_id,
+                        policy_id=p_ver.policy_id,
+                        initial_account=init_state,
+                        account_states=run_states,
+                        outcomes=outcomes,
+                        transitions=transitions,
+                        wall_time_seconds=wall_time,
+                        calculated_at=self._clock.now_utc(),
+                    )
                 )
-                self._persistence.save_metric_record(metrics)
+
+        self._persistence.commit_round(
+            RoundCommit(
+                run=updated_run,
+                round_record=round_record,
+                proposed_decisions=tuple(staged_proposals),
+                decision_outcomes=tuple(staged_outcomes),
+                transitions=tuple(staged_transitions),
+                account_states=tuple(staged_account_states),
+                metrics=tuple(staged_metrics),
+            )
+        )
 
         return round_record
 

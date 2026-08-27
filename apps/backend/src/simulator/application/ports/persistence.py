@@ -1,6 +1,7 @@
 """PersistencePort interface for immutable append-only experiment history."""
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
 from simulator.domain.models import (
     DecisionOutcome,
@@ -17,6 +18,19 @@ from simulator.domain.models import (
     TransitionRecord,
     VirtualAccountState,
 )
+
+
+@dataclass(frozen=True)
+class RoundCommit:
+    """All records that become visible atomically for one completed round."""
+
+    run: EpisodeRun
+    round_record: RoundRecord
+    proposed_decisions: tuple[ProposedDecision, ...]
+    decision_outcomes: tuple[DecisionOutcome, ...]
+    transitions: tuple[TransitionRecord, ...]
+    account_states: tuple[VirtualAccountState, ...]
+    metrics: tuple[MetricRecord, ...] = ()
 
 
 class PersistencePort(ABC):
@@ -59,6 +73,11 @@ class PersistencePort(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def commit_round(self, commit: RoundCommit) -> None:
+        """Publish a complete round and its run progress as one atomic unit."""
+        raise NotImplementedError
+
+    @abstractmethod
     def get_rounds(self, run_id: str) -> list[RoundRecord]:
         raise NotImplementedError
 
@@ -79,11 +98,21 @@ class PersistencePort(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_decision_outcomes(
+        self, run_id: str, policy_id: str | None = None
+    ) -> list[DecisionOutcome]:
+        raise NotImplementedError
+
+    @abstractmethod
     def save_transition(self, transition: TransitionRecord) -> None:
         raise NotImplementedError
 
     @abstractmethod
     def get_transition(self, transition_id: str) -> TransitionRecord | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_transitions(self, run_id: str, policy_id: str | None = None) -> list[TransitionRecord]:
         raise NotImplementedError
 
     @abstractmethod

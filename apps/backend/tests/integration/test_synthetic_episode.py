@@ -2,6 +2,8 @@
 
 from decimal import Decimal
 
+import pytest
+
 from simulator.application.policies.reactive import ReactiveObservationPolicy
 from simulator.application.policies.static import StaticBaselinePolicy
 from simulator.application.services.runner import EpisodeRunner
@@ -46,6 +48,15 @@ def test_complete_synthetic_episode_execution(synthetic_episode_def: EpisodeDefi
     # Check 3 rounds were recorded
     rounds = store.get_rounds(run_id)
     assert len(rounds) == 3
+    assert [record.compute_hash() for record in rounds] == [
+        "sha256:c49fecd8189a419429cc245e268874d99c2dcb191463ddcd4f3cd6fffb614a5a",
+        "sha256:271c1a1ec95ebb58368631ed84f7aad5feb1faaa65baab8781feab20857c072b",
+        "sha256:d4c4e5957f5c01322e113956850325e69ceafababfd23b70f4d1628f14ae3313",
+    ]
+    assert (
+        final_run.final_state_hash
+        == "sha256:d4c4e5957f5c01322e113956850325e69ceafababfd23b70f4d1628f14ae3313"
+    )
 
     # Check round hashes are chained
     assert rounds[0].parent_round_hash is None
@@ -66,6 +77,14 @@ def test_complete_synthetic_episode_execution(synthetic_episode_def: EpisodeDefi
     assert len(reactive_states) == 4
     assert reactive_states[1].reference_valuation.unallocated_cash == Decimal("7997.00")
     assert reactive_states[1].reference_valuation.allocated_resources_value == Decimal("2000.00")
+    assert (
+        static_states[-1].compute_hash()
+        == "sha256:3ac64f13d3ba1a9cbd32b16ad025a53fc999a9aa28e9fa3321dae3331543367e"
+    )
+    assert (
+        reactive_states[-1].compute_hash()
+        == "sha256:98a92dc14f5e3ed660f33fdf473af7fbd15ba17aca756140331a3d24a6c179f9"
+    )
 
     # Check metrics
     metrics = store.get_metric_records(run_id)
@@ -73,7 +92,11 @@ def test_complete_synthetic_episode_execution(synthetic_episode_def: EpisodeDefi
     static_m = next(m for m in metrics if m.policy_id == "pol-def_static_baseline")
     reactive_m = next(m for m in metrics if m.policy_id == "pol-def_reactive_baseline")
     assert static_m.metrics.total_return == 0.0
-    assert reactive_m.metrics.total_transaction_costs > Decimal("0")
+    reactive_transitions = store.get_transitions(run_id, "pol-def_reactive_baseline")
+    assert reactive_m.metrics.total_transaction_costs == sum(
+        (item.total_cost_reference_unit for item in reactive_transitions),
+        Decimal("0.00"),
+    )
 
 
 def test_policy_order_independence(synthetic_episode_def: EpisodeDefinition) -> None:
@@ -103,3 +126,59 @@ def test_policy_order_independence(synthetic_episode_def: EpisodeDefinition) -> 
 
     # Hashes and final state hashes must match
     assert res1.final_state_hash == res2.final_state_hash
+
+
+def test_two_runs_share_a_store_without_record_identity_collisions(
+    synthetic_episode_def: EpisodeDefinition,
+) -> None:
+    store = InMemoryStore()
+    runner = EpisodeRunner(
+        store,
+        SyntheticDatasetAdapter(),
+        InMemoryClock(),
+        {
+            "pol-def_static_baseline": StaticBaselinePolicy(),
+            "pol-def_reactive_baseline": ReactiveObservationPolicy(),
+        },
+    )
+
+    for run_id in ("ep-run_repeat_001", "ep-run_repeat_002"):
+        runner.initialize_episode(synthetic_episode_def, run_id)
+        assert runner.run_all_rounds(run_id).lifecycle_status == LifecycleStatus.COMPLETED
+        assert len(store.get_rounds(run_id)) == 3
+
+    first_ids = {record.round_id for record in store.get_rounds("ep-run_repeat_001")}
+    second_ids = {record.round_id for record in store.get_rounds("ep-run_repeat_002")}
+    assert first_ids.isdisjoint(second_ids)
+
+
+def test_failed_round_commit_publishes_no_partial_records(
+    synthetic_episode_def: EpisodeDefinition,
+) -> None:
+    class RejectingCommitStore(InMemoryStore):
+        def commit_round(self, commit) -> None:
+            raise RuntimeError("injected commit failure")
+
+    store = RejectingCommitStore()
+    runner = EpisodeRunner(
+        store,
+        SyntheticDatasetAdapter(),
+        InMemoryClock(),
+        {
+            "pol-def_static_baseline": StaticBaselinePolicy(),
+            "pol-def_reactive_baseline": ReactiveObservationPolicy(),
+        },
+    )
+    run_id = "ep-run_atomic_failure"
+    runner.initialize_episode(synthetic_episode_def, run_id)
+    runner.start_run(run_id)
+
+    with pytest.raises(RuntimeError, match="injected commit failure"):
+        runner.execute_next_round(run_id)
+
+    assert store.get_rounds(run_id) == []
+    assert store._proposed_decisions == {}
+    assert store._decision_outcomes == {}
+    assert store._transitions == {}
+    assert all(len(states) == 1 for states in store._account_states.values())
+    assert store.get_episode_run(run_id).current_round_index == 0

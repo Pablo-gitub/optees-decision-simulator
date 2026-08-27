@@ -101,11 +101,18 @@ or a market provider.
 
 Delivered artifacts:
 - Python backend package: `apps/backend/src/simulator/` (domain, application, infrastructure layers)
-- Backend test suite: `apps/backend/tests/` (43 passed tests covering unit, integration, and contract suites)
+- Backend test suite: `apps/backend/tests/` (45 passed tests covering unit,
+  integration, and contract suites after review corrections)
 - Detailed plan: [Deterministic episode kernel](roadmaps/deterministic-episode-kernel.md).
 
 **Gate DS-K (Satisfied):** a synthetic analytic episode completes and replays without
 Optees, a database, network, or web UI.
+
+Review corrected two gate-level defects before acceptance: round records and
+run progress now publish through one application-owned transactional commit,
+and run-scoped record identifiers no longer collide when multiple runs share a
+store. Final metrics cover the complete trajectory, timing uses `ClockPort`,
+and the analytic episode asserts committed golden round and account hashes.
 
 ## Phase DS-02 — Market Dataset And Baseline Evidence
 
