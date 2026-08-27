@@ -5,7 +5,7 @@
 - **State:** in progress
 - **Authority:** this document owns Simulator sequencing and cross-repository
   integration gates
-- **First detailed work unit:** `roadmaps/core-contracts-and-time-semantics.md`
+- **Current detailed work unit:** `roadmaps/deterministic-episode-kernel.md`
 - **Optees program dependency:** `docs/roadmaps/case-study/ROADMAP.md`
   in the sibling Optees repository
 - **Current implementation:** documentation only
@@ -96,6 +96,12 @@ or a market provider.
   and divergence-aware replay.
 - Add static, cash, equal-allocation, and simple reactive fake policies.
 - Prove temporal leakage and cross-policy contamination are rejected.
+
+Detailed plan: [Deterministic episode kernel](roadmaps/deterministic-episode-kernel.md).
+
+This phase is a backend work unit owned by Gemini and reviewed by Codex. It
+contains no UI implementation. Claude begins Simulator information-architecture
+work only after `DS-K` provides stable lifecycle and failure states.
 
 **Gate DS-K:** a synthetic analytic episode completes and replays without
 Optees, a database, network, or web UI.
