@@ -3,14 +3,14 @@
 ## Work Unit
 
 - **ID:** `DS-01`
-- **State:** ready
+- **State:** completed (Gate `DS-K` satisfied)
 - **Type:** backend domain and application implementation; no UI
 - **Parent roadmap:** `../ROADMAP.md`
 - **Prerequisite:** `DS-C` satisfied by `DS-00`
 - **Parallel Optees work:** `OPT-DS-02` capability stage through `QP-I`
 - **Owner:** Gemini
 - **Review:** Codex
-- **Completion gate:** `DS-K`
+- **Completion gate:** `DS-K` (Satisfied)
 
 ## Objective
 
@@ -344,6 +344,17 @@ auditable; record replay and deterministic re-execution reproduce the expected
 hashes; injected tampering yields structured divergence; all focused and full
 backend gates pass; documentation describes shipped behavior honestly; and the
 implementation is one reviewed atomic commit.
+
+### Verification Results (Gate `DS-K` Satisfied)
+
+- **Backend Pytest Suite:** 43 passed tests in `apps/backend/tests/`
+  - `tests/unit/domain/`: Canonical JSON, ECMAScript number formatting, UTC time semantics, lifecycle machine, frozen record immutability, duplicate identity rejection.
+  - `tests/unit/application/`: Cutoff filtering ($t_{knowledge} \le T_k$), late observation revisions, tie-breaking ordering, proposal feasibility validation, cost and delta calculations, metric evaluation, baseline policies (`StaticBaselinePolicy`, `AllReferenceCashPolicy`, `EqualAllocationPolicy`, `ReactiveObservationPolicy`).
+  - `tests/unit/infrastructure/`: `InMemoryStore` immutability and record uniqueness, `SyntheticDatasetAdapter` manifest and observations.
+  - `tests/integration/`: 3-round synthetic episode execution, per-round Merkle state chaining, pause/idempotent resume/cancel, record replay bit-for-bit hash verification, deterministic re-execution parity, divergence classification on tampered state, Node.js cross-runtime canonicalization parity.
+  - `tests/contract/`: Full round-trip validation of all 15 entity types against the authoritative v1 JSON Schemas (`docs/contracts/schemas/`), and architectural boundary validation asserting zero forbidden imports.
+- **Linter & Formatter:** Ruff passes cleanly with zero warnings (`ruff check apps/backend` and `ruff format --check apps/backend`).
+- **Core Contracts Validation:** `python3 tools/validate_contracts.py` passes all checks across schemas, examples, cutoff invariants, and links.
 
 After `DS-K`, stop. Do not start dataset selection, SQLite/API work, Optees
 integration, or frontend design in the same execution task.

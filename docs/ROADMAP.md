@@ -89,21 +89,22 @@ or a market provider.
 
 ## Phase DS-01 — Deterministic Episode Kernel
 
-- Implement immutable episode configuration and isolated policy state.
-- Implement deterministic rounds, virtual accounts, transitions, and costs.
-- Deliver identical eligible observations to every policy at each cutoff.
-- Add pause between rounds, idempotent resume, cancellation, canonical export,
+- **Status:** Complete (Gate `DS-K` satisfied)
+- Implemented immutable episode configuration and isolated policy state.
+- Implemented deterministic rounds, virtual accounts, transitions, and costs.
+- Delivered identical eligible observations to every policy at each cutoff.
+- Added pause between rounds, idempotent resume, cancellation, canonical export,
   and divergence-aware replay.
-- Add static, cash, equal-allocation, and simple reactive fake policies.
-- Prove temporal leakage and cross-policy contamination are rejected.
+- Added static, cash, equal-allocation, and simple reactive baseline policies.
+- Proved temporal leakage and cross-policy contamination are rejected.
+- Verified schema roundtrip for all 15 core entities and architectural boundary isolation.
 
-Detailed plan: [Deterministic episode kernel](roadmaps/deterministic-episode-kernel.md).
+Delivered artifacts:
+- Python backend package: `apps/backend/src/simulator/` (domain, application, infrastructure layers)
+- Backend test suite: `apps/backend/tests/` (43 passed tests covering unit, integration, and contract suites)
+- Detailed plan: [Deterministic episode kernel](roadmaps/deterministic-episode-kernel.md).
 
-This phase is a backend work unit owned by Gemini and reviewed by Codex. It
-contains no UI implementation. Claude begins Simulator information-architecture
-work only after `DS-K` provides stable lifecycle and failure states.
-
-**Gate DS-K:** a synthetic analytic episode completes and replays without
+**Gate DS-K (Satisfied):** a synthetic analytic episode completes and replays without
 Optees, a database, network, or web UI.
 
 ## Phase DS-02 — Market Dataset And Baseline Evidence

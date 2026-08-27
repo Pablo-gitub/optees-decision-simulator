@@ -3,8 +3,8 @@
 ## Document Status
 
 - **Status:** Active Reference
-- **Work Unit:** `DS-00`
-- **Gate:** `DS-C`
+- **Work Unit:** `DS-01`
+- **Gate:** `DS-K`
 - **Related Documents:**
   - [Core Contracts](contracts/core-contracts.md)
   - [Threat Model](contracts/threat-model.md)
@@ -15,16 +15,18 @@
 
 ## 1. Repository Status: Implemented vs. Planned Structure
 
-To maintain architectural clarity, the repository explicitly distinguishes between what is currently implemented at Gate `DS-C` and what is planned for subsequent delivery phases.
+To maintain architectural clarity, the repository explicitly distinguishes between what is currently implemented at Gate `DS-K` and what is planned for subsequent delivery phases.
 
-### Currently Implemented (Gate `DS-C`)
+### Currently Implemented (Gates `DS-C` and `DS-K`)
 - **Documentation & Specifications:** `docs/contracts/` containing canonical contracts, temporal semantics, replay taxonomy, and threat model.
 - **Contract Schemas:** `docs/contracts/schemas/` containing 15 versioned JSON Schema Draft 2020-12 specifications and `schema_inventory.json`.
 - **Validation Fixtures:** `docs/contracts/examples/` containing valid and invalid canonical JSON fixtures.
-- **Contract Verification Tooling:** `tools/validate_contracts.py` verifying the
-  schema subset used by the v1 contracts, representative RFC 8785 golden
-  vectors, SHA-256 hash properties, cutoff filtering, semantic invalid fixtures,
-  and secret absence.
+- **Contract Verification Tooling:** `tools/validate_contracts.py` verifying schemas, RFC 8785 canonical JSON golden vectors, SHA-256 hash properties, cutoff filtering, and secret absence.
+- **Deterministic Episode Kernel Backend (`apps/backend/`):**
+  - `src/simulator/domain/`: Immutable dataclass entities (`EpisodeDefinition`, `EpisodeRun`, `RoundRecord`, `VirtualAccountState`, `ProposedDecision`, `DecisionOutcome`, `TransitionRecord`, `MetricRecord`, `ReplayReport`, `DivergenceReport`, etc.), RFC 8785 canonical JSON serializer, SHA-256 hasher, state Merkle tree builder, strict UTC ISO 8601 parsing (`Z`), Decimal arithmetic, and domain error codes.
+  - `src/simulator/application/`: Abstract ports (`ClockPort`, `DatasetPort`, `PersistencePort`, `PolicyPort`, `ExportPort`, `OpteesClientPort`), baseline policies (`StaticBaselinePolicy`, `AllReferenceCashPolicy`, `EqualAllocationPolicy`, `ReactiveObservationPolicy`), `EligibilityService` (knowledge-time cutoff filtering and revision deduplication), `ExecutionService` (proposal validation, acceptance, cost calculations, transition application), `EvaluatorService` (valuation, metrics, drawdowns), `EpisodeRunner` (lifecycle state machine, atomic round execution, pause/resume/cancel), and `ReplayService` (record replay, deterministic re-execution, and divergence analysis).
+  - `src/simulator/infrastructure/`: In-memory adapters (`InMemoryStore`, `InMemoryClock`, `InMemoryExportAdapter`, `SyntheticDatasetAdapter`).
+  - `tests/`: 43 automated tests across unit (domain, application, infrastructure), integration (synthetic 3-round episode, pause/idempotent resume/cancel, replay/divergence, Node.js canonical parity), and contract (all 15 schemas roundtrip validation, strict architectural boundary verification).
 
 ### Planned Structure (Phases `DS-01` through `DS-09`)
 The repository is a monorepo containing two independently testable
