@@ -1,0 +1,31 @@
+{
+  "$type": "optees_call_receipt",
+  "schema_version": "1.0.0",
+  "receipt_id": "rcp-opt_forecast_round0_alpha",
+  "round_id": "rnd_round_0",
+  "policy_id": "pol-def_forecast_lp_v1",
+  "capability_id": "ml.forecasting.univariate",
+  "contract_versions": {
+    "problem_schema": "https://optees.org/schemas/forecasting/univariate/v1/problem.json",
+    "result_schema": "https://optees.org/schemas/forecasting/univariate/v1/result.json"
+  },
+  "transport": "MCP_STDIO",
+  "request_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "response_hash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+  "validation_receipt": {
+    "status": "VALID",
+    "validator_version": "1.0.0",
+    "diagnostics": []
+  },
+  "solver_status": "OPTIMAL",
+  "timing": {
+    "submitted_at": "2026-08-01T00:00:01.100Z",
+    "completed_at": "2026-08-01T00:00:01.242Z",
+    "duration_ms": 142.0
+  },
+  "redacted_transport_metadata": {
+    "transport_sanitized": true,
+    "process_pid": 89412,
+    "exit_code": 0
+  }
+}

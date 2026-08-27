@@ -1,0 +1,72 @@
+{
+  "description": "Example observations around an exact knowledge cutoff illustrating deterministic filtering.",
+  "target_cutoff": "2026-08-01T00:00:00Z",
+  "observations": [
+    {
+      "$type": "observation",
+      "schema_version": "1.0.0",
+      "observation_id": "obs_alpha_prior",
+      "snapshot_id": "ds-snap_synthetic_daily_v1",
+      "series_id": "RES_ALPHA_PRICE",
+      "event_time": "2026-07-31T12:00:00Z",
+      "knowledge_time": "2026-07-31T12:05:00Z",
+      "revision": 1,
+      "payload": {
+        "price": "98.50",
+        "volume": "15000",
+        "status": "FINAL"
+      }
+    },
+    {
+      "$type": "observation",
+      "schema_version": "1.0.0",
+      "observation_id": "obs_alpha_exact_cutoff",
+      "snapshot_id": "ds-snap_synthetic_daily_v1",
+      "series_id": "RES_ALPHA_PRICE",
+      "event_time": "2026-07-31T23:59:00Z",
+      "knowledge_time": "2026-08-01T00:00:00Z",
+      "revision": 1,
+      "payload": {
+        "price": "100.00",
+        "volume": "22000",
+        "status": "FINAL"
+      }
+    },
+    {
+      "$type": "observation",
+      "schema_version": "1.0.0",
+      "observation_id": "obs_alpha_delayed_publication",
+      "snapshot_id": "ds-snap_synthetic_daily_v1",
+      "series_id": "RES_ALPHA_PRICE",
+      "event_time": "2026-07-31T23:59:00Z",
+      "knowledge_time": "2026-08-01T00:01:00Z",
+      "revision": 1,
+      "payload": {
+        "price": "100.05",
+        "volume": "22050",
+        "status": "FINAL"
+      }
+    },
+    {
+      "$type": "observation",
+      "schema_version": "1.0.0",
+      "observation_id": "obs_alpha_future_event",
+      "snapshot_id": "ds-snap_synthetic_daily_v1",
+      "series_id": "RES_ALPHA_PRICE",
+      "event_time": "2026-08-01T08:00:00Z",
+      "knowledge_time": "2026-08-01T08:05:00Z",
+      "revision": 1,
+      "payload": {
+        "price": "102.30",
+        "volume": "18000",
+        "status": "FINAL"
+      }
+    }
+  ],
+  "expected_eligibility_at_target_cutoff": {
+    "obs_alpha_prior": true,
+    "obs_alpha_exact_cutoff": true,
+    "obs_alpha_delayed_publication": false,
+    "obs_alpha_future_event": false
+  }
+}

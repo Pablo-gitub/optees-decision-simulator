@@ -1,0 +1,52 @@
+{
+  "violation_type": "TEMPORAL_LEAKAGE",
+  "explanation": "The proposed decision explicitly references and incorporates an observation whose knowledge time is later than the round knowledge cutoff.",
+  "round_knowledge_cutoff": "2026-08-01T00:00:00Z",
+  "leaked_observation": {
+    "$type": "observation",
+    "schema_version": "1.0.0",
+    "observation_id": "obs_alpha_delayed_publication",
+    "snapshot_id": "ds-snap_synthetic_daily_v1",
+    "series_id": "RES_ALPHA_PRICE",
+    "event_time": "2026-07-31T23:59:00Z",
+    "knowledge_time": "2026-08-01T00:01:00Z",
+    "revision": 1,
+    "payload": {
+      "price": "100.05",
+      "volume": "22050",
+      "status": "FINAL"
+    }
+  },
+  "invalid_proposed_decision": {
+    "$type": "proposed_decision",
+    "schema_version": "1.0.0",
+    "decision_id": "dec-prop_leaked_future_data",
+    "round_id": "rnd_round_0",
+    "policy_id": "pol-def_reactive_baseline",
+    "policy_version_id": "pol-ver_reactive_v1",
+    "knowledge_cutoff": "2026-08-01T00:00:00Z",
+    "generated_at": "2026-08-01T00:00:01Z",
+    "desired_allocations": [
+      {
+        "resource_id": "RES_ALPHA",
+        "target_quantity": "50.00"
+      }
+    ],
+    "requested_actions": [
+      {
+        "action_type": "ALLOCATE",
+        "resource_id": "RES_ALPHA",
+        "quantity": "50.00",
+        "parameters": {
+          "based_on_observation_id": "obs_alpha_delayed_publication",
+          "observed_price": "100.05"
+        }
+      }
+    ],
+    "rationale": {
+      "method": "future_informed_momentum",
+      "objective_value": 0.25,
+      "solver_status": null
+    }
+  }
+}

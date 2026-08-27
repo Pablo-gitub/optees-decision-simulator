@@ -1,0 +1,71 @@
+{
+  "transition": {
+    "$type": "transition",
+    "schema_version": "1.0.0",
+    "transition_id": "trn_round0_reactive_transition",
+    "round_id": "rnd_round_0",
+    "policy_id": "pol-def_reactive_baseline",
+    "outcome_id": "dec-out_round0_reactive_accepted",
+    "effective_time": "2026-08-01T00:00:00Z",
+    "resource_deltas": [
+      {
+        "resource_id": "USD",
+        "delta_quantity": "-2003.00",
+        "valuation_price": "1.00"
+      },
+      {
+        "resource_id": "RES_ALPHA",
+        "delta_quantity": "20.00",
+        "valuation_price": "100.00"
+      }
+    ],
+    "costs": [
+      {
+        "cost_type": "TRANSACTION_FEE",
+        "resource_id": "USD",
+        "amount": "2.00"
+      },
+      {
+        "cost_type": "TRANSACTION_FEE",
+        "resource_id": "USD",
+        "amount": "1.00"
+      }
+    ],
+    "total_cost_reference_unit": "3.00",
+    "account_state_before_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "account_state_after_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "virtual_account_state": {
+    "$type": "virtual_account_state",
+    "schema_version": "1.0.0",
+    "account_state_id": "acc-state_round0_reactive_after",
+    "policy_id": "pol-def_reactive_baseline",
+    "round_index": 0,
+    "as_of_time": "2026-08-01T00:00:00Z",
+    "balances": [
+      {
+        "resource_id": "USD",
+        "quantity": "7997.00",
+        "reserved_quantity": "0.00"
+      },
+      {
+        "resource_id": "RES_ALPHA",
+        "quantity": "20.00",
+        "reserved_quantity": "0.00"
+      }
+    ],
+    "cumulative_costs": [
+      {
+        "cost_type": "TRANSACTION_FEE",
+        "amount": "3.00"
+      }
+    ],
+    "reference_valuation": {
+      "reference_resource_id": "USD",
+      "unallocated_cash": "7997.00",
+      "allocated_resources_value": "2000.00",
+      "net_total_value": "9997.00"
+    },
+    "parent_state_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}

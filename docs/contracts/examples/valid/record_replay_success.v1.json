@@ -1,0 +1,15 @@
+{
+  "$type": "replay_report",
+  "schema_version": "1.0.0",
+  "report_id": "rep-rep_replay_run001_success",
+  "original_run_id": "ep-run_synthetic_run_001",
+  "replay_mode": "RECORD_REPLAY",
+  "executed_at": "2026-08-03T10:00:00Z",
+  "overall_status": "MATCH",
+  "rounds_evaluated": 2,
+  "matched_round_count": 2,
+  "diverged_round_count": 0,
+  "initial_state_hash_match": true,
+  "final_state_hash_match": true,
+  "divergence_report_ids": []
+}

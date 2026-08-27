@@ -1,144 +1,160 @@
 # Architecture
 
-## Architectural Style
+## Document Status
 
-Use a modular monorepo with a Python backend and a React web frontend:
+- **Status:** Active Reference
+- **Work Unit:** `DS-00`
+- **Gate:** `DS-C`
+- **Related Documents:**
+  - [Core Contracts](contracts/core-contracts.md)
+  - [Threat Model](contracts/threat-model.md)
+  - [Schema Inventory](contracts/schemas/schema_inventory.json)
+  - [Delivery Roadmap](ROADMAP.md)
+
+---
+
+## 1. Repository Status: Implemented vs. Planned Structure
+
+To maintain architectural clarity, the repository explicitly distinguishes between what is currently implemented at Gate `DS-C` and what is planned for subsequent delivery phases.
+
+### Currently Implemented (Gate `DS-C`)
+- **Documentation & Specifications:** `docs/contracts/` containing canonical contracts, temporal semantics, replay taxonomy, and threat model.
+- **Contract Schemas:** `docs/contracts/schemas/` containing 15 versioned JSON Schema Draft 2020-12 specifications and `schema_inventory.json`.
+- **Validation Fixtures:** `docs/contracts/examples/` containing valid and invalid canonical JSON fixtures.
+- **Contract Verification Tooling:** `tools/validate_contracts.py` verifying schema compliance, RFC 8785 canonicalization, SHA-256 hash properties, cutoff filtering, and secret absence.
+
+### Planned Structure (Phases `DS-01` through `DS-09`)
+The modular codebase structure planned for subsequent phases:
 
 ```text
 optees-decision-simulator/
 ├── apps/
-│   ├── api/          # Python composition root and HTTP transport
-│   └── web/          # React + TypeScript + Vite
+│   ├── api/                  # Planned (DS-03): FastAPI composition root & loopback transport
+│   └── web/                  # Planned (DS-09): React + TypeScript + Vite web interface
 ├── src/
-│   └── simulator/
-│       ├── domain/
-│       ├── application/
-│       ├── infrastructure/
-│       └── interfaces/
-├── tests/
-└── docs/
+│   └── simulator/            # Planned (DS-01+): Python application package
+│       ├── domain/           # Planned (DS-01): Pure domain model, accounting, canonicalization
+│       ├── application/      # Planned (DS-01): Harness services & port definitions
+│       ├── infrastructure/   # Planned (DS-02, DS-03): SQLite, datasets, Optees MCP/REST adapters
+│       └── interfaces/       # Planned (DS-03): CLI and API adapters
+├── tests/                    # Planned (DS-01+): Unit, integration, and replay test suites
+├── tools/                    # Implemented: Contract validation & verification scripts
+└── docs/                     # Implemented: Architecture, roadmaps, contracts, threat model
 ```
 
-The folders are planned, not created until implementation begins.
+---
 
-## Dependency Direction
+## 2. Architectural Style and Dependency Rules
+
+The simulator follows a clean hexagonal (ports and adapters) architecture. The dependency direction is strictly inbound:
 
 ```mermaid
 flowchart TB
-    Web["React presentation"] --> HTTP["Backend HTTP interface"]
-    HTTP --> Application["Application services"]
-    Application --> Domain["Domain model"]
-    Infrastructure["SQLite, datasets, Optees MCP/REST"] --> Application
+    Web["React Presentation (apps/web)"] --> HTTP["HTTP API Layer (apps/api)"]
+    HTTP --> Interfaces["Driving Interfaces (src/simulator/interfaces)"]
+    Interfaces --> Application["Application Services (src/simulator/application)"]
+    Application --> Domain["Domain Core (src/simulator/domain)"]
+    Infrastructure["Infrastructure Adapters (src/simulator/infrastructure)"] --> Application
     Infrastructure --> Domain
 ```
 
-- Domain imports no framework, transport, database, or Optees SDK.
-- Application defines ports and orchestrates domain behavior.
-- Infrastructure implements persistence, dataset, clock, and Optees ports.
-- Interfaces translate HTTP and process events into application commands.
-- The React client consumes only simulator API contracts.
+### Dependency Inversion & Layer Boundaries
 
-## Backend Responsibilities
+1. **Domain Layer (`src/simulator/domain/`):**
+   - **Responsibility:** Pure business logic, entity definitions, virtual account state mutations, deterministic clock invariants, and RFC 8785 canonical JSON serialization / hashing.
+   - **Import Rule:** **Zero external dependencies.** The domain layer must never import FastAPI, SQLite/SQLAlchemy, Pydantic, Requests, MCP SDKs, or Optees internal code.
+2. **Application Layer (`src/simulator/application/`):**
+   - **Responsibility:** Orchestrating simulation rounds, coordinating policies, enforcing knowledge cutoffs, evaluating proposals, triggering account transitions, running replay verification, and defining port interfaces.
+   - **Import Rule:** Depends only on `domain`. Defines abstract ports (`ClockPort`, `DatasetPort`, `PersistencePort`, `OpteesClientPort`, `ExportPort`).
+3. **Infrastructure Layer (`src/simulator/infrastructure/`):**
+   - **Responsibility:** Implementing ports: SQLite repository, dataset snapshot loaders, file storage, `McpOpteesClient`, and `RestOpteesClient`.
+   - **Import Rule:** Implements interfaces defined in `application` and converts infrastructure records into domain entities.
+4. **Interfaces & Apps (`src/simulator/interfaces/`, `apps/api/`, `apps/web/`):**
+   - **Responsibility:** Driving adapters (FastAPI routers, CLI commands, React frontend).
+   - **Import Rule:** Thin presentation and translation layers that delegate all execution to application services.
 
-- episode and policy lifecycle;
-- deterministic scheduling and knowledge cutoffs;
-- virtual accounting;
-- Optees invocation and contract pinning;
-- persistence, replay, comparison, and export;
-- server-side report and artifact coordination;
-- safe process management for MCP.
+---
 
-FastAPI is suitable for the local application API, but endpoint handlers must
-remain thin and delegate to application services.
+## 3. Backend Responsibilities
 
-## Frontend Responsibilities
+- Episode and policy lifecycle management;
+- Deterministic time progression and knowledge cutoff enforcement;
+- Isolated virtual accounting and transition cost application;
+- Optees capability discovery, validation, contract pinning, and execution;
+- Relational persistence, Merkle state chaining, replay, and divergence analysis;
+- Server-side report generation and artifact coordination;
+- Process management and stdio sanitization for MCP child processes.
 
-- episode configuration;
-- policy selection and immutable version display;
-- round timeline and policy comparison;
-- charts, tables, assumptions, validation, and failures;
-- export requests.
+FastAPI is used exclusively as a thin loopback transport over application services.
 
-The frontend must not:
+---
 
-- spawn Optees;
-- hold Optees REST bearer tokens;
-- formulate authoritative solver payloads;
-- compute official scores;
-- hide rejected decisions.
+## 4. Frontend Responsibilities
 
-## Persistence
+- Episode configuration and submission;
+- Policy version selection and inspection;
+- Round-by-round timeline and trajectory comparison;
+- Rendering charts, tables, assumptions, solver diagnostics, and rejection reasons;
+- Exporting reproducible experiment bundles.
 
-SQLite is the preferred MVP store because episodes, rounds, observations,
-decisions, capability calls, and metrics are relational and must be replayable.
+The frontend must **never**:
+- Spawn or manage Optees subprocesses;
+- Hold or process Optees REST bearer tokens;
+- Formulate authoritative solver payloads or modify constraints;
+- Compute official portfolio valuations or scores;
+- Filter or hide rejected decisions.
 
-Store:
+---
 
-- immutable policy and episode versions;
-- event, knowledge, execution, and effective timestamps;
-- canonical JSON payloads and hashes;
-- Optees capability and contract versions;
-- result and independent-validation receipts;
-- virtual account transitions;
-- artifact identifiers and report provenance.
+## 5. Persistence Strategy
 
-Large binary artifacts should remain in bounded file storage with hashes and
-database metadata, not in relational blobs.
+SQLite is the chosen relational store for local experiment state because episodes, rounds, observations, decisions, solver calls, transitions, and metrics form structured relational histories.
 
-## Optees Boundary
+### Stored Information:
+- Immutable policy definitions and version records;
+- Event, knowledge, execution, and effective timestamps;
+- Canonical JSON payloads and SHA-256 hashes;
+- Optees capability descriptors, contract versions, and validation receipts;
+- Virtual account transition logs and state hashes;
+- Artifact references and divergence reports.
 
-Define one `OpteesClientPort` in the simulator application layer. Initial
-implementations:
+Large dataset files and binary artifacts remain in bounded filesystem storage with metadata and hashes indexed in SQLite.
 
-1. `McpOpteesClient`: primary local integration over stdio;
-2. `RestOpteesClient`: alternative loopback integration;
-3. `FakeOpteesClient`: deterministic tests.
+---
 
-Both production adapters must return the same simulator-owned data structures
-and normalize transport errors consistently.
+## 6. Optees Client Port and Transports
 
-MCP is preferred because it:
+The simulator application layer defines a single port: `OpteesClientPort`.
 
-- opens no network port;
-- requires no bearer token;
-- lets the backend own a child process;
-- matches agent-native Optees tooling.
+```
+                    ┌─────────────────────────┐
+                    │    OpteesClientPort     │
+                    └────────────▲────────────┘
+                                 │
+         ┌───────────────────────┼───────────────────────┐
+         │                       │                       │
+┌────────┴────────┐     ┌────────┴────────┐     ┌────────┴────────┐
+│  McpOpteesClient│     │ RestOpteesClient│     │ FakeOpteesClient│
+│ (Primary Stdio) │     │(Loopback REST)  │     │ (Unit Testing)  │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
 
-REST remains useful for debugging, external process ownership, and parity
-tests. Transport selection must not alter policy semantics.
+1. **`McpOpteesClient` (Primary):** Communicates with `optees-mcp` over child process `stdio`. Preferred because it requires no listening network port, needs no authentication tokens, and allows the backend to own process lifecycle directly.
+2. **`RestOpteesClient` (Alternative):** Communicates with an authenticated loopback REST daemon. Used for integration debugging and parity testing.
+3. **`FakeOpteesClient` (Testing):** In-memory mock returning deterministic fixtures for offline unit and integration tests.
 
-## Process Lifecycle
+Both production clients return identical simulator-owned data structures (`OpteesCallReceipt`) and normalize transport errors into standard categories.
 
-For MCP, the Python backend starts one packaged or configured `optees-mcp`
-process, performs capability discovery, monitors health, and restarts only
-between idempotent operations. It must never guess whether an interrupted solve
-completed.
+---
 
-Development configuration may point to a source command. Packaged deployments
-must use an explicitly configured executable path; automatic global executable
-search is allowed only with a visible diagnostic.
+## 7. Determinism, Replay, and Audit Trail
 
-## Security Model
+Every discrete round records:
+- Eligible observations at knowledge cutoff $T_k$;
+- Canonical virtual account state prior to decision;
+- Pinned policy and adapter versions;
+- Request and response SHA-256 hashes for all Optees solver calls;
+- Proposed decision and explicit acceptance/rejection outcome;
+- Applied transition, fees, and resulting account state.
 
-- bind the simulator API to loopback by default;
-- use strict request-size and episode-size limits;
-- allowlist Optees tools and capability identifiers;
-- reject arbitrary Python and shell execution;
-- redact environment variables and tokens;
-- validate dataset paths against approved roots;
-- treat imported policies and episode files as untrusted;
-- never allow an LLM response to become an accepted decision without contract
-  validation and frozen policy rules.
-
-## Determinism And Replay
-
-Every official round records:
-
-- visible observations and cutoff;
-- canonical state before execution;
-- policy and adapter versions;
-- every Optees request and response hash;
-- accepted decision and rejection reason;
-- valuation input and resulting account state.
-
-Replay compares hashes and reports divergence instead of rewriting history.
+Replay compares cryptographic state hashes and produces structured `DivergenceReport` records instead of mutating historical logs.

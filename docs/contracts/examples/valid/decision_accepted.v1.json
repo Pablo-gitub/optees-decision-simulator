@@ -1,0 +1,49 @@
+{
+  "proposed_decision": {
+    "$type": "proposed_decision",
+    "schema_version": "1.0.0",
+    "decision_id": "dec-prop_round0_reactive_accept",
+    "round_id": "rnd_round_0",
+    "policy_id": "pol-def_reactive_baseline",
+    "policy_version_id": "pol-ver_reactive_v1",
+    "knowledge_cutoff": "2026-08-01T00:00:00Z",
+    "generated_at": "2026-08-01T00:00:01Z",
+    "desired_allocations": [
+      {
+        "resource_id": "USD",
+        "target_quantity": "8000.00"
+      },
+      {
+        "resource_id": "RES_ALPHA",
+        "target_quantity": "20.00"
+      }
+    ],
+    "requested_actions": [
+      {
+        "action_type": "ALLOCATE",
+        "resource_id": "RES_ALPHA",
+        "quantity": "20.00",
+        "parameters": {
+          "max_unit_price": "100.50"
+        }
+      }
+    ],
+    "rationale": {
+      "method": "reactive_momentum_allocation",
+      "objective_value": 0.045,
+      "solver_status": null
+    }
+  },
+  "decision_outcome": {
+    "$type": "decision_outcome",
+    "schema_version": "1.0.0",
+    "outcome_id": "dec-out_round0_reactive_accepted",
+    "decision_id": "dec-prop_round0_reactive_accept",
+    "round_id": "rnd_round_0",
+    "policy_id": "pol-def_reactive_baseline",
+    "status": "ACCEPTED",
+    "rejection_reasons": [],
+    "evaluated_at": "2026-08-01T00:00:02Z",
+    "applied_transition_id": "trn_round0_reactive_transition"
+  }
+}

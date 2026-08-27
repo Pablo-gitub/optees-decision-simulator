@@ -1,0 +1,55 @@
+{
+  "proposed_decision": {
+    "$type": "proposed_decision",
+    "schema_version": "1.0.0",
+    "decision_id": "dec-prop_round0_reactive_reject",
+    "round_id": "rnd_round_0",
+    "policy_id": "pol-def_reactive_baseline",
+    "policy_version_id": "pol-ver_reactive_v1",
+    "knowledge_cutoff": "2026-08-01T00:00:00Z",
+    "generated_at": "2026-08-01T00:00:01Z",
+    "desired_allocations": [
+      {
+        "resource_id": "USD",
+        "target_quantity": "-5000.00"
+      },
+      {
+        "resource_id": "RES_ALPHA",
+        "target_quantity": "150.00"
+      }
+    ],
+    "requested_actions": [
+      {
+        "action_type": "ALLOCATE",
+        "resource_id": "RES_ALPHA",
+        "quantity": "150.00",
+        "parameters": {
+          "max_unit_price": "100.00"
+        }
+      }
+    ],
+    "rationale": {
+      "method": "reactive_aggressive_allocation",
+      "objective_value": 0.15,
+      "solver_status": null
+    }
+  },
+  "decision_outcome": {
+    "$type": "decision_outcome",
+    "schema_version": "1.0.0",
+    "outcome_id": "dec-out_round0_reactive_rejected",
+    "decision_id": "dec-prop_round0_reactive_reject",
+    "round_id": "rnd_round_0",
+    "policy_id": "pol-def_reactive_baseline",
+    "status": "REJECTED",
+    "rejection_reasons": [
+      {
+        "code": "INSUFFICIENT_UNALLOCATED_RESOURCE",
+        "message": "Required resource quantity 15000.00 USD exceeds available unallocated quantity 10000.00 USD and borrowing is disabled.",
+        "violating_field": "requested_actions[0].quantity"
+      }
+    ],
+    "evaluated_at": "2026-08-01T00:00:02Z",
+    "applied_transition_id": null
+  }
+}

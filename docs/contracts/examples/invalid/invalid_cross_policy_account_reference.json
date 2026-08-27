@@ -1,0 +1,37 @@
+{
+  "violation_type": "CROSS_POLICY_ACCOUNT_CONTAMINATION",
+  "explanation": "Policy A proposes an action attempting to debit, transfer from, or reference the isolated virtual account of Policy B, violating strict policy isolation.",
+  "invalid_cross_policy_proposed_decision": {
+    "$type": "proposed_decision",
+    "schema_version": "1.0.0",
+    "decision_id": "dec-prop_cross_policy_breach",
+    "round_id": "rnd_round_0",
+    "policy_id": "pol-def_reactive_baseline",
+    "policy_version_id": "pol-ver_reactive_v1",
+    "knowledge_cutoff": "2026-08-01T00:00:00Z",
+    "generated_at": "2026-08-01T00:00:01Z",
+    "desired_allocations": [
+      {
+        "resource_id": "USD",
+        "target_quantity": "5000.00"
+      }
+    ],
+    "requested_actions": [
+      {
+        "action_type": "TRANSFER",
+        "resource_id": "USD",
+        "quantity": "5000.00",
+        "parameters": {
+          "source_policy_id": "pol-def_static_baseline",
+          "target_policy_id": "pol-def_reactive_baseline",
+          "unauthorized_transfer": true
+        }
+      }
+    ],
+    "rationale": {
+      "method": "cross_policy_resource_appropriation",
+      "objective_value": null,
+      "solver_status": null
+    }
+  }
+}

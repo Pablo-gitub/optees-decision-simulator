@@ -1,0 +1,126 @@
+{
+  "inventory_version": "1.0.0",
+  "generated_for_gate": "DS-C",
+  "schemas": [
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/episode_definition.v1.json",
+      "type_discriminator": "episode_definition",
+      "schema_version": "1.0.0",
+      "title": "EpisodeDefinition",
+      "file_path": "docs/contracts/schemas/episode_definition.v1.json",
+      "description": "Immutable specification of a simulation episode, freezing dataset, calendar, policies, rules, and initial state."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/episode_run.v1.json",
+      "type_discriminator": "episode_run",
+      "schema_version": "1.0.0",
+      "title": "EpisodeRun",
+      "file_path": "docs/contracts/schemas/episode_run.v1.json",
+      "description": "Lifecycle state and execution record of an episode run referencing an immutable episode definition."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/policy_definition.v1.json",
+      "type_discriminator": "policy_definition",
+      "schema_version": "1.0.0",
+      "title": "PolicyDefinition",
+      "file_path": "docs/contracts/schemas/policy_definition.v1.json",
+      "description": "Declaration of a decision policy family and its metadata."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/policy_version.v1.json",
+      "type_discriminator": "policy_version",
+      "schema_version": "1.0.0",
+      "title": "PolicyVersion",
+      "file_path": "docs/contracts/schemas/policy_version.v1.json",
+      "description": "Immutable specification of a frozen policy version with requirements, hyperparameters, and tolerances."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/dataset_snapshot.v1.json",
+      "type_discriminator": "dataset_snapshot",
+      "schema_version": "1.0.0",
+      "title": "DatasetSnapshotManifest",
+      "file_path": "docs/contracts/schemas/dataset_snapshot.v1.json",
+      "description": "Immutable manifest of a frozen dataset snapshot with source metadata, checksums, and series definitions."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/observation.v1.json",
+      "type_discriminator": "observation",
+      "schema_version": "1.0.0",
+      "title": "ObservationRecord",
+      "file_path": "docs/contracts/schemas/observation.v1.json",
+      "description": "Immutable single observation record with explicit event time, knowledge time, revision number, and domain payload."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/round.v1.json",
+      "type_discriminator": "round",
+      "schema_version": "1.0.0",
+      "title": "RoundRecord",
+      "file_path": "docs/contracts/schemas/round.v1.json",
+      "description": "Immutable execution record of a single simulation round with timestamps, observation hashes, policy outcomes, and state Merkle hash."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/proposed_decision.v1.json",
+      "type_discriminator": "proposed_decision",
+      "schema_version": "1.0.0",
+      "title": "ProposedDecision",
+      "file_path": "docs/contracts/schemas/proposed_decision.v1.json",
+      "description": "Domain-neutral decision proposal emitted by a policy at a given round knowledge cutoff."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/decision_outcome.v1.json",
+      "type_discriminator": "decision_outcome",
+      "schema_version": "1.0.0",
+      "title": "DecisionOutcome",
+      "file_path": "docs/contracts/schemas/decision_outcome.v1.json",
+      "description": "Validation and acceptance outcome of a proposed decision evaluated against frozen episode rules."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/transition.v1.json",
+      "type_discriminator": "transition",
+      "schema_version": "1.0.0",
+      "title": "TransitionRecord",
+      "file_path": "docs/contracts/schemas/transition.v1.json",
+      "description": "Immutable record of state changes, resource deltas, and incurred costs applied to a policy virtual account."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/virtual_account_state.v1.json",
+      "type_discriminator": "virtual_account_state",
+      "schema_version": "1.0.0",
+      "title": "VirtualAccountState",
+      "file_path": "docs/contracts/schemas/virtual_account_state.v1.json",
+      "description": "Snapshot of an isolated policy virtual account holding generic resources, valuation, and cumulative costs at a round boundary."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/metric_record.v1.json",
+      "type_discriminator": "metric_record",
+      "schema_version": "1.0.0",
+      "title": "MetricRecord",
+      "file_path": "docs/contracts/schemas/metric_record.v1.json",
+      "description": "Calculated performance, risk, and execution metrics for a policy over a round or an entire episode."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/optees_call_receipt.v1.json",
+      "type_discriminator": "optees_call_receipt",
+      "schema_version": "1.0.0",
+      "title": "OpteesCallReceipt",
+      "file_path": "docs/contracts/schemas/optees_call_receipt.v1.json",
+      "description": "Immutable receipt recording an invocation of an Optees capability with pinned contract versions, request/response hashes, and redacted transport details."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/replay_report.v1.json",
+      "type_discriminator": "replay_report",
+      "schema_version": "1.0.0",
+      "title": "ReplayReport",
+      "file_path": "docs/contracts/schemas/replay_report.v1.json",
+      "description": "Report of an episode replay run comparing state hashes and recording overall replay fidelity."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/divergence_report.v1.json",
+      "type_discriminator": "divergence_report",
+      "schema_version": "1.0.0",
+      "title": "DivergenceReport",
+      "file_path": "docs/contracts/schemas/divergence_report.v1.json",
+      "description": "Immutable record of an observed divergence between original run state and re-executed state, classified into frozen categories."
+    }
+  ]
+}

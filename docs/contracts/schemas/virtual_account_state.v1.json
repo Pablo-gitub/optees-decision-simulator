@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optees.org/schemas/simulator/v1/virtual_account_state.v1.json",
+  "title": "VirtualAccountState",
+  "description": "Snapshot of an isolated policy virtual account holding generic resources, valuation, and cumulative costs at a round boundary.",
+  "type": "object",
+  "required": [
+    "$type",
+    "schema_version",
+    "account_state_id",
+    "policy_id",
+    "round_index",
+    "as_of_time",
+    "balances",
+    "cumulative_costs",
+    "reference_valuation",
+    "parent_state_hash"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$type": {
+      "type": "string",
+      "const": "virtual_account_state"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "account_state_id": {
+      "type": "string",
+      "pattern": "^acc-state_[a-zA-Z0-9_-]+$"
+    },
+    "policy_id": {
+      "type": "string",
+      "pattern": "^pol-def_[a-zA-Z0-9_-]+$"
+    },
+    "round_index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "as_of_time": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+    },
+    "balances": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "resource_id",
+          "quantity",
+          "reserved_quantity"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "resource_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^-?\\d+(\\.\\d+)?$"
+          },
+          "reserved_quantity": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d+)?$"
+          }
+        }
+      }
+    },
+    "cumulative_costs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "cost_type",
+          "amount"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "cost_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d+)?$"
+          }
+        }
+      }
+    },
+    "reference_valuation": {
+      "type": "object",
+      "required": [
+        "reference_resource_id",
+        "unallocated_cash",
+        "allocated_resources_value",
+        "net_total_value"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "reference_resource_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unallocated_cash": {
+          "type": "string",
+          "pattern": "^-?\\d+(\\.\\d+)?$"
+        },
+        "allocated_resources_value": {
+          "type": "string",
+          "pattern": "^-?\\d+(\\.\\d+)?$"
+        },
+        "net_total_value": {
+          "type": "string",
+          "pattern": "^-?\\d+(\\.\\d+)?$"
+        }
+      }
+    },
+    "parent_state_hash": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  }
+}

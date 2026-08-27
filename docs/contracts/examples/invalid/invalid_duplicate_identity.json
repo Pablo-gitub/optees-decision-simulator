@@ -1,0 +1,69 @@
+{
+  "violation_type": "DUPLICATE_IDENTITY_COLLISION",
+  "explanation": "Episode definition contains duplicate policy version references with identical policy_id and policy_version_id, violating entity uniqueness.",
+  "invalid_episode_definition": {
+    "$type": "episode_definition",
+    "schema_version": "1.0.0",
+    "episode_id": "ep-def_duplicate_policies_test",
+    "title": "Invalid Episode with Duplicate Policy",
+    "description": "Episode definition violating uniqueness of policy versions.",
+    "created_at": "2026-08-01T00:00:00Z",
+    "dataset_snapshot": {
+      "snapshot_id": "ds-snap_synthetic_daily_v1",
+      "source_uri": "file:///data/snapshots/synthetic_daily_v1.jsonl",
+      "checksum_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "retrieval_time": "2026-08-01T00:00:00Z",
+      "calendar_frequency": "1d"
+    },
+    "calendar": {
+      "round_cutoffs": [
+        "2026-08-01T00:00:00Z"
+      ],
+      "interval_duration": "1d",
+      "evaluation_delay": "1d"
+    },
+    "policy_versions": [
+      {
+        "policy_id": "pol-def_static_baseline",
+        "policy_version_id": "pol-ver_static_v1",
+        "policy_version": "1.0.0",
+        "policy_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "config_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      {
+        "policy_id": "pol-def_static_baseline",
+        "policy_version_id": "pol-ver_static_v1",
+        "policy_version": "1.0.0",
+        "policy_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "config_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    ],
+    "initial_accounts": [
+      {
+        "policy_id": "pol-def_static_baseline",
+        "balances": [
+          {
+            "resource_id": "USD",
+            "quantity": "10000.00"
+          }
+        ]
+      }
+    ],
+    "reference_resource_id": "USD",
+    "rules": {
+      "allow_short_positions": false,
+      "allow_borrowing": false,
+      "cost_model": {
+        "linear_transaction_fee_rate": "0.001",
+        "fixed_transaction_fee": "1.00",
+        "holding_cost_rate": "0.0"
+      },
+      "constraints": {},
+      "failure_policy": {
+        "on_policy_error": "REJECT_AND_HOLD",
+        "on_solver_timeout": "FALLBACK_TO_HOLD",
+        "on_invalid_decision": "REJECT_AND_HOLD"
+      }
+    }
+  }
+}

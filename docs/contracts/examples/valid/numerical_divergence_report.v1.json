@@ -1,0 +1,20 @@
+{
+  "$type": "divergence_report",
+  "schema_version": "1.0.0",
+  "divergence_id": "div_round1_forecast_lp_eps",
+  "replay_report_id": "rep-rep_replay_run001_numerical",
+  "round_index": 1,
+  "policy_id": "pol-def_forecast_lp_v1",
+  "category": "NUMERICAL_EPSILON_DEVIATION",
+  "declared_epsilon": 0.000001,
+  "observed_max_delta": 0.00000012,
+  "field_path": "proposed_decision.rationale.objective_value",
+  "original_value_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+  "replayed_value_hash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+  "details": {
+    "original_objective_value": 142.50000015,
+    "replayed_objective_value": 142.50000027,
+    "absolute_difference": 0.00000012,
+    "status": "WITHIN_DECLARED_TOLERANCE"
+  }
+}

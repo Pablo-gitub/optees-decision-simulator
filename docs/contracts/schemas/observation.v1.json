@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optees.org/schemas/simulator/v1/observation.v1.json",
+  "title": "ObservationRecord",
+  "description": "Immutable single observation record with explicit event time, knowledge time, revision number, and domain payload.",
+  "type": "object",
+  "required": [
+    "$type",
+    "schema_version",
+    "observation_id",
+    "snapshot_id",
+    "series_id",
+    "event_time",
+    "knowledge_time",
+    "revision",
+    "payload"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$type": {
+      "type": "string",
+      "const": "observation"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "observation_id": {
+      "type": "string",
+      "pattern": "^obs_[a-zA-Z0-9_-]+$"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "pattern": "^ds-snap_[a-zA-Z0-9_-]+$"
+    },
+    "series_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "event_time": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+    },
+    "knowledge_time": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

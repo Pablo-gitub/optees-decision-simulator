@@ -66,6 +66,7 @@ capability ID, contract versions, fixture hashes, and verification results.
 
 ## Phase DS-00 — Core Contracts And Threat Model
 
+- **Status:** Complete (Gate `DS-C` satisfied)
 - Freeze episode, policy, round, observation, decision, transition, account,
   metric, dataset-manifest, capability-call, and replay-report semantics.
 - Freeze event, knowledge, execution, and effective time.
@@ -77,9 +78,13 @@ capability ID, contract versions, fixture hashes, and verification results.
   process failure, resource exhaustion, report injection, and secret exposure.
 - Decide Python package layout and verification tooling.
 
-Detailed plan: `roadmaps/core-contracts-and-time-semantics.md`.
+Delivered artifacts:
+- [Core contracts & time semantics](contracts/core-contracts.md)
+- [Threat model](contracts/threat-model.md)
+- [Schema inventory](contracts/schemas/schema_inventory.json)
+- Detailed plan: [Core contracts and time semantics roadmap](roadmaps/core-contracts-and-time-semantics.md).
 
-**Gate DS-C:** contracts can be reviewed without FastAPI, SQLite, React, MCP,
+**Gate DS-C (Satisfied):** contracts can be reviewed without FastAPI, SQLite, React, MCP,
 or a market provider.
 
 ## Phase DS-01 — Deterministic Episode Kernel

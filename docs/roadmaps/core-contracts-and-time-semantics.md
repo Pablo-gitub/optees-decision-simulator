@@ -3,11 +3,14 @@
 ## Work Unit
 
 - **ID:** `DS-00`
-- **State:** ready
+- **State:** complete
 - **Type:** schema, architecture, and threat-model foundation
 - **Parent roadmap:** `../ROADMAP.md`
 - **Parallel Optees work:** `OPT-DS-01` QP contract decision
-- **Next gate:** `DS-C`
+- **Next gate:** `DS-C` (satisfied)
+- **Delivered Contracts:** [`../contracts/core-contracts.md`](../contracts/core-contracts.md)
+- **Threat Model:** [`../contracts/threat-model.md`](../contracts/threat-model.md)
+- **Schemas:** [`../contracts/schemas/`](../contracts/schemas/)
 
 ## Objective
 

@@ -1,0 +1,274 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optees.org/schemas/simulator/v1/episode_definition.v1.json",
+  "title": "EpisodeDefinition",
+  "description": "Immutable specification of a simulation episode, freezing dataset, calendar, policies, rules, and initial state.",
+  "type": "object",
+  "required": [
+    "$type",
+    "schema_version",
+    "episode_id",
+    "title",
+    "description",
+    "created_at",
+    "dataset_snapshot",
+    "calendar",
+    "policy_versions",
+    "initial_accounts",
+    "reference_resource_id",
+    "rules"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$type": {
+      "type": "string",
+      "const": "episode_definition"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "episode_id": {
+      "type": "string",
+      "pattern": "^ep-def_[a-zA-Z0-9_-]+$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "created_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+    },
+    "dataset_snapshot": {
+      "type": "object",
+      "required": [
+        "snapshot_id",
+        "source_uri",
+        "checksum_sha256",
+        "retrieval_time",
+        "calendar_frequency"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "snapshot_id": {
+          "type": "string",
+          "pattern": "^ds-snap_[a-zA-Z0-9_-]+$"
+        },
+        "source_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "checksum_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "retrieval_time": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+        },
+        "calendar_frequency": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "calendar": {
+      "type": "object",
+      "required": [
+        "round_cutoffs",
+        "interval_duration",
+        "evaluation_delay"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "round_cutoffs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          }
+        },
+        "interval_duration": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evaluation_delay": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "policy_versions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": [
+          "policy_id",
+          "policy_version_id",
+          "policy_version",
+          "policy_hash",
+          "config_hash"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "policy_id": {
+            "type": "string",
+            "pattern": "^pol-def_[a-zA-Z0-9_-]+$"
+          },
+          "policy_version_id": {
+            "type": "string",
+            "pattern": "^pol-ver_[a-zA-Z0-9_-]+$"
+          },
+          "policy_version": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+          },
+          "policy_hash": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "config_hash": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "initial_accounts": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": [
+          "policy_id",
+          "balances"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "policy_id": {
+            "type": "string",
+            "pattern": "^pol-def_[a-zA-Z0-9_-]+$"
+          },
+          "balances": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "resource_id",
+                "quantity"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "resource_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "quantity": {
+                  "type": "string",
+                  "pattern": "^-?\\d+(\\.\\d+)?$"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "reference_resource_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rules": {
+      "type": "object",
+      "required": [
+        "allow_short_positions",
+        "allow_borrowing",
+        "cost_model",
+        "failure_policy"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "allow_short_positions": {
+          "type": "boolean"
+        },
+        "allow_borrowing": {
+          "type": "boolean"
+        },
+        "cost_model": {
+          "type": "object",
+          "required": [
+            "linear_transaction_fee_rate",
+            "fixed_transaction_fee",
+            "holding_cost_rate"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "linear_transaction_fee_rate": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?$"
+            },
+            "fixed_transaction_fee": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?$"
+            },
+            "holding_cost_rate": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?$"
+            }
+          }
+        },
+        "constraints": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_transition_count_per_round": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            },
+            "max_allocation_per_resource": {
+              "type": ["string", "null"],
+              "pattern": "^\\d+(\\.\\d+)?$"
+            }
+          }
+        },
+        "failure_policy": {
+          "type": "object",
+          "required": [
+            "on_policy_error",
+            "on_solver_timeout",
+            "on_invalid_decision"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "on_policy_error": {
+              "type": "string",
+              "enum": ["REJECT_AND_HOLD", "CANCEL_EPISODE"]
+            },
+            "on_solver_timeout": {
+              "type": "string",
+              "enum": ["FALLBACK_TO_HOLD", "CANCEL_EPISODE"]
+            },
+            "on_invalid_decision": {
+              "type": "string",
+              "enum": ["REJECT_AND_HOLD", "CANCEL_EPISODE"]
+            }
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

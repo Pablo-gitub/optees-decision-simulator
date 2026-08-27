@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optees.org/schemas/simulator/v1/divergence_report.v1.json",
+  "title": "DivergenceReport",
+  "description": "Immutable record of an observed divergence between original run state and re-executed state, classified into frozen categories.",
+  "type": "object",
+  "required": [
+    "$type",
+    "schema_version",
+    "divergence_id",
+    "replay_report_id",
+    "round_index",
+    "policy_id",
+    "category",
+    "declared_epsilon",
+    "observed_max_delta",
+    "field_path",
+    "original_value_hash",
+    "replayed_value_hash",
+    "details"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$type": {
+      "type": "string",
+      "const": "divergence_report"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "divergence_id": {
+      "type": "string",
+      "pattern": "^div_[a-zA-Z0-9_-]+$"
+    },
+    "replay_report_id": {
+      "type": "string",
+      "pattern": "^rep-rep_[a-zA-Z0-9_-]+$"
+    },
+    "round_index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "policy_id": {
+      "type": "string",
+      "pattern": "^pol-def_[a-zA-Z0-9_-]+$"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "EXACT_MATCH",
+        "NUMERICAL_EPSILON_DEVIATION",
+        "NUMERICAL_TOLERANCE_EXCEEDED",
+        "DECISION_DIVERGENCE",
+        "VALIDATION_STATUS_CHANGE",
+        "TIMEOUT_OR_TERMINAL_FAILURE",
+        "ENVIRONMENT_INCOMPATIBILITY"
+      ]
+    },
+    "declared_epsilon": {
+      "type": ["number", "null"],
+      "minimum": 0
+    },
+    "observed_max_delta": {
+      "type": ["number", "null"],
+      "minimum": 0
+    },
+    "field_path": {
+      "type": ["string", "null"]
+    },
+    "original_value_hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "replayed_value_hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "details": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

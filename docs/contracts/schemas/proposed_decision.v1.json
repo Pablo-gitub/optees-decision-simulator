@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optees.org/schemas/simulator/v1/proposed_decision.v1.json",
+  "title": "ProposedDecision",
+  "description": "Domain-neutral decision proposal emitted by a policy at a given round knowledge cutoff.",
+  "type": "object",
+  "required": [
+    "$type",
+    "schema_version",
+    "decision_id",
+    "round_id",
+    "policy_id",
+    "policy_version_id",
+    "knowledge_cutoff",
+    "generated_at",
+    "desired_allocations",
+    "requested_actions",
+    "rationale"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$type": {
+      "type": "string",
+      "const": "proposed_decision"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "decision_id": {
+      "type": "string",
+      "pattern": "^dec-prop_[a-zA-Z0-9_-]+$"
+    },
+    "round_id": {
+      "type": "string",
+      "pattern": "^rnd_[a-zA-Z0-9_-]+$"
+    },
+    "policy_id": {
+      "type": "string",
+      "pattern": "^pol-def_[a-zA-Z0-9_-]+$"
+    },
+    "policy_version_id": {
+      "type": "string",
+      "pattern": "^pol-ver_[a-zA-Z0-9_-]+$"
+    },
+    "knowledge_cutoff": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+    },
+    "generated_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+    },
+    "desired_allocations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "resource_id",
+          "target_quantity"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "resource_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_quantity": {
+            "type": "string",
+            "pattern": "^-?\\d+(\\.\\d+)?$"
+          }
+        }
+      }
+    },
+    "requested_actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "action_type",
+          "resource_id",
+          "quantity"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "action_type": {
+            "type": "string",
+            "enum": ["TRANSFER", "HOLD", "ADJUST", "ALLOCATE"]
+          },
+          "resource_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^-?\\d+(\\.\\d+)?$"
+          },
+          "parameters": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "rationale": {
+      "type": "object",
+      "required": [
+        "method"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "objective_value": {
+          "type": ["number", "null"]
+        },
+        "solver_status": {
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}
