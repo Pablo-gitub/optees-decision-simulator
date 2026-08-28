@@ -114,14 +114,89 @@ Only after review may `DS-02B` begin.
 
 ## Micro-gate B — Synthetic Market Semantics (`DS-02B`)
 
-Implement only pure normalization and semantic rules against small synthetic
-fixtures: stable, trend, reversal, volatile, missing-day and structural-break
-series. Prove UTC handling, knowledge cutoffs, revisions, deterministic order,
-finite values, asset identity and calendar behavior. Do not access the chosen
-provider.
+Implement only deterministic normalization and semantic rules against small,
+repository-owned synthetic Binance-shaped records. This gate establishes the
+pure seam used by the later network adapter; it must not retrieve, cache, or
+redistribute provider data.
+
+### Required pre-implementation comparison
+
+Before editing, record in the implementation report how the design reuses:
+
+- `domain.models.ObservationRecord` and `DatasetSnapshotManifest`;
+- `application.services.EligibilityService`;
+- `application.ports.DatasetPort` and the existing `SyntheticDatasetAdapter`;
+- canonical JSON, decimal, UTC, identity, and hashing helpers already shipped;
+- `docs/contracts/market-dataset-provenance.md` and the v1 JSON Schemas.
+
+Do not add a second observation, timestamp, canonicalization, or hashing model.
+
+### Authorized implementation
+
+- Add a pure market normalization component in `infrastructure`, behind a
+  narrow input DTO representing one already-decoded 12-field kline row. It may
+  depend inward on domain/application contracts but performs no I/O.
+- Decode Unix milliseconds before 2025-01-01 and Unix microseconds from that
+  date onward without truncating the upstream close instant. Reject ambiguous,
+  inconsistent, non-integral, negative, or out-of-range timestamp values.
+- Preserve price and volume text as canonical decimal strings. Require positive
+  OHLC prices; allow non-negative base/quote/taker volumes and trade counts;
+  reject booleans, exponent notation if outside the frozen decimal grammar,
+  NaN, infinity, negative volume, malformed rows, and `high/low` contradictions.
+- Map only the four frozen symbols and interval `1d` to the reviewed resource
+  and series IDs. Reject unknown symbols/intervals rather than guessing.
+- Assign `event_time` from exact upstream `close_time` and conservative
+  historical `knowledge_time = (D+2)T00:00:00Z`. Never use retrieval time as a
+  substitute for either field.
+- Accept an explicit acquisition revision and snapshot ID supplied by the
+  caller. Upstream replacements become new immutable revisions; the normalizer
+  does not overwrite or deduplicate them.
+- Normalize batches in deterministic `(series_id, event_time, revision)` order,
+  reject duplicate identities, and build the existing manifest with the
+  existing canonical hash helpers. Hash only normalized output at this gate;
+  raw and manifest acquisition hashes remain `DS-02C` responsibilities.
+
+### Required synthetic fixtures and tests
+
+- Stable, trend, reversal, volatile, missing-day, and structural-break series.
+- Boundary rows immediately before and from 2025-01-01 proving millisecond and
+  microsecond decoding and retained sub-second precision.
+- Exact D+2 knowledge cutoff tests through the production
+  `EligibilityService`: D+1 is ineligible and D+2 is eligible.
+- Zero-volume valid rows and invalid zero/negative prices.
+- Missing day preserved as absence, with no forward fill.
+- Two acquisitions of the same event produce ordered immutable revisions and
+  distinct normalized hashes when content changes.
+- Input permutation produces identical normalized ordering and snapshot hash;
+  repeated execution is byte-for-byte deterministic.
+- Schema round-trip of produced observations and manifest against the actual
+  authoritative v1 schemas, not copies embedded in tests.
+- Existing 45-test kernel suite, architecture-boundary test, Ruff, and format
+  checks remain green.
+
+### Explicit exclusions
+
+- no HTTP client, network access, provider SDK, ZIP/CSV filesystem reader,
+  cache directory, real archive, API key, or raw dataset committed;
+- no acquisition receipt/sidecar, publisher checksum verification, or offline
+  cache adapter (`DS-02C`);
+- no valuation, execution price, fees, slippage, policy, baseline episode,
+  database, API, Optees integration, or UI work;
+- no claim that a synthetic test proves upstream availability, licence rights,
+  or archive immutability.
+
+### Stop conditions
+
+Stop without inventing a parallel contract if the existing observation or
+manifest schema cannot preserve exact event time, revision, decimal payload,
+or the required normalized hash. Stop if fulfilling the gate would require a
+network call, a real provider artifact, or changes to the frozen valuation and
+execution-price boundary.
 
 **Gate `DS-D1`:** synthetic raw records normalize deterministically into
-episode-ready observations with frozen hashes and anti-leakage tests.
+episode-ready existing v1 observations and manifests; production eligibility,
+schema, canonicalization, and hashing code—not duplicated test logic—prove
+determinism and the conservative anti-leakage boundary.
 
 ## Micro-gate C — Retrieval And Immutable Snapshot Adapter (`DS-02C`)
 
@@ -155,7 +230,7 @@ or add Optees-backed policies. Negative and neutral results remain valid.
 the same baseline episode hashes. Only then may `DS-03` persistence/API work
 or production Optees policies begin.
 
-## First Authorized Implementation
+## Next implementation boundary
 
-Only `DS-02A` is currently authorized. Sections B–E define later reviewed
-work units and must not be implemented by the first agent prompt.
+`DS-02A` is complete after review. `DS-02B` is the only next implementation
+authorized by this roadmap; sections C–E remain later, separately reviewed work units.

@@ -140,7 +140,10 @@ and the analytic episode asserts committed golden round and account hashes.
 - Defined conservative four-time temporal semantics, upstream replacement handling, and three-tier SHA-256 hash boundaries.
 - Frozen chronological historical partitions: Exploratory (P0: 2024-H1), Calibration (P1: 2024-H2), Retrospective Holdout (P2: 2025-H1), Retrospective Stress (P3: 2025-H2); a true prospective interval must be precommitted later.
 - Added valid canonical manifest example [`contracts/examples/valid/market_dataset_manifest.v1.json`](contracts/examples/valid/market_dataset_manifest.v1.json).
-- Planned micro-gates: `DS-02B` (Synthetic Market Semantics), `DS-02C` (Retrieval & Snapshot Adapter), `DS-02D` (Market Valuation & Transition Rules), `DS-02E` (Baseline Episodes).
+- Next authorized micro-gate: `DS-02B` (Synthetic Market Semantics), now
+  decomposed into production-linked normalization, temporal, schema, and hash
+  evidence. Later gates remain `DS-02C` (Retrieval & Snapshot Adapter),
+  `DS-02D` (Market Valuation & Transition Rules), and `DS-02E` (Baseline Episodes).
 
 Detailed plan: [Market dataset and baseline evidence](roadmaps/market-dataset-and-baseline-evidence.md).
 
