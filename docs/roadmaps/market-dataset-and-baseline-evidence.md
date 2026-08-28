@@ -207,18 +207,89 @@ determinism and the conservative anti-leakage boundary.
 - **Schema Roundtrip:** Verified roundtrip validation of generated observations and manifest against real `docs/contracts/schemas/` v1 JSON schemas.
 - **Synthetic Fixtures & Test Coverage:** Shipped 6 synthetic fixture families (stable, trend, reversal, volatile, missing-day, structural-break) and 18 focused tests (63 total backend tests passing).
 
-Only after review may `DS-02C` begin.
+The review corrections are complete. Only `DS-02C1` may begin next.
 
 ## Micro-gate C — Retrieval And Immutable Snapshot Adapter (`DS-02C`)
 
-Implement one bounded provider adapter behind the existing dataset port. It
-must retain the raw artifact, retrieval metadata, checksum, parser version and
-normalized manifest; support an explicit offline replay path; and reject
-unexpected schema or upstream corrections rather than silently accepting
-them. Network-dependent checks are separated from the deterministic gate.
+This stage is split into three separately reviewed units. A real network call
+is never evidence for the deterministic gate and must not be combined with the
+first two units.
 
-**Gate `DS-D2`:** an approved raw snapshot can be acquired once and replayed
-offline into the exact normalized hash.
+### Micro-gate C1 — Acquisition Evidence Contract (`DS-02C1`)
+
+Freeze and implement only the provider-neutral acquisition receipt and pure
+hash-verification rules needed to connect raw bytes, normalized observations,
+and the existing manifest. No filesystem or network I/O is authorized.
+
+Before editing, compare and report `DatasetSnapshotManifest`, its authoritative
+schema/example, canonical JSON/hash helpers, `DatasetPort`, and the reviewed
+market provenance contract. Do not add raw or manifest hashes to
+`dataset_snapshot.v1.json` and do not create a second manifest type.
+
+Add one versioned acquisition-receipt schema, inventory entry, immutable Python
+record, valid example, and invalid contract fixtures. Its responsibilities are:
+
+- acquisition identity and referenced `snapshot_id`;
+- exact provider archive URI/name and publisher checksum URI;
+- actual UTC retrieval time supplied by the caller, never a default/current
+  time read inside pure code;
+- publisher-declared SHA-256, locally computed raw archive SHA-256, and raw byte size;
+- normalizer identity/version and normalized snapshot SHA-256, equal to the
+  existing manifest `checksum_sha256`;
+- canonical hash of the existing manifest, computed with the shipped helper;
+- explicit accepted/rejected verification outcome and bounded machine-readable reasons;
+- licence text no stronger than the reviewed provenance contract;
+- no local path, credential, response header, token, cookie, or raw content.
+
+Pure verification accepts bytes and typed metadata from its caller, parses one
+strict publisher checksum line, requires lowercase 64-hex SHA-256 values with
+the repository `sha256:` prefix internally, uses constant-time digest
+comparison, binds receipt/manifest snapshot IDs, and fails on mismatched raw,
+normalized, or manifest hashes. Identical explicit inputs produce identical
+records and hashes.
+
+Tests load the real schemas and cover valid evidence, malformed checksum text,
+wrong filename, uppercase/short/non-hex digest, raw mutation, normalized and
+manifest mismatch, snapshot mismatch, ambiguous/non-UTC retrieval time,
+incorrect byte size, secret/path rejection, deterministic repetition, and
+schema round-trip.
+
+Explicit exclusions: no HTTP, DNS, provider SDK, ZIP/CSV parsing,
+filesystem/cache, atomic writes, extraction, real Binance bytes, `DatasetPort`
+implementation, valuation, API, database, Optees, or UI.
+
+Stop if the receipt cannot reference the existing manifest without changing
+its schema, canonical manifest hashing is ambiguous, or a fact cannot be
+established from caller-supplied evidence.
+
+**Gate `DS-D2A`:** production canonicalization plus pure byte/hash probes bind
+one raw artifact to one existing normalized manifest without I/O or unsupported
+legal claims.
+
+### Micro-gate C2 — Bounded Offline Snapshot Adapter (`DS-02C2`)
+
+After `DS-D2A` review, implement bounded local storage, safe ZIP/CSV decoding,
+checksum-first acceptance, atomic writes, immutable acquisition versions, and
+an offline `DatasetPort` adapter using miniature synthetic archives only.
+Prevent traversal, symlinks, decompression bombs, duplicate members, unexpected
+filenames/columns, partial writes, overwrite, and unbounded records/bytes.
+
+**Gate `DS-D2B`:** a synthetic acquired snapshot reopens offline and reproduces
+byte-for-byte observations, manifest, receipt, and hashes under failure injection.
+
+### Micro-gate C3 — Optional Provider Fetcher (`DS-02C3`)
+
+After `DS-D2B` review, add a bounded HTTPS fetcher behind an application-owned
+acquisition port. Redirect, host, timeout, byte-count, content-type,
+archive-name, and checksum policies are explicit. Deterministic tests use a
+fake transport; a live-provider smoke is optional, marked, and never required
+for offline CI or gate acceptance. Replacement creates a new immutable
+acquisition and never overwrites accepted evidence.
+
+**Gate `DS-D2C`:** fake-transport tests prove acquisition behavior; an optional
+live smoke remains separate from frozen outputs.
+
+**Gate `DS-D2`:** achieved only after `DS-D2A`, `DS-D2B`, and `DS-D2C` review.
 
 ## Micro-gate D — Market Valuation And Transition Rules (`DS-02D`)
 
@@ -243,5 +314,5 @@ or production Optees policies begin.
 
 ## Next implementation boundary
 
-`DS-02A` is complete after review. `DS-02B` is the only next implementation
-authorized by this roadmap; sections C–E remain later, separately reviewed work units.
+`DS-02A/B` are complete after review. `DS-02C1` is the only next implementation
+authorized here. C2–E remain later, separately reviewed work units.

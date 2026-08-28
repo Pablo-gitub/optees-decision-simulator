@@ -141,7 +141,10 @@ and the analytic episode asserts committed golden round and account hashes.
 - Frozen chronological historical partitions: Exploratory (P0: 2024-H1), Calibration (P1: 2024-H2), Retrospective Holdout (P2: 2025-H1), Retrospective Stress (P3: 2025-H2); a true prospective interval must be precommitted later.
 - Implemented pure market kline infrastructure normalizer (`simulator.infrastructure.adapters.market_normalizer`), exact sub-second timestamp boundary decoding (ms < 2025 <= us), and D+2 knowledge cutoff anti-leakage eligibility.
 - Built and validated synthetic fixtures (stable, trend, reversal, volatile, missing-day, structural-break) and verified schema roundtrip against real v1 contracts.
-- Next authorized micro-gate: `DS-02C` (Retrieval & Snapshot Adapter). Later gates remain `DS-02D` (Market Valuation & Transition Rules), and `DS-02E` (Baseline Episodes).
+- Next authorized micro-gate: `DS-02C1` (Acquisition Evidence Contract).
+  Retrieval is decomposed into `DS-02C1` evidence, `DS-02C2` bounded offline
+  replay, and `DS-02C3` optional provider fetching. Later gates remain
+  `DS-02D` (Market Valuation & Transition Rules) and `DS-02E` (Baseline Episodes).
 
 Detailed plan: [Market dataset and baseline evidence](roadmaps/market-dataset-and-baseline-evidence.md).
 
