@@ -5,10 +5,12 @@
 - **State:** in progress
 - **Authority:** this document owns Simulator sequencing and cross-repository
   integration gates
-- **Current detailed work unit:** `roadmaps/deterministic-episode-kernel.md`
+- **Latest completed detailed work unit:** `roadmaps/deterministic-episode-kernel.md`
+- **Next detailed work unit:** not yet defined
 - **Optees program dependency:** `docs/roadmaps/case-study/ROADMAP.md`
   in the sibling Optees repository
-- **Current implementation:** documentation only
+- **Current implementation:** core contracts and deterministic episode kernel
+  implemented; market-data integration and later phases remain planned
 
 ## Product Thesis
 
@@ -63,6 +65,22 @@ sides of the same unfrozen contract.
 
 Each integration checkpoint records repository commits, Optees version,
 capability ID, contract versions, fixture hashes, and verification results.
+
+## Progress Overview
+
+| Done | Phase | Current state |
+| --- | --- | --- |
+| [x] | `DS-00` — Core Contracts And Threat Model | `DS-C` satisfied |
+| [x] | `DS-01` — Deterministic Episode Kernel | `DS-K` satisfied |
+| [ ] | `DS-02` — Market Dataset And Baseline Evidence | Not started |
+| [ ] | `DS-03` — Persistence, API, And Existing Optees Capabilities | Not started |
+| [ ] | `DS-04` — Convex QP Policy Family | QP prerequisite satisfied; not started |
+| [ ] | `DS-05` — Scenario Min-max And Max-min Policies | Awaiting `ROBUST-C` |
+| [ ] | `DS-06` — Evidence-driven Forecasting Expansion | Awaiting `FC-E` scope |
+| [ ] | `DS-07` — Convex MIQP Policy Family | Awaiting `MIQP-I` |
+| [ ] | `DS-08` — Workflow Registration Study | Awaiting `WF-R` |
+| [ ] | `DS-09` — Web Inspection And Publishable Case Study | Not started |
+| [ ] | `DS-10` — Generalization Decisions | Not started |
 
 ## Phase DS-00 — Core Contracts And Threat Model
 
@@ -148,7 +166,7 @@ episode with reproducible provenance.
 
 ## Phase DS-04 — Convex QP Policy Family
 
-Blocked until Optees gate `QP-I`.
+Optees gate `QP-I` is satisfied; this phase has not started.
 
 - Consume the frozen Convex QP descriptor and fixtures.
 - Add domain-specific formulators for return/risk, concentration, target
