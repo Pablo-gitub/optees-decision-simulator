@@ -11,19 +11,19 @@ from pathlib import Path
 import pytest
 
 from simulator.application.services.eligibility import EligibilityService
-from simulator.application.services.market_normalizer import (
+from simulator.domain.errors import (
+    DuplicateIdentityError,
+    InvalidTimestampError,
+    NonFiniteNumberError,
+    SimulatorError,
+)
+from simulator.infrastructure.adapters.market_normalizer import (
     ALLOWED_MARKET_SYMBOLS,
     RawKlineRecord,
     build_market_snapshot_manifest,
     compute_normalized_snapshot_hash,
     normalize_kline_records,
     normalize_single_kline,
-)
-from simulator.domain.errors import (
-    DuplicateIdentityError,
-    InvalidTimestampError,
-    NonFiniteNumberError,
-    SimulatorError,
 )
 
 try:
@@ -318,6 +318,10 @@ def test_invalid_numbers_and_inconsistent_ohlc_rejection() -> None:
     with pytest.raises(NonFiniteNumberError):
         normalize_single_kline(rec_nan, snapshot_id="ds-snap_inv_v1")
 
+    rec_exponent = make_kline_ms("BTCUSDT", 0, "4e4", "43000.00", "39000.00", "40000.00")
+    with pytest.raises(ValueError, match="without an exponent"):
+        normalize_single_kline(rec_exponent, snapshot_id="ds-snap_inv_v1")
+
 
 def test_unsupported_symbol_or_interval_rejection() -> None:
     # Unsupported symbol
@@ -410,6 +414,8 @@ def test_input_permutations_yield_deterministic_ordering_and_hash() -> None:
         assert obs_shuffled == obs_base
         assert hash_shuffled == hash_base
 
+    assert compute_normalized_snapshot_hash(tuple(reversed(obs_base))) == hash_base
+
 
 def test_repeated_executions_byte_for_byte_deterministic() -> None:
     raw_records = create_trend_series("BNBUSDT", length=5)
@@ -454,3 +460,18 @@ def test_manifest_builder_and_schema_roundtrip() -> None:
     assert manifest.byte_size > 0
     assert manifest.checksum_sha256.startswith("sha256:")
     assert len(manifest.series_catalog) == 4
+
+    reversed_manifest = build_market_snapshot_manifest(
+        tuple(reversed(observations)),
+        snapshot_id="ds-snap_binance_market_v1",
+        source_uri="https://data.binance.vision/data/spot/daily/klines/",
+        retrieval_time="2026-08-28T00:00:00Z",
+    )
+    assert reversed_manifest.checksum_sha256 == manifest.checksum_sha256
+
+    with pytest.raises(ValueError, match="manifest snapshot_id"):
+        build_market_snapshot_manifest(
+            observations,
+            snapshot_id="ds-snap_different_v1",
+            retrieval_time="2026-08-28T00:00:00Z",
+        )

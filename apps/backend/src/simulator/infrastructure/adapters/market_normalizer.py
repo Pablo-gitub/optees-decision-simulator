@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-import math
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -50,17 +50,17 @@ class RawKlineRecord:
 
     symbol: str
     open_time: int
-    open: str | int | float | Decimal
-    high: str | int | float | Decimal
-    low: str | int | float | Decimal
-    close: str | int | float | Decimal
-    volume: str | int | float | Decimal
+    open: str
+    high: str
+    low: str
+    close: str
+    volume: str
     close_time: int
-    quote_volume: str | int | float | Decimal
+    quote_volume: str
     count: int
-    taker_buy_volume: str | int | float | Decimal
-    taker_buy_quote_volume: str | int | float | Decimal
-    ignore: str | Any = "0"
+    taker_buy_volume: str
+    taker_buy_quote_volume: str
+    ignore: str = "0"
     interval: str = "1d"
 
 
@@ -80,29 +80,29 @@ def _format_subsecond_utc(dt: datetime, precision: int) -> str:
         return f"{base}Z"
 
 
+_PLAIN_DECIMAL = re.compile(r"^-?\d+(?:\.\d+)?$")
+
+
 def _parse_decimal_field(name: str, value: Any, allow_zero: bool = False) -> Decimal:
     """Parse and validate a numeric field into a finite positive or non-negative Decimal."""
-    if isinstance(value, bool):
-        raise NonFiniteNumberError(f"Field {name} cannot be a boolean: {value!r}")
-
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            raise NonFiniteNumberError(f"Field {name} has non-finite float value: {value!r}")
-
-    if isinstance(value, str):
-        cleaned = value.strip()
-        if not cleaned:
-            raise ValueError(f"Field {name} cannot be an empty string")
-        value_str = cleaned
-    else:
-        value_str = str(value)
+    if not isinstance(value, str):
+        if isinstance(value, (bool, float, Decimal)):
+            raise NonFiniteNumberError(
+                f"Field {name} must preserve the upstream plain-decimal text, got {value!r}"
+            )
+        raise ValueError(f"Field {name} must be a decimal string, got {type(value).__name__}")
+    value_str = value.strip()
+    if not _PLAIN_DECIMAL.fullmatch(value_str):
+        raise ValueError(
+            f"Field {name} must use plain decimal notation without an exponent, got {value!r}"
+        )
 
     try:
         dec = Decimal(value_str)
     except Exception as exc:
         raise ValueError(f"Field {name} is not a valid decimal representation: {value!r}") from exc
 
-    if not math.isfinite(float(dec)):
+    if not dec.is_finite():
         raise NonFiniteNumberError(f"Field {name} resolved to non-finite Decimal: {dec}")
 
     if allow_zero:
@@ -170,8 +170,9 @@ def normalize_single_kline(
                 f"got {duration} ms"
             )
         try:
-            open_dt = datetime.fromtimestamp(record.open_time / 1000.0, tz=timezone.utc)
-            close_dt = datetime.fromtimestamp(record.close_time / 1000.0, tz=timezone.utc)
+            epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+            open_dt = epoch + timedelta(milliseconds=record.open_time)
+            close_dt = epoch + timedelta(milliseconds=record.close_time)
         except (OverflowError, ValueError) as exc:
             raise InvalidTimestampError(f"Failed to parse millisecond timestamp: {exc}") from exc
 
@@ -190,8 +191,9 @@ def normalize_single_kline(
                 f"got {duration} us"
             )
         try:
-            open_dt = datetime.fromtimestamp(record.open_time / 1_000_000.0, tz=timezone.utc)
-            close_dt = datetime.fromtimestamp(record.close_time / 1_000_000.0, tz=timezone.utc)
+            epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+            open_dt = epoch + timedelta(microseconds=record.open_time)
+            close_dt = epoch + timedelta(microseconds=record.close_time)
         except (OverflowError, ValueError) as exc:
             raise InvalidTimestampError(f"Failed to parse microsecond timestamp: {exc}") from exc
 
@@ -314,26 +316,25 @@ def normalize_kline_records(
 
 def compute_normalized_snapshot_hash(observations: Sequence[ObservationRecord]) -> str:
     """Compute SHA-256 digest over the RFC 8785 canonical JSONL stream."""
-    canonical_lines = [canonicalize_json(obs.to_dict()) for obs in observations]
+    ordered = _ordered_unique_observations(observations)
+    canonical_lines = [canonicalize_json(obs.to_dict()) for obs in ordered]
     stream_bytes = "\n".join(canonical_lines).encode("utf-8")
     digest = hashlib.sha256(stream_bytes).hexdigest()
     return f"sha256:{digest}"
 
 
-DEFAULT_MARKET_LICENSE = (
-    "Binance Public Data Terms (Open Historical Archive for Research & Analysis)"
-)
+DEFAULT_MARKET_LICENSE = "Upstream repository labelled MIT; raw archive redistribution not asserted"
 DEFAULT_MARKET_CORRECTIONS = (
-    "Immutable historical bars; explicit revisions sequenced with revision "
-    "numbers and knowledge timestamps"
+    "Upstream archives may be replaced; each acquisition and normalized revision "
+    "is retained immutably"
 )
 
 
 def build_market_snapshot_manifest(
     observations: Sequence[ObservationRecord],
     snapshot_id: str,
+    retrieval_time: str,
     source_uri: str = "https://data.binance.vision/data/spot/daily/klines/",
-    retrieval_time: str = "2026-08-28T00:00:00Z",
     license_str: str = DEFAULT_MARKET_LICENSE,
     correction_handling: str = DEFAULT_MARKET_CORRECTIONS,
 ) -> DatasetSnapshotManifest:
@@ -342,10 +343,13 @@ def build_market_snapshot_manifest(
         raise ValueError("Cannot build manifest from empty observation sequence")
 
     parse_utc_timestamp(retrieval_time)
+    ordered = _ordered_unique_observations(observations)
+    if any(observation.snapshot_id != snapshot_id for observation in ordered):
+        raise ValueError("Every observation must reference the manifest snapshot_id")
 
     # Group earliest and latest event times per series
     series_catalog_map: dict[str, dict[str, str]] = {}
-    for obs in observations:
+    for obs in ordered:
         s_id = obs.series_id
         if s_id not in series_catalog_map:
             # Look up resource_id from allowed symbols
@@ -378,7 +382,7 @@ def build_market_snapshot_manifest(
         for s_id, data in sorted(series_catalog_map.items(), key=lambda x: x[0])
     )
 
-    canonical_lines = [canonicalize_json(obs.to_dict()) for obs in observations]
+    canonical_lines = [canonicalize_json(obs.to_dict()) for obs in ordered]
     stream_bytes = "\n".join(canonical_lines).encode("utf-8")
     byte_size = len(stream_bytes)
     checksum = f"sha256:{hashlib.sha256(stream_bytes).hexdigest()}"
@@ -394,3 +398,25 @@ def build_market_snapshot_manifest(
         series_catalog=catalog_items,
         correction_handling=correction_handling,
     )
+
+
+def _ordered_unique_observations(
+    observations: Sequence[ObservationRecord],
+) -> tuple[ObservationRecord, ...]:
+    ordered = tuple(
+        sorted(
+            observations,
+            key=lambda item: (item.series_id, item.event_time, item.revision),
+        )
+    )
+    seen: set[tuple[str, str, int]] = set()
+    for observation in ordered:
+        identity = (
+            observation.series_id,
+            observation.event_time,
+            observation.revision,
+        )
+        if identity in seen:
+            raise DuplicateIdentityError(f"Duplicate normalized observation identity: {identity}")
+        seen.add(identity)
+    return ordered

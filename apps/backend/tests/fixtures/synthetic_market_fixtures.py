@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from simulator.application.services.market_normalizer import RawKlineRecord
+from simulator.infrastructure.adapters.market_normalizer import RawKlineRecord
 
 
 def make_kline_ms(
