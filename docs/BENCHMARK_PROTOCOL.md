@@ -22,7 +22,7 @@ No observation may influence a decision before its knowledge time.
 Before execution, freeze:
 
 - dataset source, license, checksum, and retrieval time;
-- public calibration and private evaluation intervals;
+- exploratory, calibration, retrospective holdout/stress, and any separately precommitted prospective intervals;
 - initial resources and reference unit;
 - decision calendar and cutoff;
 - valuation and transition rules;
@@ -83,13 +83,13 @@ dataset before making broad claims about policy quality.
 
 ## Anti-Leakage Rules
 
-- chronological splits only (Exploratory P0, Calibration P1, Private Evaluation P2, Forward Stress P3);
-- strictly no tuning or parameter adjustment on the private evaluation interval (P2) or forward interval (P3);
+- chronological splits only (Exploratory P0, Calibration P1, Retrospective Holdout P2, Retrospective Stress P3, plus any separately precommitted prospective partition);
+- strictly no tuning or parameter adjustment after inspecting the retrospective holdout/stress intervals (P2/P3) or any prospective interval;
 - no retrospective replacement of failed decisions;
 - no policy-specific data corrections;
 - no selection of only favorable episode windows or asset subsets after observing strategy returns;
 - no access to another policy's state;
-- all exploratory, calibration, private, and forward episodes labeled
+- all exploratory, calibration, retrospective, and prospective episodes labeled
   separately.
 
 ## Publication Rules

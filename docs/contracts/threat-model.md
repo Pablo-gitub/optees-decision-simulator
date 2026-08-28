@@ -191,22 +191,21 @@ flowchart TB
   - The simulator is strictly **paper-only**: no brokerage SDKs, exchange connectors, or wallet signing libraries exist in the repository dependencies.
   - `virtual_account_state` and `transition_record` exist solely in the local simulator database.
   - Architecture explicitly forbids adding order-execution adapters.
-- **Residual Risk:** None. The codebase contains no execution interfaces.
+- **Residual Risk:** Low while the architectural prohibition and dependency checks remain enforced.
 
 ### Threat Vector 13: Lookahead via Incomplete Daily Bar Leakage
-- **Description:** A decision policy is allowed to consume daily bar metrics for day $D$ while day $D$ is still in progress (i.e. before $t_{event} = D\text{T23:59:59Z}$ and $t_{knowledge} = (D+1)\text{T00:00:00Z}$), creating severe lookahead bias.
-- **Attack / Failure Mode:** Dataset parser assigns $t_{knowledge} = D\text{T00:00:00Z}$ instead of $(D+1)\text{T00:00:00Z}$; policy trading at 12:00:00Z uses the 23:59:59Z close price.
+- **Description:** A decision policy consumes a completed daily bar before its conservatively assigned availability time, or executes at the already-known closing price.
+- **Attack / Failure Mode:** Dataset parsing backdates knowledge or conflates the valuation mark with a transaction execution price.
 - **Mitigation:**
-  - The provenance contract formally pins $t_{event} = D\text{T23:59:59Z}$ and $t_{knowledge} = (D+1)\text{T00:00:00Z}$.
-  - At knowledge cutoff $T_k = (D+1)\text{T00:00:00Z}$, only bars with $t_{knowledge} \le T_k$ are eligible.
-  - Runtime assertions in `EligibilityService` enforce $t_{knowledge} \le T_k$ and raise `TemporalLeakageError` on violation.
-- **Residual Risk:** Zero; mathematically guarded by the eligibility engine.
+  - The provenance contract preserves exact upstream close time and assigns historical `knowledge_time = (D+2)T00:00:00Z` unless a verifiable first-observed instant exists.
+  - The existing eligibility service enforces `knowledge_time <= cutoff`; `DS-02D` must separately freeze post-decision execution pricing.
+- **Residual Risk:** Medium until the market normalizer and execution-price contract are implemented and tested; low thereafter, never zero.
 
 ### Threat Vector 14: Upstream Restatement & Silent Historical Rewrites
 - **Description:** An upstream market data provider restates, adjusts, or silently rewrites historical observations without updating timestamps or revision counters, invalidating previously recorded episode hashes.
 - **Attack / Failure Mode:** Unofficial scrapers (e.g. Yahoo Finance) rewrite past series with split/dividend adjustments; dynamic REST responses drift over time.
 - **Mitigation:**
-  - The simulator mandates static, immutable, checksummed archives (e.g. Binance Vision public static dumps) with three-tier SHA-256 hash boundaries (`raw_artifact_hash`, `normalized_snapshot_hash`, `manifest_hash`).
+  - Each acquisition is immutable even when the publisher replaces an archive, with three-tier SHA-256 boundaries (`raw_artifact_hash`, `normalized_snapshot_hash`, `manifest_hash`).
   - Restatements must be explicitly modeled with incremented `revision` numbers and updated `knowledge_time`.
   - Replay verification asserts bit-for-bit snapshot hash equality; any silent upstream change is immediately flagged as a hash divergence.
 - **Residual Risk:** Low; guarded by static snapshot manifests and checksum assertions.
@@ -218,7 +217,7 @@ flowchart TB
   - Simulation runs are strictly decoupled from live network ingest.
   - The simulator operates 100% offline against pre-fetched, locally cached, checksum-verified snapshot artifacts.
   - If a snapshot file is missing or corrupted, the run fails immediately with a deterministic `ResourceNotFoundError` or `ChecksumMismatchError` rather than making dynamic unpinned HTTP calls.
-- **Residual Risk:** Very Low; offline snapshot cache provides full test isolation.
+- **Residual Risk:** Medium until the `DS-02C` cache and acquisition adapter exist; low for accepted offline snapshots thereafter.
 
 ---
 
@@ -234,7 +233,7 @@ flowchart TB
 | Solver Timeout / Crash | Medium | Medium | High (Receipts, Frozen Fallback Policies) | Low |
 | Resource Exhaustion | Medium | Low | High (Hard Caps, Streamed Ingestion) | Low |
 | Accidental Live Orders | Critical | Zero | Absolute (No Brokerage Connectors) | Zero |
-| Lookahead Bar Leakage | Critical | Low | Absolute (Formal (D+1) Knowledge Time) | Zero |
+| Lookahead Bar Leakage | Critical | Medium | Partial until DS-02D (conservative knowledge cutoff plus future execution-price contract) | Medium |
 | Silent Upstream Rewrites | High | Low | High (Three-Tier Checksum Boundaries) | Very Low |
 | Upstream Outage Drift | Medium | Low | High (Offline Local Snapshot Cache) | Very Low |
 

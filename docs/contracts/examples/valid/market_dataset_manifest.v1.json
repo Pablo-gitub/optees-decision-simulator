@@ -4,7 +4,7 @@
   "snapshot_id": "ds-snap_binance_spot_1d_v1",
   "source_uri": "https://data.binance.vision/data/spot/daily/klines/",
   "retrieval_time": "2026-08-28T00:00:00Z",
-  "license": "Binance Public Data Terms (Open Historical Archive for Research & Analysis)",
+  "license": "Upstream repository labelled MIT; raw archive redistribution not asserted",
   "checksum_sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
   "byte_size": 1048576,
   "format": "JSONL",
@@ -42,5 +42,5 @@
       "latest_event_time": "2025-12-31T23:59:59Z"
     }
   ],
-  "correction_handling": "Immutable historical bars; explicit revisions sequenced with revision numbers and knowledge timestamps"
+  "correction_handling": "Upstream archives may be replaced; each acquisition and normalized revision is retained immutably"
 }

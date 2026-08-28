@@ -62,7 +62,7 @@ Select the first dataset and freeze, without production retrieval code:
 - missing, duplicate, late, corrected and delisted observations;
 - event time, knowledge time and retrieval time derivation;
 - raw artifact, normalized snapshot and manifest hash boundaries;
-- exploratory, calibration, private evaluation and forward-period rules;
+- exploratory, calibration, retrospective holdout/stress, and prospective-period rules;
 - offline/cache behavior and source-unavailable failure semantics;
 - secret-free operation and maximum download/resource bounds.
 
@@ -98,14 +98,15 @@ Stop if the license is ambiguous, reproducible historical retrieval is not
 available, timestamp/adjustment semantics cannot be established, or the source
 requires credentials for the intended public case-study path.
 
-**Gate `DS-D0` (Satisfied):** the source and provenance contract are reviewable without
-network access or production code.
+**Gate `DS-D0` (Satisfied after review correction):** the source and provenance
+contract are reviewable without production code. Primary evidence was checked
+during review; raw archive redistribution is deliberately outside the contract.
 
 ### Gate `DS-D0` Evidence Delivered:
 - **Candidate Comparison:** Evaluated Binance Public Data Archive, Yahoo Finance, Commercial REST Free Tiers (Alpha Vantage / Polygon.io), and Coinbase REST in [`docs/contracts/market-dataset-provenance.md`](../contracts/market-dataset-provenance.md).
-- **Selection & Legal Provenance:** Selected Binance Public Historical Data Archive (`data.binance.vision`) for 1d spot klines; documented license, open retrieval protocol, zero-credential requirement, 24/7 continuous calendar, and reference quote asset `USDT`.
-- **Temporal Alignment & Timelines:** Defined exact event time ($D\text{T23:59:59Z}$), knowledge time ($(D+1)\text{T00:00:00Z}$), retrieval time, and explicit sequence diagrams for normal, delayed, and corrected observations.
-- **Three-Tier Checksums & Partitions:** Established three-tier SHA-256 boundaries and frozen chronological partitions (Exploratory P0, Calibration P1, Private Evaluation P2, Forward Stress P3).
+- **Selection & Legal Provenance:** Selected Binance Public Data archive (`data.binance.vision`) for 1d spot klines; froze credential-free retrieval and attribution while explicitly declining to assert raw-data redistribution rights.
+- **Temporal Alignment:** Preserved exact upstream close precision and assigned conservative historical knowledge time at `(D+2)T00:00:00Z`, because upstream promises only availability “the next day”.
+- **Three-Tier Checksums & Partitions:** Established three-tier SHA-256 boundaries, immutable acquisition revisions, retrospective P0–P3 labels, and the rule for a separately precommitted prospective interval.
 - **Threat Model & Benchmark Protocol:** Updated [`docs/contracts/threat-model.md`](../contracts/threat-model.md) with Threat Vectors 13–15 and [`docs/BENCHMARK_PROTOCOL.md`](../BENCHMARK_PROTOCOL.md) with frozen market dataset rules.
 - **Canonical Manifest Example:** Created [`docs/contracts/examples/valid/market_dataset_manifest.v1.json`](../contracts/examples/valid/market_dataset_manifest.v1.json) validated against `dataset_snapshot.v1.json`.
 
