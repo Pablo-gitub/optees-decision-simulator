@@ -20,6 +20,7 @@ from simulator.domain.models import (
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 SCHEMAS_DIR = REPO_ROOT / "docs" / "contracts" / "schemas"
+NORMALIZED_SNAPSHOT_BYTES = b'{"observation_id":"synthetic-normalized"}\n'
 
 # Dynamically import validate_data from tools/validate_contracts.py to avoid schema duplication
 validator_path = REPO_ROOT / "tools" / "validate_contracts.py"
@@ -42,7 +43,7 @@ def sample_manifest() -> DatasetSnapshotManifest:
         source_uri="https://data.binance.vision/data/spot/daily/klines/",
         retrieval_time="2026-08-28T00:00:00Z",
         license="Upstream repository labelled MIT; raw archive redistribution not asserted",
-        checksum_sha256="sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        checksum_sha256=f"sha256:{hashlib.sha256(NORMALIZED_SNAPSHOT_BYTES).hexdigest()}",
         byte_size=1048576,
         format="JSONL",
         series_catalog=(
@@ -78,6 +79,7 @@ def test_valid_acquisition_receipt_verification(sample_manifest: DatasetSnapshot
         retrieval_time="2026-08-28T00:00:00Z",
         normalizer_id="binance_kline_spot_1d",
         normalizer_version="1.0.0",
+        normalized_snapshot_bytes=NORMALIZED_SNAPSHOT_BYTES,
     )
 
     assert receipt.verification_outcome == "ACCEPTED"
@@ -107,6 +109,7 @@ def test_acquisition_receipt_schema_roundtrip(sample_manifest: DatasetSnapshotMa
         retrieval_time="2026-08-28T00:00:00Z",
         normalizer_id="binance_kline_spot_1d",
         normalizer_version="1.0.0",
+        normalized_snapshot_bytes=NORMALIZED_SNAPSHOT_BYTES,
     )
 
     receipt_dict = receipt.to_dict()
@@ -140,6 +143,7 @@ def test_snapshot_id_mismatch_is_detected(sample_manifest: DatasetSnapshotManife
         retrieval_time="2026-08-28T00:00:00Z",
         normalizer_id="binance_kline_spot_1d",
         normalizer_version="1.0.0",
+        normalized_snapshot_bytes=NORMALIZED_SNAPSHOT_BYTES,
         receipt_snapshot_id="ds-snap_other",
     )
 
@@ -199,6 +203,7 @@ def test_raw_byte_mutation_detected(sample_manifest: DatasetSnapshotManifest) ->
         retrieval_time="2026-08-28T00:00:00Z",
         normalizer_id="binance_kline_spot_1d",
         normalizer_version="1.0.0",
+        normalized_snapshot_bytes=NORMALIZED_SNAPSHOT_BYTES,
     )
 
     assert receipt.verification_outcome == "REJECTED"
@@ -221,6 +226,7 @@ def test_raw_byte_size_mismatch_detected(sample_manifest: DatasetSnapshotManifes
         retrieval_time="2026-08-28T00:00:00Z",
         normalizer_id="binance_kline_spot_1d",
         normalizer_version="1.0.0",
+        normalized_snapshot_bytes=NORMALIZED_SNAPSHOT_BYTES,
         expected_raw_byte_size=99999,  # Mismatch
     )
 
@@ -246,6 +252,7 @@ def test_publisher_hash_differs_from_computed_raw_hash(
         retrieval_time="2026-08-28T00:00:00Z",
         normalizer_id="binance_kline_spot_1d",
         normalizer_version="1.0.0",
+        normalized_snapshot_bytes=NORMALIZED_SNAPSHOT_BYTES,
     )
 
     assert receipt.verification_outcome == "REJECTED"
@@ -268,11 +275,40 @@ def test_normalized_hash_mismatch_detected(sample_manifest: DatasetSnapshotManif
         retrieval_time="2026-08-28T00:00:00Z",
         normalizer_id="binance_kline_spot_1d",
         normalizer_version="1.0.0",
+        normalized_snapshot_bytes=NORMALIZED_SNAPSHOT_BYTES,
         expected_normalized_hash="sha256:9999999999999999999999999999999999999999999999999999999999999999",
     )
 
     assert receipt.verification_outcome == "REJECTED"
     assert "NORMALIZED_SNAPSHOT_HASH_MISMATCH" in receipt.failure_reasons
+    assert receipt.normalized_snapshot_sha256 == sample_manifest.checksum_sha256
+
+
+def test_missing_normalized_snapshot_evidence_is_rejected(
+    sample_manifest: DatasetSnapshotManifest,
+) -> None:
+    raw_bytes = b"raw archive content"
+    digest = hashlib.sha256(raw_bytes).hexdigest()
+    filename = "BTCUSDT-1d-2024-01-01.zip"
+
+    receipt = verify_acquisition_evidence(
+        raw_bytes=raw_bytes,
+        publisher_checksum_text=f"{digest}  {filename}",
+        manifest=sample_manifest,
+        provider_archive_uri=f"https://data.binance.vision/{filename}",
+        provider_archive_filename=filename,
+        publisher_checksum_uri=f"https://data.binance.vision/{filename}.CHECKSUM",
+        retrieval_time="2026-08-28T00:00:00Z",
+        normalizer_id="binance_kline_spot_1d",
+        normalizer_version="1.0.0",
+    )
+
+    assert receipt.verification_outcome == "REJECTED"
+    assert "NORMALIZED_SNAPSHOT_HASH_MISMATCH" in receipt.failure_reasons
+    assert receipt.normalized_snapshot_sha256 is None
+    assert not validate_data(
+        receipt.to_dict(), _load_schema("acquisition_receipt.v1.json"), path="rejected_receipt"
+    )
 
 
 def test_manifest_hash_mismatch_detected(sample_manifest: DatasetSnapshotManifest) -> None:
@@ -291,6 +327,7 @@ def test_manifest_hash_mismatch_detected(sample_manifest: DatasetSnapshotManifes
         retrieval_time="2026-08-28T00:00:00Z",
         normalizer_id="binance_kline_spot_1d",
         normalizer_version="1.0.0",
+        normalized_snapshot_bytes=NORMALIZED_SNAPSHOT_BYTES,
         expected_manifest_hash="sha256:9999999999999999999999999999999999999999999999999999999999999999",
     )
 
@@ -315,6 +352,7 @@ def test_retrieval_time_formats_and_rejections(sample_manifest: DatasetSnapshotM
         retrieval_time="2026-08-28T00:00:00",
         normalizer_id="binance_kline_spot_1d",
         normalizer_version="1.0.0",
+        normalized_snapshot_bytes=NORMALIZED_SNAPSHOT_BYTES,
     )
     assert receipt_no_z.verification_outcome == "REJECTED"
     assert "INVALID_RETRIEVAL_TIME" in receipt_no_z.failure_reasons
@@ -330,6 +368,7 @@ def test_retrieval_time_formats_and_rejections(sample_manifest: DatasetSnapshotM
         retrieval_time="2026-08-28T02:00:00+02:00",
         normalizer_id="binance_kline_spot_1d",
         normalizer_version="1.0.0",
+        normalized_snapshot_bytes=NORMALIZED_SNAPSHOT_BYTES,
     )
     assert receipt_offset.verification_outcome == "REJECTED"
     assert "INVALID_RETRIEVAL_TIME" in receipt_offset.failure_reasons
@@ -352,6 +391,7 @@ def test_absolute_path_or_secret_rejected(sample_manifest: DatasetSnapshotManife
         retrieval_time="2026-08-28T00:00:00Z",
         normalizer_id="binance_kline_spot_1d",
         normalizer_version="1.0.0",
+        normalized_snapshot_bytes=NORMALIZED_SNAPSHOT_BYTES,
     )
     assert receipt_path.verification_outcome == "REJECTED"
     assert "SECRET_OR_PATH_EXPOSURE" in receipt_path.failure_reasons
@@ -367,6 +407,7 @@ def test_absolute_path_or_secret_rejected(sample_manifest: DatasetSnapshotManife
         retrieval_time="2026-08-28T00:00:00Z",
         normalizer_id="binance_kline_spot_1d",
         normalizer_version="1.0.0",
+        normalized_snapshot_bytes=NORMALIZED_SNAPSHOT_BYTES,
     )
     assert receipt_secret.verification_outcome == "REJECTED"
     assert "SECRET_OR_PATH_EXPOSURE" in receipt_secret.failure_reasons
@@ -390,6 +431,7 @@ def test_identical_inputs_produce_identical_receipt_and_hash(
         retrieval_time="2026-08-28T00:00:00Z",
         normalizer_id="binance_kline_spot_1d",
         normalizer_version="1.0.0",
+        normalized_snapshot_bytes=NORMALIZED_SNAPSHOT_BYTES,
     )
 
     r2 = verify_acquisition_evidence(
@@ -402,6 +444,7 @@ def test_identical_inputs_produce_identical_receipt_and_hash(
         retrieval_time="2026-08-28T00:00:00Z",
         normalizer_id="binance_kline_spot_1d",
         normalizer_version="1.0.0",
+        normalized_snapshot_bytes=NORMALIZED_SNAPSHOT_BYTES,
     )
 
     assert r1 == r2
@@ -426,6 +469,7 @@ def test_single_semantic_mutation_changes_receipt_hash(
         retrieval_time="2026-08-28T00:00:00Z",
         normalizer_id="binance_kline_spot_1d",
         normalizer_version="1.0.0",
+        normalized_snapshot_bytes=NORMALIZED_SNAPSHOT_BYTES,
     )
 
     # Mutate retrieval time by 1 second
@@ -439,6 +483,7 @@ def test_single_semantic_mutation_changes_receipt_hash(
         retrieval_time="2026-08-28T00:00:01Z",
         normalizer_id="binance_kline_spot_1d",
         normalizer_version="1.0.0",
+        normalized_snapshot_bytes=NORMALIZED_SNAPSHOT_BYTES,
     )
 
     assert r_base.compute_hash() != r_mutated.compute_hash()

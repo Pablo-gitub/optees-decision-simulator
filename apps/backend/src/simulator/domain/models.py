@@ -13,6 +13,7 @@ from simulator.domain.canonical import (
 from simulator.domain.errors import (
     DuplicateIdentityError,
 )
+from simulator.domain.immutable import freeze_json, thaw_json
 from simulator.domain.lifecycle import (
     ActionType,
     CostType,
@@ -199,6 +200,7 @@ class EpisodeDefinition:
 
     def __post_init__(self) -> None:
         parse_utc_timestamp(self.created_at)
+        object.__setattr__(self, "metadata", freeze_json(self.metadata))
         policy_ids = [p.policy_id for p in self.policy_versions]
         if len(policy_ids) != len(set(policy_ids)):
             raise DuplicateIdentityError("Duplicate policy_id in policy_versions")
@@ -220,7 +222,7 @@ class EpisodeDefinition:
             "initial_accounts": [a.to_dict() for a in self.initial_accounts],
             "reference_resource_id": self.reference_resource_id,
             "rules": self.rules.to_dict(),
-            "metadata": dict(self.metadata),
+            "metadata": thaw_json(self.metadata),
         }
 
     def compute_hash(self) -> str:
@@ -309,6 +311,15 @@ class PolicyVersion:
 
     def __post_init__(self) -> None:
         parse_utc_timestamp(self.created_at)
+        object.__setattr__(
+            self, "required_capabilities", tuple(freeze_json(v) for v in self.required_capabilities)
+        )
+        object.__setattr__(
+            self, "required_observations", tuple(freeze_json(v) for v in self.required_observations)
+        )
+        object.__setattr__(self, "hyperparameters", freeze_json(self.hyperparameters))
+        object.__setattr__(self, "code_provenance", freeze_json(self.code_provenance))
+        object.__setattr__(self, "declared_tolerances", freeze_json(self.declared_tolerances))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -318,11 +329,11 @@ class PolicyVersion:
             "policy_id": self.policy_id,
             "version": self.version,
             "policy_type": self.policy_type.value,
-            "required_capabilities": list(self.required_capabilities),
-            "required_observations": list(self.required_observations),
-            "hyperparameters": dict(self.hyperparameters),
-            "code_provenance": dict(self.code_provenance),
-            "declared_tolerances": dict(self.declared_tolerances),
+            "required_capabilities": thaw_json(self.required_capabilities),
+            "required_observations": thaw_json(self.required_observations),
+            "hyperparameters": thaw_json(self.hyperparameters),
+            "code_provenance": thaw_json(self.code_provenance),
+            "declared_tolerances": thaw_json(self.declared_tolerances),
             "created_at": self.created_at,
         }
 
@@ -402,7 +413,7 @@ class AcquisitionReceipt:
     raw_byte_size: int
     normalizer_id: str
     normalizer_version: str
-    normalized_snapshot_sha256: str
+    normalized_snapshot_sha256: str | None
     manifest_sha256: str
     verification_outcome: str
     failure_reasons: tuple[str, ...] = ()
@@ -420,6 +431,8 @@ class AcquisitionReceipt:
                 raise ValueError("accepted evidence must contain non-empty raw bytes")
             if self.publisher_sha256 is None:
                 raise ValueError("accepted evidence must contain the parsed publisher digest")
+            if self.normalized_snapshot_sha256 is None:
+                raise ValueError("accepted evidence must contain the computed normalized digest")
             if self.failure_reasons:
                 raise ValueError("accepted evidence cannot contain failure reasons")
         elif not self.failure_reasons:
@@ -465,6 +478,7 @@ class ObservationRecord:
     def __post_init__(self) -> None:
         parse_utc_timestamp(self.event_time)
         parse_utc_timestamp(self.knowledge_time)
+        object.__setattr__(self, "payload", freeze_json(self.payload))
         if self.revision < 1:
             raise ValueError("Observation revision must be >= 1")
 
@@ -478,7 +492,7 @@ class ObservationRecord:
             "event_time": self.event_time,
             "knowledge_time": self.knowledge_time,
             "revision": self.revision,
-            "payload": dict(self.payload),
+            "payload": thaw_json(self.payload),
         }
 
     def compute_hash(self) -> str:
@@ -504,12 +518,15 @@ class RequestedAction:
     quantity: Decimal
     parameters: dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "parameters", freeze_json(self.parameters))
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "action_type": self.action_type.value,
             "resource_id": self.resource_id,
             "quantity": format_decimal(self.quantity),
-            "parameters": dict(self.parameters),
+            "parameters": thaw_json(self.parameters),
         }
 
 
@@ -520,13 +537,16 @@ class DecisionRationale:
     solver_status: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "extra", freeze_json(self.extra))
+
     def to_dict(self) -> dict[str, Any]:
         d = {
             "method": self.method,
             "objective_value": self.objective_value,
             "solver_status": self.solver_status,
         }
-        d.update(self.extra)
+        d.update(thaw_json(self.extra))
         return d
 
 
@@ -768,6 +788,9 @@ class MetricsData:
     sharpe_ratio: float | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "extra", freeze_json(self.extra))
+
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {
             "final_net_value": format_decimal(self.final_net_value),
@@ -782,7 +805,7 @@ class MetricsData:
             "execution_wall_time_seconds": self.execution_wall_time_seconds,
             "sharpe_ratio": self.sharpe_ratio,
         }
-        d.update(self.extra)
+        d.update(thaw_json(self.extra))
         return d
 
 
@@ -925,6 +948,12 @@ class OpteesCallReceipt:
     redacted_transport_metadata: dict[str, Any]
     schema_version: str = "1.0.0"
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "contract_versions", freeze_json(self.contract_versions))
+        object.__setattr__(
+            self, "redacted_transport_metadata", freeze_json(self.redacted_transport_metadata)
+        )
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "$type": "optees_call_receipt",
@@ -933,14 +962,14 @@ class OpteesCallReceipt:
             "round_id": self.round_id,
             "policy_id": self.policy_id,
             "capability_id": self.capability_id,
-            "contract_versions": dict(self.contract_versions),
+            "contract_versions": thaw_json(self.contract_versions),
             "transport": self.transport,
             "request_hash": self.request_hash,
             "response_hash": self.response_hash,
             "validation_receipt": self.validation_receipt.to_dict(),
             "solver_status": self.solver_status,
             "timing": self.timing.to_dict(),
-            "redacted_transport_metadata": dict(self.redacted_transport_metadata),
+            "redacted_transport_metadata": thaw_json(self.redacted_transport_metadata),
         }
 
     def compute_hash(self) -> str:
@@ -1001,6 +1030,9 @@ class DivergenceReport:
     details: dict[str, Any]
     schema_version: str = "1.0.0"
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "details", freeze_json(self.details))
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "$type": "divergence_report",
@@ -1015,7 +1047,7 @@ class DivergenceReport:
             "field_path": self.field_path,
             "original_value_hash": self.original_value_hash,
             "replayed_value_hash": self.replayed_value_hash,
-            "details": dict(self.details),
+            "details": thaw_json(self.details),
         }
 
     def compute_hash(self) -> str:

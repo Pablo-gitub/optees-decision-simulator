@@ -12,8 +12,8 @@
   "raw_byte_size": 23,
   "normalizer_id": "binance_kline_spot_1d",
   "normalizer_version": "1.0.0",
-  "normalized_snapshot_sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-  "manifest_sha256": "sha256:ebf82456b5eb1a2066c0c09e52b3c963acd20a32ad2f7d61ca160fff1fd0bce2",
+  "normalized_snapshot_sha256": "sha256:5b0c1896110c8e38e2b79299ba27fe40fe5e6989f05f7291a08385627cc93286",
+  "manifest_sha256": "sha256:16db738c43d3a2f1f31606245e195f572d9933fac8c5d4d530fe322a4dc53281",
   "verification_outcome": "ACCEPTED",
   "failure_reasons": [],
   "license": "Upstream repository labelled MIT; raw archive redistribution not asserted"

@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import re
 from typing import Final
+from urllib.parse import unquote, urlsplit
 
 from simulator.domain.errors import InvalidTimestampError
 from simulator.domain.models import AcquisitionReceipt, DatasetSnapshotManifest
@@ -24,10 +25,6 @@ FORBIDDEN_PATH_PATTERN: Final[re.Pattern[str]] = re.compile(
 )
 FORBIDDEN_SECRET_PATTERN: Final[re.Pattern[str]] = re.compile(
     r"(?i)(api[_-]?key\s*=|secret\s*=|token\s*=|bearer\s+|password\s*=|authorization\s*:)"
-)
-
-DEFAULT_ACQUISITION_LICENSE: Final[str] = (
-    "Upstream repository labelled MIT; raw archive redistribution not asserted"
 )
 
 
@@ -79,6 +76,23 @@ def _check_forbidden_strings(*values: str) -> list[str]:
     return reasons
 
 
+def _is_safe_https_uri(uri: str, expected_basename: str) -> bool:
+    try:
+        parsed = urlsplit(uri)
+    except ValueError:
+        return False
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+    ):
+        return False
+    return unquote(parsed.path).rsplit("/", 1)[-1] == expected_basename
+
+
 def verify_acquisition_evidence(
     raw_bytes: bytes,
     publisher_checksum_text: str,
@@ -89,11 +103,11 @@ def verify_acquisition_evidence(
     retrieval_time: str,
     normalizer_id: str,
     normalizer_version: str,
+    normalized_snapshot_bytes: bytes | None = None,
     expected_raw_byte_size: int | None = None,
     expected_manifest_hash: str | None = None,
     expected_normalized_hash: str | None = None,
     acquisition_id: str | None = None,
-    license_str: str = DEFAULT_ACQUISITION_LICENSE,
     receipt_snapshot_id: str | None = None,
 ) -> AcquisitionReceipt:
     """Verify raw bytes, publisher checksum, and manifest linkage deterministically.
@@ -126,6 +140,10 @@ def verify_acquisition_evidence(
     # 3. Validate archive filename format
     if not re.match(r"^[a-zA-Z0-9_.-]+$", provider_archive_filename):
         failure_reasons.append("INVALID_FILENAME")
+    elif not _is_safe_https_uri(
+        provider_archive_uri, provider_archive_filename
+    ) or not _is_safe_https_uri(publisher_checksum_uri, f"{provider_archive_filename}.CHECKSUM"):
+        failure_reasons.append("UNSUPPORTED_PROVIDER_METADATA")
 
     # 4. Compute raw artifact SHA-256 and byte size
     raw_byte_size = len(raw_bytes)
@@ -155,8 +173,16 @@ def verify_acquisition_evidence(
     if snapshot_id != manifest.snapshot_id:
         failure_reasons.append("SNAPSHOT_ID_MISMATCH")
 
-    normalized_snapshot_sha256 = manifest.checksum_sha256
-    if expected_normalized_hash is not None and not hmac.compare_digest(
+    normalized_snapshot_sha256 = (
+        f"sha256:{hashlib.sha256(normalized_snapshot_bytes).hexdigest()}"
+        if normalized_snapshot_bytes is not None
+        else None
+    )
+    if normalized_snapshot_sha256 is None or not hmac.compare_digest(
+        normalized_snapshot_sha256, manifest.checksum_sha256
+    ):
+        failure_reasons.append("NORMALIZED_SNAPSHOT_HASH_MISMATCH")
+    elif expected_normalized_hash is not None and not hmac.compare_digest(
         normalized_snapshot_sha256, expected_normalized_hash
     ):
         failure_reasons.append("NORMALIZED_SNAPSHOT_HASH_MISMATCH")
@@ -197,5 +223,5 @@ def verify_acquisition_evidence(
         manifest_sha256=computed_manifest_sha256,
         verification_outcome=outcome,
         failure_reasons=unique_reasons,
-        license=license_str,
+        license=manifest.license,
     )

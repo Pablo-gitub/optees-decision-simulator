@@ -217,6 +217,23 @@ class ReplayService:
                 )
                 self._persistence.save_replay_report(report)
                 return report
+            implementation = policies[p_ver.policy_id]
+            if implementation.policy_version_id != p_ver.policy_version_id:
+                report = ReplayReport(
+                    report_id=report_id,
+                    original_run_id=original_run_id,
+                    replay_mode=ReplayMode.DETERMINISTIC_RE_EXECUTION,
+                    executed_at=self._clock.now_utc(),
+                    overall_status=ReplayStatus.INCOMPATIBLE,
+                    rounds_evaluated=0,
+                    matched_round_count=0,
+                    diverged_round_count=0,
+                    initial_state_hash_match=True,
+                    final_state_hash_match=False,
+                    divergence_report_ids=(),
+                )
+                self._persistence.save_replay_report(report)
+                return report
 
         rounds = self._persistence.get_rounds(original_run_id)
         all_obs = self._dataset.get_all_observations()
@@ -244,13 +261,13 @@ class ReplayService:
 
                 context = PolicyContext(
                     policy_id=p_rec.policy_id,
-                    policy_version_id=p_rec.policy_id,
+                    policy_version_id=p_impl.policy_version_id,
                     round_id=r_rec.round_id,
                     round_index=r_idx,
                     knowledge_cutoff=cutoff,
                     account_state=curr_acc,
                     eligible_observations=eligible_obs,
-                    hyperparameters={},
+                    hyperparameters=p_impl.hyperparameters,
                 )
 
                 replayed_proposal = p_impl.propose_decision(context)

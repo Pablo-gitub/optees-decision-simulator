@@ -58,6 +58,13 @@ class EpisodeRunner:
         for p_ver in episode_def.policy_versions:
             if p_ver.policy_id not in self._policies:
                 raise SimulatorError(f"Policy {p_ver.policy_id} is not registered in EpisodeRunner")
+            implementation = self._policies[p_ver.policy_id]
+            if implementation.policy_id != p_ver.policy_id:
+                raise SimulatorError(
+                    f"Policy implementation identity mismatch for {p_ver.policy_id}"
+                )
+            if implementation.policy_version_id != p_ver.policy_version_id:
+                raise SimulatorError(f"Policy version mismatch for {p_ver.policy_id}")
 
         ep_hash = episode_def.compute_hash()
         self._persistence.save_episode_definition(episode_def)
@@ -255,7 +262,7 @@ class EpisodeRunner:
                 knowledge_cutoff=cutoff,
                 account_state=current_acc,
                 eligible_observations=eligible_obs,
-                hyperparameters={},
+                hyperparameters=policy_impl.hyperparameters,
             )
 
             # Policy proposes decision

@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
+from simulator.domain.immutable import freeze_json
 from simulator.domain.models import (
     ObservationRecord,
     ProposedDecision,
@@ -24,6 +25,9 @@ class PolicyContext:
     eligible_observations: tuple[ObservationRecord, ...]
     hyperparameters: dict[str, Any]
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "hyperparameters", freeze_json(self.hyperparameters))
+
 
 class PolicyPort(ABC):
     """Port for executing a decision policy given an isolated round context."""
@@ -37,6 +41,11 @@ class PolicyPort(ABC):
     @abstractmethod
     def policy_version_id(self) -> str:
         raise NotImplementedError
+
+    @property
+    def hyperparameters(self) -> dict[str, Any]:
+        """Frozen configuration used to build the policy's decision context."""
+        return {}
 
     @abstractmethod
     def propose_decision(self, context: PolicyContext) -> ProposedDecision:

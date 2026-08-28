@@ -15,7 +15,10 @@ def test_pause_idempotent_resume_and_completion(synthetic_episode_def: EpisodeDe
     clock = InMemoryClock()
     policies = {
         "pol-def_static_baseline": StaticBaselinePolicy(),
-        "pol-def_reactive_baseline": StaticBaselinePolicy(policy_id="pol-def_reactive_baseline"),
+        "pol-def_reactive_baseline": StaticBaselinePolicy(
+            policy_id="pol-def_reactive_baseline",
+            policy_version_id="pol-ver_reactive_v1",
+        ),
     }
     runner = EpisodeRunner(store, dataset, clock, policies)
     ep_def = synthetic_episode_def
@@ -54,7 +57,10 @@ def test_cancellation_at_boundary(synthetic_episode_def: EpisodeDefinition) -> N
     clock = InMemoryClock()
     policies = {
         "pol-def_static_baseline": StaticBaselinePolicy(),
-        "pol-def_reactive_baseline": StaticBaselinePolicy(policy_id="pol-def_reactive_baseline"),
+        "pol-def_reactive_baseline": StaticBaselinePolicy(
+            policy_id="pol-def_reactive_baseline",
+            policy_version_id="pol-ver_reactive_v1",
+        ),
     }
     runner = EpisodeRunner(store, dataset, clock, policies)
     ep_def = synthetic_episode_def

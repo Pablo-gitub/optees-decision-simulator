@@ -32,6 +32,7 @@
         "properties": {
           "retrieval_time": {"pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"},
           "publisher_sha256": {"type": "string"},
+          "normalized_snapshot_sha256": {"type": "string"},
           "raw_byte_size": {"minimum": 1},
           "failure_reasons": {"maxItems": 0}
         }
@@ -93,7 +94,7 @@
       "minLength": 1
     },
     "normalized_snapshot_sha256": {
-      "type": "string",
+      "type": ["string", "null"],
       "pattern": "^sha256:[a-f0-9]{64}$"
     },
     "manifest_sha256": {

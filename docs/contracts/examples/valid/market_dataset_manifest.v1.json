@@ -5,7 +5,7 @@
   "source_uri": "https://data.binance.vision/data/spot/daily/klines/",
   "retrieval_time": "2026-08-28T00:00:00Z",
   "license": "Upstream repository labelled MIT; raw archive redistribution not asserted",
-  "checksum_sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "checksum_sha256": "sha256:5b0c1896110c8e38e2b79299ba27fe40fe5e6989f05f7291a08385627cc93286",
   "byte_size": 1048576,
   "format": "JSONL",
   "series_catalog": [

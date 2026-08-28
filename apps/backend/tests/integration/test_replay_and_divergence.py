@@ -81,7 +81,10 @@ def test_deterministic_re_execution_divergence_detection(
     tampered_policies = {
         "pol-def_static_baseline": StaticBaselinePolicy(),
         # Use Static instead of Reactive to induce divergence
-        "pol-def_reactive_baseline": StaticBaselinePolicy(policy_id="pol-def_reactive_baseline"),
+        "pol-def_reactive_baseline": StaticBaselinePolicy(
+            policy_id="pol-def_reactive_baseline",
+            policy_version_id="pol-ver_reactive_v1",
+        ),
     }
 
     replay_svc = ReplayService(store, dataset, clock)

@@ -229,4 +229,10 @@ Every discrete round records:
 - Proposed decision and explicit acceptance/rejection outcome;
 - Applied transition, fees, and resulting account state.
 
+JSON-like fields inside hashed domain records are copied into deeply immutable mappings and
+tuples at construction time. Public serialization returns fresh JSON containers. Persistence
+adapters may therefore retain record objects without exposing a mutable alias that could change
+an already computed hash. Policy execution and deterministic replay use the same pinned policy
+version identity and immutable configuration.
+
 Replay compares cryptographic state hashes and produces structured `DivergenceReport` records instead of mutating historical logs.

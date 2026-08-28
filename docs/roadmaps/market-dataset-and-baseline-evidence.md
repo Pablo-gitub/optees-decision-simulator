@@ -273,10 +273,13 @@ legal claims.
 - **Hash & Evidence Linkage:** Constant-time comparison binds raw bytes SHA-256, publisher SHA-256, normalized snapshot SHA-256 (manifest `checksum_sha256`), and canonical manifest SHA-256 (`manifest.compute_hash()`).
 - **Safety & Secret Isolation:** Rejection of local filesystem absolute paths and secret/token patterns.
 - **Valid Contract Example:** Added `docs/contracts/examples/valid/acquisition_receipt.v1.json` validated by `tools/validate_contracts.py`.
-- **Unit & Contract Tests:** Added 18 tests in `apps/backend/tests/unit/application/test_acquisition_receipt.py` (81 total backend tests passing).
+- **Unit & Contract Tests:** Added 19 tests in `apps/backend/tests/unit/application/test_acquisition_receipt.py` (83 total backend tests passing).
 - **Review correction:** rejected evidence now retains the caller's invalid facts instead of
   fabricating a valid timestamp, digest, or byte size; the publisher checksum grammar is frozen to
   one exact form and receipt/manifest snapshot mismatch has explicit regression coverage.
+- **Integrity review:** acceptance now computes the normalized snapshot digest from explicit
+  caller-supplied bytes, binds licence text to the reviewed manifest, and accepts only credential-free
+  HTTPS artifact/checksum URIs with matching basenames.
 
 Only after review may `DS-02C2` begin.
 

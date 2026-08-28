@@ -72,7 +72,7 @@ capability ID, contract versions, fixture hashes, and verification results.
 | --- | --- | --- |
 | [x] | `DS-00` — Core Contracts And Threat Model | `DS-C` satisfied |
 | [x] | `DS-01` — Deterministic Episode Kernel | `DS-K` satisfied |
-| [ ] | `DS-02` — Market Dataset And Baseline Evidence | `DS-02A` ready |
+| [ ] | `DS-02` — Market Dataset And Baseline Evidence | C1 complete; C2 next |
 | [ ] | `DS-03` — Persistence, API, And Existing Optees Capabilities | Not started |
 | [ ] | `DS-04` — Convex QP Policy Family | QP prerequisite satisfied; not started |
 | [ ] | `DS-05` — Scenario Min-max And Max-min Policies | Awaiting `ROBUST-C` |
@@ -131,6 +131,8 @@ run progress now publish through one application-owned transactional commit,
 and run-scoped record identifiers no longer collide when multiple runs share a
 store. Final metrics cover the complete trajectory, timing uses `ClockPort`,
 and the analytic episode asserts committed golden round and account hashes.
+The subsequent integrity review made all JSON-like record fields deeply immutable and
+made execution/replay preserve and verify policy-version identity and configuration.
 
 ## Phase DS-02 — Market Dataset And Baseline Evidence
 
@@ -154,6 +156,8 @@ episode-ready existing v1 observations and manifests; production eligibility,
 schema, canonicalization, and hashing code prove determinism and the conservative anti-leakage boundary.
 **Micro-gate DS-D2A (Satisfied after review correction):** production canonicalization plus pure byte/hash probes bind
 one raw artifact to one existing normalized manifest without I/O or unsupported legal claims.
+Acceptance now requires caller-supplied normalized snapshot bytes whose computed digest
+matches the existing manifest; omission or mismatch is a rejected evidence outcome.
 **Gate DS-D (Planned):** the same frozen observations and valuations reproduce the same baseline episode hashes.
 
 ## Phase DS-03 — Persistence, API, And Existing Optees Capabilities

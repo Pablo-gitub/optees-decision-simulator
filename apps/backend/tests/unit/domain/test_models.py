@@ -1,6 +1,6 @@
 """Unit tests for domain models immutability, hashing, and validation."""
 
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 from decimal import Decimal
 
 import pytest
@@ -72,6 +72,19 @@ def test_episode_definition_immutability() -> None:
     ep = _make_sample_episode()
     with pytest.raises(FrozenInstanceError):
         ep.title = "Changed Title"  # type: ignore[misc]
+
+
+def test_hashed_json_fields_are_deeply_immutable() -> None:
+    source = {"nested": {"items": [1, 2]}}
+    episode = replace(_make_sample_episode(), metadata=source)
+    original_hash = episode.compute_hash()
+
+    source["nested"]["items"].append(3)
+    assert episode.compute_hash() == original_hash
+    with pytest.raises(TypeError, match="frozen mapping"):
+        episode.metadata["nested"]["new"] = True
+    with pytest.raises(AttributeError):
+        episode.metadata["nested"]["items"].append(4)
 
 
 def test_episode_definition_hashing() -> None:
