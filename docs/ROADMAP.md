@@ -6,7 +6,7 @@
 - **Authority:** this document owns Simulator sequencing and cross-repository
   integration gates
 - **Latest completed detailed work unit:** `roadmaps/deterministic-episode-kernel.md`
-- **Next detailed work unit:** not yet defined
+- **Current detailed work unit:** `roadmaps/market-dataset-and-baseline-evidence.md`
 - **Optees program dependency:** `docs/roadmaps/case-study/ROADMAP.md`
   in the sibling Optees repository
 - **Current implementation:** core contracts and deterministic episode kernel
@@ -72,7 +72,7 @@ capability ID, contract versions, fixture hashes, and verification results.
 | --- | --- | --- |
 | [x] | `DS-00` — Core Contracts And Threat Model | `DS-C` satisfied |
 | [x] | `DS-01` — Deterministic Episode Kernel | `DS-K` satisfied |
-| [ ] | `DS-02` — Market Dataset And Baseline Evidence | Not started |
+| [ ] | `DS-02` — Market Dataset And Baseline Evidence | `DS-02A` ready |
 | [ ] | `DS-03` — Persistence, API, And Existing Optees Capabilities | Not started |
 | [ ] | `DS-04` — Convex QP Policy Family | QP prerequisite satisfied; not started |
 | [ ] | `DS-05` — Scenario Min-max And Max-min Policies | Awaiting `ROBUST-C` |
@@ -142,6 +142,8 @@ and the analytic episode asserts committed golden round and account hashes.
 - Add synthetic stable, trend, reversal, volatile, and structural-break data.
 - Implement market-specific valuation and transition rules outside the core.
 - Run static and reactive baselines before any Optees-backed policy.
+
+Detailed plan: [Market dataset and baseline evidence](roadmaps/market-dataset-and-baseline-evidence.md).
 
 **Gate DS-D:** the same frozen observations and valuations reproduce the same
 baseline episode hashes.
