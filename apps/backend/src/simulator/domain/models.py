@@ -397,7 +397,7 @@ class AcquisitionReceipt:
     provider_archive_filename: str
     publisher_checksum_uri: str
     retrieval_time: str
-    publisher_sha256: str
+    publisher_sha256: str | None
     raw_artifact_sha256: str
     raw_byte_size: int
     normalizer_id: str
@@ -410,11 +410,20 @@ class AcquisitionReceipt:
     schema_version: str = "1.0.0"
 
     def __post_init__(self) -> None:
-        parse_utc_timestamp(self.retrieval_time)
-        if self.raw_byte_size < 1:
-            raise ValueError(f"raw_byte_size must be >= 1, got {self.raw_byte_size}")
+        if self.raw_byte_size < 0:
+            raise ValueError(f"raw_byte_size must be >= 0, got {self.raw_byte_size}")
         if self.verification_outcome not in ("ACCEPTED", "REJECTED"):
             raise ValueError(f"Invalid verification_outcome: {self.verification_outcome}")
+        if self.verification_outcome == "ACCEPTED":
+            parse_utc_timestamp(self.retrieval_time)
+            if self.raw_byte_size < 1:
+                raise ValueError("accepted evidence must contain non-empty raw bytes")
+            if self.publisher_sha256 is None:
+                raise ValueError("accepted evidence must contain the parsed publisher digest")
+            if self.failure_reasons:
+                raise ValueError("accepted evidence cannot contain failure reasons")
+        elif not self.failure_reasons:
+            raise ValueError("rejected evidence must contain at least one failure reason")
 
     def to_dict(self) -> dict[str, Any]:
         return {

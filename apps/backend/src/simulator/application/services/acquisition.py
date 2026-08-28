@@ -15,7 +15,7 @@ from simulator.domain.time import parse_utc_timestamp
 # Exactly 64 lowercase hex characters, followed by 1 or 2 spaces (or optional binary flag '*'),
 # followed by the exact filename without leading/trailing garbage.
 CHECKSUM_LINE_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"^([a-f0-9]{64})\s+[*]?(?P<filename>[a-zA-Z0-9_.-]+)$"
+    r"^([a-f0-9]{64})  (?P<filename>[a-zA-Z0-9_.-]+)$"
 )
 
 # Forbidden path and secret regexes
@@ -94,6 +94,7 @@ def verify_acquisition_evidence(
     expected_normalized_hash: str | None = None,
     acquisition_id: str | None = None,
     license_str: str = DEFAULT_ACQUISITION_LICENSE,
+    receipt_snapshot_id: str | None = None,
 ) -> AcquisitionReceipt:
     """Verify raw bytes, publisher checksum, and manifest linkage deterministically.
 
@@ -141,7 +142,7 @@ def verify_acquisition_evidence(
             publisher_checksum_text, provider_archive_filename
         )
     except ValueError:
-        publisher_sha256 = "sha256:" + "0" * 64
+        publisher_sha256 = None
         failure_reasons.append("PUBLISHER_CHECKSUM_PARSE_ERROR")
 
     # 6. Constant-time comparison of raw hashes
@@ -150,8 +151,8 @@ def verify_acquisition_evidence(
             failure_reasons.append("RAW_CHECKSUM_MISMATCH")
 
     # 7. Validate manifest linkage and snapshot ID
-    snapshot_id = manifest.snapshot_id
-    if not re.match(r"^ds-snap_[a-zA-Z0-9_-]+$", snapshot_id):
+    snapshot_id = receipt_snapshot_id or manifest.snapshot_id
+    if snapshot_id != manifest.snapshot_id:
         failure_reasons.append("SNAPSHOT_ID_MISMATCH")
 
     normalized_snapshot_sha256 = manifest.checksum_sha256
@@ -180,25 +181,16 @@ def verify_acquisition_evidence(
     # Deduplicate failure reasons preserving order
     unique_reasons = tuple(dict.fromkeys(failure_reasons))
 
-    # Guard raw_byte_size >= 1 for dataclass post-init
-    effective_byte_size = max(1, raw_byte_size)
-
-    valid_retrieval_time = (
-        retrieval_time
-        if "INVALID_RETRIEVAL_TIME" not in failure_reasons
-        else "2026-01-01T00:00:00Z"
-    )
-
     return AcquisitionReceipt(
         acquisition_id=acq_id,
         snapshot_id=snapshot_id,
         provider_archive_uri=provider_archive_uri,
         provider_archive_filename=provider_archive_filename,
         publisher_checksum_uri=publisher_checksum_uri,
-        retrieval_time=valid_retrieval_time,
+        retrieval_time=retrieval_time,
         publisher_sha256=publisher_sha256,
         raw_artifact_sha256=raw_artifact_sha256,
-        raw_byte_size=effective_byte_size,
+        raw_byte_size=raw_byte_size,
         normalizer_id=normalizer_id,
         normalizer_version=normalizer_version,
         normalized_snapshot_sha256=normalized_snapshot_sha256,

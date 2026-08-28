@@ -262,7 +262,7 @@ Stop if the receipt cannot reference the existing manifest without changing
 its schema, canonical manifest hashing is ambiguous, or a fact cannot be
 established from caller-supplied evidence.
 
-**Gate `DS-D2A` (Satisfied):** production canonicalization plus pure byte/hash probes bind
+**Gate `DS-D2A` (Satisfied after review correction):** production canonicalization plus pure byte/hash probes bind
 one raw artifact to one existing normalized manifest without I/O or unsupported
 legal claims.
 
@@ -273,7 +273,10 @@ legal claims.
 - **Hash & Evidence Linkage:** Constant-time comparison binds raw bytes SHA-256, publisher SHA-256, normalized snapshot SHA-256 (manifest `checksum_sha256`), and canonical manifest SHA-256 (`manifest.compute_hash()`).
 - **Safety & Secret Isolation:** Rejection of local filesystem absolute paths and secret/token patterns.
 - **Valid Contract Example:** Added `docs/contracts/examples/valid/acquisition_receipt.v1.json` validated by `tools/validate_contracts.py`.
-- **Unit & Contract Tests:** Added 17 tests in `apps/backend/tests/unit/application/test_acquisition_receipt.py` (80 total backend tests passing).
+- **Unit & Contract Tests:** Added 18 tests in `apps/backend/tests/unit/application/test_acquisition_receipt.py` (81 total backend tests passing).
+- **Review correction:** rejected evidence now retains the caller's invalid facts instead of
+  fabricating a valid timestamp, digest, or byte size; the publisher checksum grammar is frozen to
+  one exact form and receipt/manifest snapshot mismatch has explicit regression coverage.
 
 Only after review may `DS-02C2` begin.
 

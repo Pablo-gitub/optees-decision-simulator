@@ -152,7 +152,7 @@ and reviewable without production code. Raw archive redistribution is not assert
 **Micro-gate DS-D1 (Satisfied after review correction):** synthetic raw records normalize deterministically into
 episode-ready existing v1 observations and manifests; production eligibility,
 schema, canonicalization, and hashing code prove determinism and the conservative anti-leakage boundary.
-**Micro-gate DS-D2A (Satisfied):** production canonicalization plus pure byte/hash probes bind
+**Micro-gate DS-D2A (Satisfied after review correction):** production canonicalization plus pure byte/hash probes bind
 one raw artifact to one existing normalized manifest without I/O or unsupported legal claims.
 **Gate DS-D (Planned):** the same frozen observations and valuations reproduce the same baseline episode hashes.
 

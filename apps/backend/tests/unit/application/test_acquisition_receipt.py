@@ -120,10 +120,31 @@ def test_publisher_checksum_parser_valid() -> None:
 
     # Standard two spaces
     assert parse_publisher_checksum_line(f"{h}  {fn}", fn) == f"sha256:{h}"
-    # Single space
-    assert parse_publisher_checksum_line(f"{h} {fn}", fn) == f"sha256:{h}"
-    # Binary mode flag '*'
-    assert parse_publisher_checksum_line(f"{h} *{fn}\n", fn) == f"sha256:{h}"
+    with pytest.raises(ValueError, match="required format"):
+        parse_publisher_checksum_line(f"{h} {fn}", fn)
+    with pytest.raises(ValueError, match="required format"):
+        parse_publisher_checksum_line(f"{h} *{fn}\n", fn)
+
+
+def test_snapshot_id_mismatch_is_detected(sample_manifest: DatasetSnapshotManifest) -> None:
+    raw_bytes = b"snapshot-bound bytes"
+    digest = hashlib.sha256(raw_bytes).hexdigest()
+    filename = "BTCUSDT-1d-2024-01-01.zip"
+    receipt = verify_acquisition_evidence(
+        raw_bytes=raw_bytes,
+        publisher_checksum_text=f"{digest}  {filename}",
+        manifest=sample_manifest,
+        provider_archive_uri=f"https://data.binance.vision/{filename}",
+        provider_archive_filename=filename,
+        publisher_checksum_uri=f"https://data.binance.vision/{filename}.CHECKSUM",
+        retrieval_time="2026-08-28T00:00:00Z",
+        normalizer_id="binance_kline_spot_1d",
+        normalizer_version="1.0.0",
+        receipt_snapshot_id="ds-snap_other",
+    )
+
+    assert receipt.snapshot_id == "ds-snap_other"
+    assert "SNAPSHOT_ID_MISMATCH" in receipt.failure_reasons
 
 
 def test_publisher_checksum_parser_wrong_filename() -> None:
