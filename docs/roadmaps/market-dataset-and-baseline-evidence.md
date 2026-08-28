@@ -3,14 +3,14 @@
 ## Work Unit
 
 - **ID:** `DS-02`
-- **State:** `DS-02A` completed (Gate `DS-D0` satisfied); awaiting review before `DS-02B`
+- **State:** `DS-02A` and `DS-02B` completed (Gates `DS-D0` and `DS-D1` satisfied); awaiting review before `DS-02C`
 - **Type:** backend data provenance, market interpretation and baseline evidence; no UI
 - **Parent roadmap:** `../ROADMAP.md`
 - **Prerequisite:** `DS-K` satisfied by `DS-01`
 - **Parallel Optees work:** `OPT-DS-03A` robust-scenario contract decision
 - **Implementation owner:** Gemini
 - **Review:** Codex after every micro-gate
-- **Completion gate:** `DS-D` (Current micro-gate: `DS-D0` Satisfied)
+- **Completion gate:** `DS-D` (Current micro-gates: `DS-D0` and `DS-D1` Satisfied)
 
 ## Objective
 
@@ -193,10 +193,21 @@ or the required normalized hash. Stop if fulfilling the gate would require a
 network call, a real provider artifact, or changes to the frozen valuation and
 execution-price boundary.
 
-**Gate `DS-D1`:** synthetic raw records normalize deterministically into
+**Gate `DS-D1` (Satisfied):** synthetic raw records normalize deterministically into
 episode-ready existing v1 observations and manifests; production eligibility,
 schema, canonicalization, and hashing code—not duplicated test logic—prove
 determinism and the conservative anti-leakage boundary.
+
+### Gate `DS-D1` Evidence Delivered:
+- **Pure Normalizer:** Implemented `simulator.application.services.market_normalizer` accepting narrow 12-field DTO `RawKlineRecord` with zero I/O and zero network access.
+- **Timestamp Boundary & Precision:** Validated milliseconds (< 2025-01-01) and microseconds (>= 2025-01-01) decoding, preserving sub-second precision (`.999Z` and `.999999Z`) without truncation.
+- **Conservative Anti-Leakage Eligibility:** Verified exact D+2 knowledge cutoff with production `EligibilityService`: bar closing on day $D$ is ineligible at cutoff $D+1$ and eligible at cutoff $D+2$.
+- **Values & Invariant Validation:** Verified positive OHLC prices, non-negative volumes and trade counts, rejection of booleans, NaNs, infinities, and high/low contradictions.
+- **Ordering, Uniqueness & Checksums:** Enforced deterministic batch sort `(series_id, event_time, revision)`, duplicate identity rejection, revision ordering, and pure SHA-256 snapshot hash generation over canonical RFC 8785 JSONL stream.
+- **Schema Roundtrip:** Verified roundtrip validation of generated observations and manifest against real `docs/contracts/schemas/` v1 JSON schemas.
+- **Synthetic Fixtures & Test Coverage:** Shipped 6 synthetic fixture families (stable, trend, reversal, volatile, missing-day, structural-break) and 18 focused tests (63 total backend tests passing).
+
+Only after review may `DS-02C` begin.
 
 ## Micro-gate C — Retrieval And Immutable Snapshot Adapter (`DS-02C`)
 

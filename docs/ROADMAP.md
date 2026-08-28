@@ -134,22 +134,23 @@ and the analytic episode asserts committed golden round and account hashes.
 
 ## Phase DS-02 — Market Dataset And Baseline Evidence
 
-- **Status:** In Progress (Micro-gate `DS-02A` complete after review correction; Gate `DS-D0` satisfied)
+- **Status:** In Progress (Micro-gates `DS-02A` and `DS-02B` complete; Gates `DS-D0` and `DS-D1` satisfied)
 - Selected Binance Public Historical Data Archive (`data.binance.vision`) 1d spot klines for liquid multi-asset universe (BTC, ETH, SOL, BNB quoted in USDT).
 - Frozen dataset provenance contract, zero-credential unauthenticated retrieval, 24/7 continuous calendar, and field semantics in [`contracts/market-dataset-provenance.md`](contracts/market-dataset-provenance.md).
 - Defined conservative four-time temporal semantics, upstream replacement handling, and three-tier SHA-256 hash boundaries.
 - Frozen chronological historical partitions: Exploratory (P0: 2024-H1), Calibration (P1: 2024-H2), Retrospective Holdout (P2: 2025-H1), Retrospective Stress (P3: 2025-H2); a true prospective interval must be precommitted later.
-- Added valid canonical manifest example [`contracts/examples/valid/market_dataset_manifest.v1.json`](contracts/examples/valid/market_dataset_manifest.v1.json).
-- Next authorized micro-gate: `DS-02B` (Synthetic Market Semantics), now
-  decomposed into production-linked normalization, temporal, schema, and hash
-  evidence. Later gates remain `DS-02C` (Retrieval & Snapshot Adapter),
-  `DS-02D` (Market Valuation & Transition Rules), and `DS-02E` (Baseline Episodes).
+- Implemented pure market kline normalizer (`simulator.application.services.market_normalizer`), sub-second timestamp boundary decoding (ms < 2025 <= us), and D+2 knowledge cutoff anti-leakage eligibility.
+- Built and validated synthetic fixtures (stable, trend, reversal, volatile, missing-day, structural-break) and verified schema roundtrip against real v1 contracts.
+- Next authorized micro-gate: `DS-02C` (Retrieval & Snapshot Adapter). Later gates remain `DS-02D` (Market Valuation & Transition Rules), and `DS-02E` (Baseline Episodes).
 
 Detailed plan: [Market dataset and baseline evidence](roadmaps/market-dataset-and-baseline-evidence.md).
 
 **Micro-gate DS-D0 (Satisfied after review correction):** dataset decision,
 licence-handling boundary, retrieval method, and provenance contract are frozen
 and reviewable without production code. Raw archive redistribution is not asserted.
+**Micro-gate DS-D1 (Satisfied):** synthetic raw records normalize deterministically into
+episode-ready existing v1 observations and manifests; production eligibility,
+schema, canonicalization, and hashing code prove determinism and the conservative anti-leakage boundary.
 **Gate DS-D (Planned):** the same frozen observations and valuations reproduce the same baseline episode hashes.
 
 ## Phase DS-03 — Persistence, API, And Existing Optees Capabilities
