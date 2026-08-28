@@ -1,0 +1,46 @@
+{
+  "$type": "dataset_snapshot",
+  "schema_version": "1.0.0",
+  "snapshot_id": "ds-snap_binance_spot_1d_v1",
+  "source_uri": "https://data.binance.vision/data/spot/daily/klines/",
+  "retrieval_time": "2026-08-28T00:00:00Z",
+  "license": "Binance Public Data Terms (Open Historical Archive for Research & Analysis)",
+  "checksum_sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "byte_size": 1048576,
+  "format": "JSONL",
+  "series_catalog": [
+    {
+      "series_id": "BTC_USDT_PRICE_1D",
+      "resource_id": "BTC",
+      "unit": "USDT",
+      "frequency": "1d",
+      "earliest_event_time": "2024-01-01T23:59:59Z",
+      "latest_event_time": "2025-12-31T23:59:59Z"
+    },
+    {
+      "series_id": "ETH_USDT_PRICE_1D",
+      "resource_id": "ETH",
+      "unit": "USDT",
+      "frequency": "1d",
+      "earliest_event_time": "2024-01-01T23:59:59Z",
+      "latest_event_time": "2025-12-31T23:59:59Z"
+    },
+    {
+      "series_id": "SOL_USDT_PRICE_1D",
+      "resource_id": "SOL",
+      "unit": "USDT",
+      "frequency": "1d",
+      "earliest_event_time": "2024-01-01T23:59:59Z",
+      "latest_event_time": "2025-12-31T23:59:59Z"
+    },
+    {
+      "series_id": "BNB_USDT_PRICE_1D",
+      "resource_id": "BNB",
+      "unit": "USDT",
+      "frequency": "1d",
+      "earliest_event_time": "2024-01-01T23:59:59Z",
+      "latest_event_time": "2025-12-31T23:59:59Z"
+    }
+  ],
+  "correction_handling": "Immutable historical bars; explicit revisions sequenced with revision numbers and knowledge timestamps"
+}

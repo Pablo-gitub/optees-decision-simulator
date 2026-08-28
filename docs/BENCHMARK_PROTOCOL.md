@@ -63,28 +63,31 @@ publishable episode.
 
 Do not combine these into a hidden synthetic score.
 
-## Dataset Adapters
+## Dataset Adapters and Provenance
 
 Each adapter declares:
 
 - schema and units;
-- source and redistribution terms;
+- source, retrieval method, and redistribution terms;
 - calendar and missing-value treatment;
-- knowledge-time assumptions;
+- knowledge-time assumptions ($t_{knowledge} \le T_k$);
 - reference-unit valuation;
 - transition feasibility and costs;
-- handling of corrections, delays, and unavailable future data.
+- handling of corrections, delays, and unavailable future data;
+- three-tier SHA-256 hash boundaries (raw artifact, normalized snapshot, manifest).
+
+The authoritative specification for the initial market dataset (Binance Public 1d Spot Klines for BTC, ETH, SOL, BNB quoted in USDT) is frozen in [`contracts/market-dataset-provenance.md`](contracts/market-dataset-provenance.md).
 
 The simulator must support at least one non-market synthetic or operational
 dataset before making broad claims about policy quality.
 
 ## Anti-Leakage Rules
 
-- chronological splits only;
-- no tuning on the private evaluation interval;
+- chronological splits only (Exploratory P0, Calibration P1, Private Evaluation P2, Forward Stress P3);
+- strictly no tuning or parameter adjustment on the private evaluation interval (P2) or forward interval (P3);
 - no retrospective replacement of failed decisions;
 - no policy-specific data corrections;
-- no selection of only favorable episode windows;
+- no selection of only favorable episode windows or asset subsets after observing strategy returns;
 - no access to another policy's state;
 - all exploratory, calibration, private, and forward episodes labeled
   separately.

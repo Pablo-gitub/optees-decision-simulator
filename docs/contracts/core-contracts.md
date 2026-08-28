@@ -8,6 +8,7 @@
 - **Authority:** Authoritative contract specification for `optees-decision-simulator`
 - **Related Documents:**
   - [Architecture Reference](../ARCHITECTURE.md)
+  - [Market Dataset Provenance](market-dataset-provenance.md)
   - [Threat Model](threat-model.md)
   - [Schema Inventory](schemas/schema_inventory.json)
   - [Benchmark Protocol](../BENCHMARK_PROTOCOL.md)

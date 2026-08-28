@@ -134,19 +134,18 @@ and the analytic episode asserts committed golden round and account hashes.
 
 ## Phase DS-02 — Market Dataset And Baseline Evidence
 
-- Select one licensed, redistributable or reproducibly retrievable daily
-  market dataset; prefer the simplest honest calendar for the first adapter.
-- Freeze source, license, retrieval time, checksum, asset identities, units,
-  timestamp normalization, missing data, valuation price, and corrections.
-- Separate exploratory, calibration, private evaluation, and forward periods.
-- Add synthetic stable, trend, reversal, volatile, and structural-break data.
-- Implement market-specific valuation and transition rules outside the core.
-- Run static and reactive baselines before any Optees-backed policy.
+- **Status:** In Progress (Micro-gate `DS-02A` complete; Gate `DS-D0` satisfied)
+- Selected Binance Public Historical Data Archive (`data.binance.vision`) 1d spot klines for liquid multi-asset universe (BTC, ETH, SOL, BNB quoted in USDT).
+- Frozen dataset provenance contract, zero-credential unauthenticated retrieval, 24/7 continuous calendar, and field semantics in [`contracts/market-dataset-provenance.md`](contracts/market-dataset-provenance.md).
+- Defined four-time temporal semantics, explicit observation timelines (normal, delayed, corrected), and three-tier SHA-256 hash boundaries.
+- Frozen chronological period partitions: Exploratory (P0: 2024-H1), Calibration (P1: 2024-H2), Private Evaluation (P2: 2025-H1), Forward Stress (P3: 2025-H2).
+- Added valid canonical manifest example [`contracts/examples/valid/market_dataset_manifest.v1.json`](contracts/examples/valid/market_dataset_manifest.v1.json).
+- Planned micro-gates: `DS-02B` (Synthetic Market Semantics), `DS-02C` (Retrieval & Snapshot Adapter), `DS-02D` (Market Valuation & Transition Rules), `DS-02E` (Baseline Episodes).
 
 Detailed plan: [Market dataset and baseline evidence](roadmaps/market-dataset-and-baseline-evidence.md).
 
-**Gate DS-D:** the same frozen observations and valuations reproduce the same
-baseline episode hashes.
+**Micro-gate DS-D0 (Satisfied):** dataset decision, license, retrieval method, and provenance contract are frozen and reviewable without network access or production code.
+**Gate DS-D (Planned):** the same frozen observations and valuations reproduce the same baseline episode hashes.
 
 ## Phase DS-03 — Persistence, API, And Existing Optees Capabilities
 
