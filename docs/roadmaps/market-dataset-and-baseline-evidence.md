@@ -3,14 +3,14 @@
 ## Work Unit
 
 - **ID:** `DS-02`
-- **State:** `DS-02A` and `DS-02B` completed (Gates `DS-D0` and `DS-D1` satisfied after review); `DS-02C` remains unstarted
+- **State:** `DS-02A`, `DS-02B`, and `DS-02C1` completed (Gates `DS-D0`, `DS-D1`, and `DS-D2A` satisfied); awaiting review before `DS-02C2`
 - **Type:** backend data provenance, market interpretation and baseline evidence; no UI
 - **Parent roadmap:** `../ROADMAP.md`
 - **Prerequisite:** `DS-K` satisfied by `DS-01`
 - **Parallel Optees work:** `OPT-DS-03A` robust-scenario contract decision
 - **Implementation owner:** Gemini
 - **Review:** Codex after every micro-gate
-- **Completion gate:** `DS-D` (Current micro-gates: `DS-D0` and `DS-D1` Satisfied)
+- **Completion gate:** `DS-D` (Current micro-gates: `DS-D0`, `DS-D1`, and `DS-D2A` Satisfied)
 
 ## Objective
 
@@ -262,9 +262,20 @@ Stop if the receipt cannot reference the existing manifest without changing
 its schema, canonical manifest hashing is ambiguous, or a fact cannot be
 established from caller-supplied evidence.
 
-**Gate `DS-D2A`:** production canonicalization plus pure byte/hash probes bind
+**Gate `DS-D2A` (Satisfied):** production canonicalization plus pure byte/hash probes bind
 one raw artifact to one existing normalized manifest without I/O or unsupported
 legal claims.
+
+### Gate `DS-D2A` Evidence Delivered:
+- **JSON Schema & Inventory:** Added `docs/contracts/schemas/acquisition_receipt.v1.json` and registered `acquisition_receipt` (1.0.0) in `docs/contracts/schemas/schema_inventory.json`.
+- **Domain Model:** Added immutable `AcquisitionReceipt` dataclass to `simulator.domain.models` with RFC 8785 canonical hash helper and validation.
+- **Pure Verification Service:** Implemented `simulator.application.services.acquisition` providing `parse_publisher_checksum_line` and `verify_acquisition_evidence`.
+- **Hash & Evidence Linkage:** Constant-time comparison binds raw bytes SHA-256, publisher SHA-256, normalized snapshot SHA-256 (manifest `checksum_sha256`), and canonical manifest SHA-256 (`manifest.compute_hash()`).
+- **Safety & Secret Isolation:** Rejection of local filesystem absolute paths and secret/token patterns.
+- **Valid Contract Example:** Added `docs/contracts/examples/valid/acquisition_receipt.v1.json` validated by `tools/validate_contracts.py`.
+- **Unit & Contract Tests:** Added 17 tests in `apps/backend/tests/unit/application/test_acquisition_receipt.py` (80 total backend tests passing).
+
+Only after review may `DS-02C2` begin.
 
 ### Micro-gate C2 — Bounded Offline Snapshot Adapter (`DS-02C2`)
 

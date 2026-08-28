@@ -1,5 +1,7 @@
-"""Application services package."""
-
+from simulator.application.services.acquisition import (
+    parse_publisher_checksum_line,
+    verify_acquisition_evidence,
+)
 from simulator.application.services.eligibility import EligibilityService
 from simulator.application.services.evaluator import EvaluatorService
 from simulator.application.services.execution import ExecutionService
@@ -12,4 +14,6 @@ __all__ = [
     "ExecutionService",
     "EpisodeRunner",
     "ReplayService",
+    "parse_publisher_checksum_line",
+    "verify_acquisition_evidence",
 ]

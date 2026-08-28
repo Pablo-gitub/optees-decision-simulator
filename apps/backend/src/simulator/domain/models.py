@@ -390,6 +390,59 @@ class DatasetSnapshotManifest:
 
 
 @dataclass(frozen=True)
+class AcquisitionReceipt:
+    acquisition_id: str
+    snapshot_id: str
+    provider_archive_uri: str
+    provider_archive_filename: str
+    publisher_checksum_uri: str
+    retrieval_time: str
+    publisher_sha256: str
+    raw_artifact_sha256: str
+    raw_byte_size: int
+    normalizer_id: str
+    normalizer_version: str
+    normalized_snapshot_sha256: str
+    manifest_sha256: str
+    verification_outcome: str
+    failure_reasons: tuple[str, ...] = ()
+    license: str = "Upstream repository labelled MIT; raw archive redistribution not asserted"
+    schema_version: str = "1.0.0"
+
+    def __post_init__(self) -> None:
+        parse_utc_timestamp(self.retrieval_time)
+        if self.raw_byte_size < 1:
+            raise ValueError(f"raw_byte_size must be >= 1, got {self.raw_byte_size}")
+        if self.verification_outcome not in ("ACCEPTED", "REJECTED"):
+            raise ValueError(f"Invalid verification_outcome: {self.verification_outcome}")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "$type": "acquisition_receipt",
+            "schema_version": self.schema_version,
+            "acquisition_id": self.acquisition_id,
+            "snapshot_id": self.snapshot_id,
+            "provider_archive_uri": self.provider_archive_uri,
+            "provider_archive_filename": self.provider_archive_filename,
+            "publisher_checksum_uri": self.publisher_checksum_uri,
+            "retrieval_time": self.retrieval_time,
+            "publisher_sha256": self.publisher_sha256,
+            "raw_artifact_sha256": self.raw_artifact_sha256,
+            "raw_byte_size": self.raw_byte_size,
+            "normalizer_id": self.normalizer_id,
+            "normalizer_version": self.normalizer_version,
+            "normalized_snapshot_sha256": self.normalized_snapshot_sha256,
+            "manifest_sha256": self.manifest_sha256,
+            "verification_outcome": self.verification_outcome,
+            "failure_reasons": list(self.failure_reasons),
+            "license": self.license,
+        }
+
+    def compute_hash(self) -> str:
+        return compute_record_hash(self.to_dict())
+
+
+@dataclass(frozen=True)
 class ObservationRecord:
     observation_id: str
     snapshot_id: str

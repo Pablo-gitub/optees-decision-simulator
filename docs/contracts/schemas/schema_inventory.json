@@ -121,6 +121,14 @@
       "title": "DivergenceReport",
       "file_path": "docs/contracts/schemas/divergence_report.v1.json",
       "description": "Immutable record of an observed divergence between original run state and re-executed state, classified into frozen categories."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/acquisition_receipt.v1.json",
+      "type_discriminator": "acquisition_receipt",
+      "schema_version": "1.0.0",
+      "title": "AcquisitionReceipt",
+      "file_path": "docs/contracts/schemas/acquisition_receipt.v1.json",
+      "description": "Immutable receipt recording raw artifact acquisition, publisher checksum verification, and linkage to a normalized dataset snapshot manifest."
     }
   ]
 }

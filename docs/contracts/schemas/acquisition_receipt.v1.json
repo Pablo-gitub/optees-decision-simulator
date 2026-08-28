@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optees.org/schemas/simulator/v1/acquisition_receipt.v1.json",
+  "title": "AcquisitionReceipt",
+  "description": "Immutable receipt recording the raw artifact acquisition, publisher checksum verification, and linkage to a normalized dataset snapshot manifest.",
+  "type": "object",
+  "required": [
+    "$type",
+    "schema_version",
+    "acquisition_id",
+    "snapshot_id",
+    "provider_archive_uri",
+    "provider_archive_filename",
+    "publisher_checksum_uri",
+    "retrieval_time",
+    "publisher_sha256",
+    "raw_artifact_sha256",
+    "raw_byte_size",
+    "normalizer_id",
+    "normalizer_version",
+    "normalized_snapshot_sha256",
+    "manifest_sha256",
+    "verification_outcome",
+    "failure_reasons",
+    "license"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$type": {
+      "type": "string",
+      "const": "acquisition_receipt"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "acquisition_id": {
+      "type": "string",
+      "pattern": "^acq_[a-zA-Z0-9_-]+$"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "pattern": "^ds-snap_[a-zA-Z0-9_-]+$"
+    },
+    "provider_archive_uri": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_archive_filename": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_.-]+$"
+    },
+    "publisher_checksum_uri": {
+      "type": "string",
+      "minLength": 1
+    },
+    "retrieval_time": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+    },
+    "publisher_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "raw_artifact_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "raw_byte_size": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "normalizer_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "normalizer_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "normalized_snapshot_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "verification_outcome": {
+      "type": "string",
+      "enum": ["ACCEPTED", "REJECTED"]
+    },
+    "failure_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "RAW_BYTE_SIZE_MISMATCH",
+          "PUBLISHER_CHECKSUM_PARSE_ERROR",
+          "RAW_CHECKSUM_MISMATCH",
+          "NORMALIZED_SNAPSHOT_HASH_MISMATCH",
+          "SNAPSHOT_ID_MISMATCH",
+          "CANONICAL_MANIFEST_HASH_MISMATCH",
+          "INVALID_RETRIEVAL_TIME",
+          "INVALID_FILENAME",
+          "UNSUPPORTED_PROVIDER_METADATA",
+          "SECRET_OR_PATH_EXPOSURE"
+        ]
+      }
+    },
+    "license": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

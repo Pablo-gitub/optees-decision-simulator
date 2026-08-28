@@ -7,7 +7,7 @@ This directory contains the authoritative version 1 core contracts, schemas, thr
 - [`core-contracts.md`](core-contracts.md): Authoritative specification of core domain entities, time semantics (the four times), observation delivery, JSON canonicalization (RFC 8785), SHA-256 hashing, replay modes, divergence categories, and application ports.
 - [`market-dataset-provenance.md`](market-dataset-provenance.md): Authoritative market data provenance contract, candidate comparison, retrieval protocol, asset universe, and chronological partitioning.
 - [`threat-model.md`](threat-model.md): Comprehensive security analysis covering trust boundaries, threat vectors, mitigations, and residual risks.
-- [`schemas/`](schemas/): Formally versioned JSON Schema specifications (Draft 2020-12) for all 15 core entities:
+- [`schemas/`](schemas/): Formally versioned JSON Schema specifications (Draft 2020-12) for all 16 core entities:
   - [`schema_inventory.json`](schemas/schema_inventory.json): Machine-readable inventory of all v1 schemas.
   - [`episode_definition.v1.json`](schemas/episode_definition.v1.json)
   - [`episode_run.v1.json`](schemas/episode_run.v1.json)
@@ -24,9 +24,11 @@ This directory contains the authoritative version 1 core contracts, schemas, thr
   - [`optees_call_receipt.v1.json`](schemas/optees_call_receipt.v1.json)
   - [`replay_report.v1.json`](schemas/replay_report.v1.json)
   - [`divergence_report.v1.json`](schemas/divergence_report.v1.json)
+  - [`acquisition_receipt.v1.json`](schemas/acquisition_receipt.v1.json)
 - [`examples/`](examples/): Complete valid and invalid examples demonstrating schema adherence, temporal filtering, and invariant enforcement:
   - [`valid/synthetic_episode_definition.v1.json`](examples/valid/synthetic_episode_definition.v1.json)
   - [`valid/market_dataset_manifest.v1.json`](examples/valid/market_dataset_manifest.v1.json)
+  - [`valid/acquisition_receipt.v1.json`](examples/valid/acquisition_receipt.v1.json)
   - [`valid/knowledge_cutoff_observations.v1.json`](examples/valid/knowledge_cutoff_observations.v1.json)
   - [`valid/decision_accepted.v1.json`](examples/valid/decision_accepted.v1.json)
   - [`valid/decision_rejected.v1.json`](examples/valid/decision_rejected.v1.json)
