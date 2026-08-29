@@ -134,6 +134,15 @@ and the analytic episode asserts committed golden round and account hashes.
 The subsequent integrity review made all JSON-like record fields deeply immutable and
 made execution/replay preserve and verify policy-version identity and configuration.
 
+`DS-K` integrity review checklist:
+
+- [x] Deeply freeze JSON-like fields before hashing or persistence.
+- [x] Return fresh mutable containers only at public serialization boundaries.
+- [x] Verify policy and policy-version identity before episode execution.
+- [x] Reuse the same immutable policy configuration during execution and replay.
+- [x] Distinguish incompatible policy versions from same-version behavioral divergence.
+- [x] Pass all backend domain, application, integration, and contract tests.
+
 ## Phase DS-02 — Market Dataset And Baseline Evidence
 
 - **Status:** In Progress (Micro-gates `DS-02A`, `DS-02B`, and `DS-02C1` complete; Gates `DS-D0`, `DS-D1`, and `DS-D2A` satisfied)
@@ -158,6 +167,17 @@ schema, canonicalization, and hashing code prove determinism and the conservativ
 one raw artifact to one existing normalized manifest without I/O or unsupported legal claims.
 Acceptance now requires caller-supplied normalized snapshot bytes whose computed digest
 matches the existing manifest; omission or mismatch is a rejected evidence outcome.
+
+`DS-D2A` completion checklist:
+
+- [x] Bind raw bytes to the strict publisher checksum and exact byte size.
+- [x] Compute the normalized snapshot digest from caller-supplied bytes.
+- [x] Bind the computed normalized digest and canonical manifest hash.
+- [x] Preserve rejected evidence without fabricated timestamps, sizes, or digests.
+- [x] Bind licence text to the reviewed manifest.
+- [x] Restrict evidence URIs to credential-free HTTPS and exact basenames.
+- [x] Validate the receipt schema, examples, determinism, and failure reasons.
+- [ ] Implement bounded offline storage and decoding in `DS-02C2`.
 **Gate DS-D (Planned):** the same frozen observations and valuations reproduce the same baseline episode hashes.
 
 ## Phase DS-03 — Persistence, API, And Existing Optees Capabilities

@@ -281,6 +281,18 @@ legal claims.
   caller-supplied bytes, binds licence text to the reviewed manifest, and accepts only credential-free
   HTTPS artifact/checksum URIs with matching basenames.
 
+Completion checklist:
+
+- [x] Versioned receipt schema, inventory entry, Python record, and valid example.
+- [x] Strict lowercase publisher checksum grammar and filename binding.
+- [x] Raw archive digest and byte-size verification.
+- [x] Caller-supplied normalized bytes and manifest digest binding.
+- [x] Canonical manifest hashing and explicit snapshot identity binding.
+- [x] Honest accepted/rejected shapes with bounded machine-readable reasons.
+- [x] Manifest-owned licence and safe provider metadata.
+- [x] Nineteen focused acquisition tests and complete backend regression gate.
+- [ ] `DS-02C2` filesystem, ZIP/CSV, and offline `DatasetPort` adapter.
+
 Only after review may `DS-02C2` begin.
 
 ### Micro-gate C2 — Bounded Offline Snapshot Adapter (`DS-02C2`)

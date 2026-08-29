@@ -64,6 +64,10 @@ work unit.
 
 - Create a local commit only for a coherent, reviewed, and appropriately tested
   work unit. Keep commits atomic and use concise imperative messages.
+- Before every commit, inspect the relevant general and detailed roadmaps and
+  update their checkboxes, gate state, and next authorized step to match the
+  implementation actually included in that commit. Do not mark partial or
+  unverified work complete.
 - Inspect the staged diff and exclude unrelated files, generated output,
   secrets, credentials, datasets not approved for redistribution, and local
   configuration.
