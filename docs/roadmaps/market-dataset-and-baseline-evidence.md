@@ -400,17 +400,18 @@ if the existing `DatasetPort` cannot preserve the frozen observation/manifest
 contract, if retention could delete the package being opened, or if hash parity
 requires changing an accepted receipt.
 
-**Gate `DS-D2B` (Satisfied):** interrupted or malicious writes publish nothing, accepted
+**Gate `DS-D2B` (Satisfied after review correction):** interrupted or malicious writes publish nothing, accepted
 content cannot be overwritten, and a synthetic acquisition reopens offline to
 reproduce byte-for-byte observations, manifest, receipt, and hashes.
 
 ### Gate `DS-D2B` Evidence Delivered:
 - **Application Port & DTOs:** Defined `SnapshotStorePort` and `StoredAcquisitionPackage` in `simulator.application.ports.snapshot_store` with zero filesystem or path leaks.
-- **Filesystem Store Adapter:** Implemented `FileSystemSnapshotStore` under a caller-supplied private root with path traversal validation, checksum-first staging, atomic rename, and verified reopen.
+- **Filesystem Store Adapter:** Implemented `FileSystemSnapshotStore` under a caller-supplied private root with component-safe containment, explicit raw/normalized byte limits, checksum-first staging, atomic rename, and verified reopen.
 - **Identical Republish Decision:** Frozen as idempotent no-op on identical content, and stable `OVERWRITE_FORBIDDEN` rejection on conflicting hashes/content.
 - **Failure Injection & Defense-in-Depth:** Verified failure seams (`SnapshotStoreFailureInjector`) before staging, after staging, and during atomic rename; confirmed complete staging cleanup and zero partial publication.
 - **Offline Dataset Adapter:** Implemented `OfflineDatasetAdapter` fulfilling `DatasetPort`, producing exact byte-for-byte canonical `ObservationRecord` and `DatasetSnapshotManifest` items with strict cryptographic parity.
-- **Verification Suite:** 12 focused store tests and 3 end-to-end adapter tests with 123/123 backend tests passing.
+- **Integrity review:** immutable packages defensively copy mutable byte inputs, `exists` requires verified content, prefix-sibling symlink escapes are rejected, and pruning reports deletion failures honestly.
+- **Verification Suite:** 16 focused store tests and 3 end-to-end adapter tests with 127/127 backend tests passing.
 
 Only after review may `DS-02C3` begin.
 

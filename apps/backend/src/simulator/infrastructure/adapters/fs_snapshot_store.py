@@ -19,6 +19,10 @@ from simulator.application.ports.snapshot_store import (
 from simulator.domain.canonical import canonicalize_json
 from simulator.domain.errors import SnapshotStoreError
 from simulator.domain.models import AcquisitionReceipt
+from simulator.infrastructure.adapters.archive_decoder import (
+    MAX_RAW_ARCHIVE_BYTES,
+    MAX_UNCOMPRESSED_MEMBER_BYTES,
+)
 
 SNAPSHOT_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"^ds-snap_[a-zA-Z0-9_-]+$")
 ACQUISITION_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"^acq_[a-zA-Z0-9_-]+$")
@@ -73,14 +77,26 @@ class FileSystemSnapshotStore(SnapshotStorePort):
         self,
         root_dir: str | Path,
         failure_injector: SnapshotStoreFailureInjector | None = None,
+        max_raw_bytes: int = MAX_RAW_ARCHIVE_BYTES,
+        max_normalized_bytes: int = MAX_UNCOMPRESSED_MEMBER_BYTES,
     ) -> None:
+        if max_raw_bytes < 1 or max_normalized_bytes < 1:
+            raise ValueError("snapshot byte limits must be positive")
         self._root = Path(root_dir).resolve()
         self._snapshots_dir = self._root / "snapshots"
         self._staging_dir = self._root / "staging"
         self._failure_injector = failure_injector
+        self._max_raw_bytes = max_raw_bytes
+        self._max_normalized_bytes = max_normalized_bytes
 
         self._snapshots_dir.mkdir(parents=True, exist_ok=True)
         self._staging_dir.mkdir(parents=True, exist_ok=True)
+        for directory in (self._snapshots_dir, self._staging_dir):
+            if directory.is_symlink() or not directory.is_dir():
+                raise SnapshotStoreError(
+                    "Snapshot store directory must be a real directory",
+                    code="SYMLINK_NOT_ALLOWED",
+                )
 
     def _validate_identifiers(self, snapshot_id: str, acquisition_id: str) -> None:
         """Reject unsafe, absolute, traversal, or malformed identity components before I/O."""
@@ -104,7 +120,7 @@ class FileSystemSnapshotStore(SnapshotStorePort):
     def _get_target_dir(self, snapshot_id: str, acquisition_id: str) -> Path:
         self._validate_identifiers(snapshot_id, acquisition_id)
         target = (self._snapshots_dir / snapshot_id / acquisition_id).resolve()
-        if not str(target).startswith(str(self._snapshots_dir.resolve())):
+        if not target.is_relative_to(self._snapshots_dir.resolve()):
             raise SnapshotStoreError(
                 "Resolved target path escapes snapshots root directory",
                 code="INVALID_IDENTIFIER",
@@ -133,6 +149,16 @@ class FileSystemSnapshotStore(SnapshotStorePort):
 
         # 1. Pre-publication cryptographic and size checks
         raw_size = len(package.raw_bytes)
+        if raw_size > self._max_raw_bytes:
+            raise SnapshotStoreError(
+                "Raw acquisition exceeds the configured snapshot-store limit",
+                code="RAW_SIZE_LIMIT_EXCEEDED",
+            )
+        if len(package.normalized_bytes) > self._max_normalized_bytes:
+            raise SnapshotStoreError(
+                "Normalized acquisition exceeds the configured snapshot-store limit",
+                code="NORMALIZED_SIZE_LIMIT_EXCEEDED",
+            )
         if raw_size != receipt.raw_byte_size:
             raise SnapshotStoreError(
                 "Raw bytes length does not match receipt raw_byte_size",
@@ -336,10 +362,10 @@ class FileSystemSnapshotStore(SnapshotStorePort):
         )
 
     def exists(self, acquisition_id: str, snapshot_id: str) -> bool:
-        """Check if an acquisition directory exists and is a valid directory."""
+        """Return whether a complete package exists and passes verified reopen."""
         try:
-            target = self._get_target_dir(snapshot_id, acquisition_id)
-            return target.exists() and target.is_dir() and not target.is_symlink()
+            self.load(acquisition_id=acquisition_id, snapshot_id=snapshot_id)
+            return True
         except SnapshotStoreError:
             return False
 
@@ -428,7 +454,13 @@ class FileSystemSnapshotStore(SnapshotStorePort):
                 # Protected acquisition cannot be pruned
                 continue
             # Remove directory
-            shutil.rmtree(acq_path, ignore_errors=True)
+            try:
+                shutil.rmtree(acq_path)
+            except OSError as exc:
+                raise SnapshotStoreError(
+                    "Failed to prune immutable acquisition package",
+                    code="PRUNE_FAILURE",
+                ) from exc
             pruned_count += 1
             # If parent snapshot directory is empty, remove it
             snap_path = self._snapshots_dir / snap_id

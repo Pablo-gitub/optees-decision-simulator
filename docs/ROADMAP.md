@@ -186,6 +186,7 @@ reproduce byte-for-byte observations, manifest, receipt, and hashes.
 - [x] Validate the receipt schema, examples, determinism, and failure reasons.
 - [x] Implement the pure bounded ZIP/CSV decoder in `DS-02C2A`.
 - [x] Implement the immutable store and offline `DatasetPort` adapter in medium gate `DS-02C2B`.
+- [x] Review path containment, deep immutability, verified existence, storage bounds, and pruning failures.
 **Gate DS-D (Planned):** the same frozen observations and valuations reproduce the same baseline episode hashes.
 
 ## Phase DS-03 — Persistence, API, And Existing Optees Capabilities

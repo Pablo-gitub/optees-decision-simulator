@@ -65,6 +65,18 @@ def test_publish_and_verified_reopen(tmp_path: Path) -> None:
     assert loaded.normalized_bytes == pkg.normalized_bytes
 
 
+def test_package_copies_mutable_bytearray_inputs() -> None:
+    raw = bytearray(b"raw")
+    normalized = bytearray(b"normalized")
+    package = _create_test_package(raw_bytes=raw, normalized_bytes=normalized)  # type: ignore[arg-type]
+
+    raw[0] = ord("X")
+    normalized[0] = ord("X")
+
+    assert package.raw_bytes == b"raw"
+    assert package.normalized_bytes == b"normalized"
+
+
 def test_repeated_reopen_determinism(tmp_path: Path) -> None:
     store = FileSystemSnapshotStore(tmp_path)
     pkg = _create_test_package()
@@ -126,6 +138,18 @@ def test_raw_hash_mismatch_rejected(tmp_path: Path) -> None:
     assert exc_info.value.code in ("RAW_HASH_MISMATCH", "RAW_SIZE_MISMATCH")
 
 
+def test_store_enforces_raw_and_normalized_byte_limits(tmp_path: Path) -> None:
+    package = _create_test_package(raw_bytes=b"1234", normalized_bytes=b"5678")
+
+    with pytest.raises(SnapshotStoreError) as raw_error:
+        FileSystemSnapshotStore(tmp_path / "raw", max_raw_bytes=3).store(package)
+    assert raw_error.value.code == "RAW_SIZE_LIMIT_EXCEEDED"
+
+    with pytest.raises(SnapshotStoreError) as normalized_error:
+        FileSystemSnapshotStore(tmp_path / "normalized", max_normalized_bytes=3).store(package)
+    assert normalized_error.value.code == "NORMALIZED_SIZE_LIMIT_EXCEEDED"
+
+
 def test_malicious_identifiers_rejected(tmp_path: Path) -> None:
     store = FileSystemSnapshotStore(tmp_path)
 
@@ -159,6 +183,28 @@ def test_symlink_substitution_rejected(tmp_path: Path) -> None:
     with pytest.raises(SnapshotStoreError) as exc_info:
         store.load(pkg.receipt.acquisition_id, pkg.receipt.snapshot_id)
     assert exc_info.value.code == "SYMLINK_NOT_ALLOWED"
+
+
+def test_snapshot_directory_symlink_cannot_escape_to_prefix_sibling(tmp_path: Path) -> None:
+    store = FileSystemSnapshotStore(tmp_path)
+    outside = tmp_path / "snapshots_evil"
+    outside.mkdir()
+    (tmp_path / "snapshots" / "ds-snap_link").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(SnapshotStoreError) as exc_info:
+        store.load("acq_test", "ds-snap_link")
+
+    assert exc_info.value.code == "INVALID_IDENTIFIER"
+
+
+def test_exists_requires_verified_content(tmp_path: Path) -> None:
+    store = FileSystemSnapshotStore(tmp_path)
+    pkg = _create_test_package()
+    store.store(pkg)
+    target = tmp_path / "snapshots" / pkg.receipt.snapshot_id / pkg.receipt.acquisition_id
+    (target / "raw.bin").write_bytes(b"tampered")
+
+    assert not store.exists(pkg.receipt.acquisition_id, pkg.receipt.snapshot_id)
 
 
 def test_tampered_stored_content_detected_on_reopen(tmp_path: Path) -> None:

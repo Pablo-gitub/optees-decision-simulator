@@ -26,6 +26,8 @@ class StoredAcquisitionPackage:
             raise TypeError("raw_bytes must be bytes")
         if not isinstance(self.normalized_bytes, (bytes, bytearray)):
             raise TypeError("normalized_bytes must be bytes")
+        object.__setattr__(self, "raw_bytes", bytes(self.raw_bytes))
+        object.__setattr__(self, "normalized_bytes", bytes(self.normalized_bytes))
         if len(self.raw_bytes) == 0:
             raise ValueError("raw_bytes cannot be empty")
         if len(self.normalized_bytes) == 0:
