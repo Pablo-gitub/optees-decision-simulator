@@ -94,3 +94,10 @@ class ReplayDivergenceError(SimulatorError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, code="REPLAY_DIVERGENCE")
+
+
+class ArchiveDecodingError(SimulatorError):
+    """Raised when raw archive decoding, decompression, or CSV validation fails."""
+
+    def __init__(self, message: str, code: str = "ARCHIVE_DECODING_ERROR") -> None:
+        super().__init__(message, code=code)

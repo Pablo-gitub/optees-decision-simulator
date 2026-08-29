@@ -3,14 +3,14 @@
 ## Work Unit
 
 - **ID:** `DS-02`
-- **State:** `DS-02A`, `DS-02B`, and `DS-02C1` completed (Gates `DS-D0`, `DS-D1`, and `DS-D2A` satisfied); awaiting review before `DS-02C2`
+- **State:** `DS-02A`, `DS-02B`, `DS-02C1`, and `DS-02C2A` completed (Gates `DS-D0`, `DS-D1`, `DS-D2A`, and `DS-D2B1` satisfied); awaiting review before `DS-02C2B`
 - **Type:** backend data provenance, market interpretation and baseline evidence; no UI
 - **Parent roadmap:** `../ROADMAP.md`
 - **Prerequisite:** `DS-K` satisfied by `DS-01`
 - **Parallel Optees work:** `OPT-DS-03A` robust-scenario contract decision
 - **Implementation owner:** Gemini
 - **Review:** Codex after every micro-gate
-- **Completion gate:** `DS-D` (Current micro-gates: `DS-D0`, `DS-D1`, and `DS-D2A` Satisfied)
+- **Completion gate:** `DS-D` (Current micro-gates: `DS-D0`, `DS-D1`, `DS-D2A`, and `DS-D2B1` Satisfied)
 
 ## Objective
 
@@ -291,9 +291,11 @@ Completion checklist:
 - [x] Honest accepted/rejected shapes with bounded machine-readable reasons.
 - [x] Manifest-owned licence and safe provider metadata.
 - [x] Nineteen focused acquisition tests and complete backend regression gate.
-- [ ] `DS-02C2A` pure bounded ZIP/CSV decoder.
+- [x] `DS-02C2A` pure bounded ZIP/CSV decoder.
+- [ ] `DS-02C2B` immutable local snapshot store.
+- [ ] `DS-02C2C` offline dataset adapter.
 
-Only after review may `DS-02C2A` begin.
+Only after review may `DS-02C2B` begin.
 
 ### Micro-gate C2 — Bounded Offline Snapshot Adapter (`DS-02C2`)
 
@@ -342,8 +344,19 @@ Stop if Python ZIP metadata cannot establish a required safety fact before
 decompression, if accepted receipt semantics must change, or if a proposed
 limit contradicts the frozen dataset decision.
 
-**Gate `DS-D2B1`:** synthetic accepted ZIP bytes decode deterministically under
+**Gate `DS-D2B1` (Satisfied):** synthetic accepted ZIP bytes decode deterministically under
 strict resource and archive-shape limits without filesystem or network access.
+
+### Gate `DS-D2B1` Evidence Delivered:
+- **Pure Infrastructure Decoder:** Implemented `simulator.infrastructure.adapters.archive_decoder.decode_kline_archive` with zero filesystem and zero network access.
+- **Pre-decompression Invariants & Defense-in-Depth:** Re-verifies accepted receipt status, zero active failure reasons, exact raw byte size, exact SHA-256 digest (`hmac.compare_digest`), member count (`MAX_MEMBER_COUNT=1`), compression method (`ZIP_STORED` / `ZIP_DEFLATED`), unencrypted status, non-directory, non-symlink/special, flat member filename matching expected `{archive_basename}.csv`.
+- **Resource Limits:** `MAX_RAW_ARCHIVE_BYTES=10MB`, `MAX_COMPRESSED_MEMBER_BYTES=10MB`, `MAX_UNCOMPRESSED_MEMBER_BYTES=25MB`, `MAX_COMPRESSION_RATIO=50.0`, `MAX_CSV_ROW_COUNT=10,000`, `MAX_CELL_LENGTH=256`, `EXPECTED_CSV_COLUMN_COUNT=12`.
+- **Streaming Decompression & Bomb Prevention:** Reads in 64 KB chunks, tracking total uncompressed bytes and compression ratio in real time before memory exhaustion.
+- **Sanitization & CSV Strictness:** Strict UTF-8 validation, NUL byte detection, headerless 12-column parsing, cell length enforcement, integer timestamp validation.
+- **Typed Immutable Output:** Returns `DecodedArchivePackage` containing `tuple[RawKlineRecord, ...]` without premature observation or manifest generation.
+- **Unit Test Suite:** 24 unit tests in `apps/backend/tests/unit/infrastructure/test_archive_decoder.py` covering all positive, negative, and edge-case invariants with 107 total backend tests passing.
+
+Only after review may `DS-02C2B` begin.
 
 #### Micro-gate C2B — Immutable Local Snapshot Store (`DS-02C2B`)
 
