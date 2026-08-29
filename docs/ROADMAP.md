@@ -154,7 +154,7 @@ made execution/replay preserve and verify policy-version identity and configurat
 - Built and validated synthetic fixtures (stable, trend, reversal, volatile, missing-day, structural-break) and verified schema roundtrip against real v1 contracts.
 - Implemented pure provider-neutral acquisition evidence verification (`simulator.application.services.acquisition`), added `acquisition_receipt.v1.json` schema and inventory entry, and verified constant-time hash linkage from raw bytes to canonical manifest hash.
 - Implemented pure bounded ZIP/CSV archive decoder (`simulator.infrastructure.adapters.archive_decoder`), enforcing strict resource bounds, zip bomb streaming protection, 12-column headerless CSV parsing, and typed immutable output.
-- Next authorized micro-gate: `DS-02C2B` (Immutable Local Snapshot Store). Later gates remain `DS-02C2C` (Offline Dataset Adapter), `DS-02C3` (Optional Provider Fetcher), `DS-02D` (Market Valuation & Transition Rules), and `DS-02E` (Baseline Episodes).
+- Next authorized medium gate: `DS-02C2B` (Immutable Offline Snapshot Pipeline: store plus `DatasetPort` adapter). Later gates remain `DS-02C3` (Optional Provider Fetcher), `DS-02D` (Market Valuation & Transition Rules), and `DS-02E` (Baseline Episodes).
 
 Detailed plan: [Market dataset and baseline evidence](roadmaps/market-dataset-and-baseline-evidence.md).
 
@@ -181,8 +181,7 @@ strict resource and archive-shape limits without filesystem or network access; m
 - [x] Restrict evidence URIs to credential-free HTTPS and exact basenames.
 - [x] Validate the receipt schema, examples, determinism, and failure reasons.
 - [x] Implement the pure bounded ZIP/CSV decoder in `DS-02C2A`.
-- [ ] Implement the immutable local snapshot store in `DS-02C2B`.
-- [ ] Implement the offline dataset adapter in `DS-02C2C`.
+- [ ] Implement the immutable store and offline `DatasetPort` adapter in medium gate `DS-02C2B`.
 **Gate DS-D (Planned):** the same frozen observations and valuations reproduce the same baseline episode hashes.
 
 ## Phase DS-03 — Persistence, API, And Existing Optees Capabilities

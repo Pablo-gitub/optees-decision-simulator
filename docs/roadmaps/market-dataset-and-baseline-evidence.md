@@ -3,7 +3,7 @@
 ## Work Unit
 
 - **ID:** `DS-02`
-- **State:** `DS-02A`, `DS-02B`, `DS-02C1`, and `DS-02C2A` completed (Gates `DS-D0`, `DS-D1`, `DS-D2A`, and `DS-D2B1` satisfied); awaiting review before `DS-02C2B`
+- **State:** `DS-02A`, `DS-02B`, `DS-02C1`, and `DS-02C2A` completed after review (Gates `DS-D0`, `DS-D1`, `DS-D2A`, and `DS-D2B1` satisfied); `DS-02C2B` is next
 - **Type:** backend data provenance, market interpretation and baseline evidence; no UI
 - **Parent roadmap:** `../ROADMAP.md`
 - **Prerequisite:** `DS-K` satisfied by `DS-01`
@@ -292,15 +292,14 @@ Completion checklist:
 - [x] Manifest-owned licence and safe provider metadata.
 - [x] Nineteen focused acquisition tests and complete backend regression gate.
 - [x] `DS-02C2A` pure bounded ZIP/CSV decoder.
-- [ ] `DS-02C2B` immutable local snapshot store.
-- [ ] `DS-02C2C` offline dataset adapter.
+- [ ] `DS-02C2B` immutable offline snapshot pipeline (store plus `DatasetPort` adapter).
 
 Only after review may `DS-02C2B` begin.
 
 ### Micro-gate C2 — Bounded Offline Snapshot Adapter (`DS-02C2`)
 
-This stage is split into three separately reviewed implementation units. Do not
-combine them. The accepted `AcquisitionReceipt`, exact raw and normalized byte
+This stage contains the reviewed pure decoder followed by one medium offline
+pipeline gate. The accepted `AcquisitionReceipt`, exact raw and normalized byte
 hashes, current market normalizer, `DatasetPort`, immutable persistence rules,
 and threat model are sources of truth.
 
@@ -359,25 +358,52 @@ strict resource and archive-shape limits without filesystem or network access.
 
 Only after review may `DS-02C2B` begin.
 
-#### Micro-gate C2B — Immutable Local Snapshot Store (`DS-02C2B`)
+#### Medium gate C2B — Immutable Offline Snapshot Pipeline (`DS-02C2B`)
 
-After `DS-D2B1` review, add bounded filesystem storage behind an
-application-owned port. Use private roots, checksum-first staging, atomic
-publication, immutable acquisition-version paths, verified reopen, bounded
-retention and failure injection. Never expose absolute paths in domain records.
+Implement the storage boundary and its first consumer together, in the internal
+order below, while keeping intermediate tests green and delivering one coherent
+commit:
 
-**Gate `DS-D2B2`:** interrupted or malicious writes publish nothing; accepted
-content reopens with identical receipt and byte hashes and cannot be overwritten.
+1. define the narrow application-owned snapshot-storage port and immutable
+   receipt/raw/normalized package DTOs required by the offline use case;
+2. implement bounded filesystem storage under a caller-supplied private root,
+   with checksum-first staging, atomic publication, immutable acquisition-version
+   identities, verified reopen, deterministic bounded retention, and injected
+   failure seams;
+3. implement the offline `DatasetPort` adapter that reopens one accepted
+   acquisition, invokes the reviewed decoder and market normalizer, and returns
+   the existing observations and manifest with exact receipt and hash parity.
 
-#### Micro-gate C2C — Offline Dataset Adapter (`DS-02C2C`)
+Do not expose absolute paths in domain or application records. Validate every
+derived path component before filesystem access; reject traversal, symlinks,
+special files, identity/hash mismatch, overwrite attempts, partial packages,
+and post-publication tampering. Staging failure, interrupted replacement, and
+retention failure must never make a partial acquisition observable. Existing
+accepted content is immutable; identical republishing is either an explicit
+idempotent success or a stable rejection, chosen once and tested.
 
-After `DS-D2B2` review, connect the reviewed decoder, market normalizer and
-store through an offline `DatasetPort` adapter. Reopen accepted acquisitions,
-produce the existing observations and manifest, and prove exact hash parity
-without introducing a second dataset contract.
+Required tests use temporary private roots and deterministic synthetic archives.
+Cover successful publish/reopen, exact byte and canonical hash parity, repeated
+reopen determinism, collision/overwrite behavior, malicious identities, symlink
+and special-file substitution, corrupted receipt/raw/normalized content,
+failure injection before and during atomic publication, cleanup of staging
+artifacts, retention boundaries, and one end-to-end `DatasetPort` read that
+reproduces the existing observations and manifest byte for byte. Use the real
+decoder and normalizer only in the end-to-end adapter tests; focused store tests
+must not couple storage to market semantics.
 
-**Gate `DS-D2B`:** a synthetic acquired snapshot reopens offline and reproduces
-byte-for-byte observations, manifest, receipt, and hashes under failure injection.
+Explicit exclusions: no HTTP/provider fetcher, live Binance access, database,
+FastAPI, CLI, Optees integration, frontend, new observation/manifest contract,
+or mutable cache API.
+
+Stop if safe publication cannot be expressed behind an application-owned port,
+if the existing `DatasetPort` cannot preserve the frozen observation/manifest
+contract, if retention could delete the package being opened, or if hash parity
+requires changing an accepted receipt.
+
+**Gate `DS-D2B`:** interrupted or malicious writes publish nothing, accepted
+content cannot be overwritten, and a synthetic acquisition reopens offline to
+reproduce byte-for-byte observations, manifest, receipt, and hashes.
 
 ### Micro-gate C3 — Optional Provider Fetcher (`DS-02C3`)
 
