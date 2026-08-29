@@ -122,6 +122,18 @@ def test_valid_archive_decodes_successfully() -> None:
     assert row.interval == "1d"
 
 
+def test_malformed_csv_parser_error_is_bounded() -> None:
+    malformed = b'"unterminated,field\n'
+    raw_zip = _create_synthetic_zip("BTCUSDT-1d-2024-01-01.csv", malformed)
+    receipt = _create_sample_receipt(raw_zip)
+
+    with pytest.raises(ArchiveDecodingError) as exc_info:
+        decode_kline_archive(raw_zip, receipt)
+
+    assert exc_info.value.code == "CSV_PARSE_ERROR"
+    assert str(exc_info.value) == "CSV payload is malformed"
+
+
 def test_deterministic_repetition() -> None:
     raw_zip = _create_synthetic_zip(
         "BTCUSDT-1d-2024-01-01.csv", SAMPLE_VALID_CSV_LINE.encode("utf-8")

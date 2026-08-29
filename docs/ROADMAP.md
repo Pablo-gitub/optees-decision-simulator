@@ -168,8 +168,8 @@ schema, canonicalization, and hashing code prove determinism and the conservativ
 one raw artifact to one existing normalized manifest without I/O or unsupported legal claims.
 Acceptance now requires caller-supplied normalized snapshot bytes whose computed digest
 matches the existing manifest; omission or mismatch is a rejected evidence outcome.
-**Micro-gate DS-D2B1 (Satisfied):** synthetic accepted ZIP bytes decode deterministically under
-strict resource and archive-shape limits without filesystem or network access.
+**Micro-gate DS-D2B1 (Satisfied after review correction):** synthetic accepted ZIP bytes decode deterministically under
+strict resource and archive-shape limits without filesystem or network access; malformed CSV parser failures remain inside the stable adapter error contract.
 
 `DS-D2A` and `DS-D2B1` completion checklist:
 

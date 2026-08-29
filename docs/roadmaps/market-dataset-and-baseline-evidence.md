@@ -344,7 +344,7 @@ Stop if Python ZIP metadata cannot establish a required safety fact before
 decompression, if accepted receipt semantics must change, or if a proposed
 limit contradicts the frozen dataset decision.
 
-**Gate `DS-D2B1` (Satisfied):** synthetic accepted ZIP bytes decode deterministically under
+**Gate `DS-D2B1` (Satisfied after review correction):** synthetic accepted ZIP bytes decode deterministically under
 strict resource and archive-shape limits without filesystem or network access.
 
 ### Gate `DS-D2B1` Evidence Delivered:
@@ -354,7 +354,8 @@ strict resource and archive-shape limits without filesystem or network access.
 - **Streaming Decompression & Bomb Prevention:** Reads in 64 KB chunks, tracking total uncompressed bytes and compression ratio in real time before memory exhaustion.
 - **Sanitization & CSV Strictness:** Strict UTF-8 validation, NUL byte detection, headerless 12-column parsing, cell length enforcement, integer timestamp validation.
 - **Typed Immutable Output:** Returns `DecodedArchivePackage` containing `tuple[RawKlineRecord, ...]` without premature observation or manifest generation.
-- **Unit Test Suite:** 24 unit tests in `apps/backend/tests/unit/infrastructure/test_archive_decoder.py` covering all positive, negative, and edge-case invariants with 107 total backend tests passing.
+- **Unit Test Suite:** 25 unit tests in `apps/backend/tests/unit/infrastructure/test_archive_decoder.py` covering all positive, negative, and edge-case invariants with 108 total backend tests passing.
+- **Integrity review:** strict CSV parsing converts malformed quoting and other parser failures into the bounded `CSV_PARSE_ERROR` contract instead of leaking `_csv.Error`.
 
 Only after review may `DS-02C2B` begin.
 

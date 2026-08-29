@@ -8,6 +8,7 @@ import hmac
 import io
 import re
 import zipfile
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from typing import Final
 
@@ -269,10 +270,10 @@ def decode_kline_archive(
         )
 
     # 9. Parse CSV rows
-    reader = csv.reader(io.StringIO(csv_text), delimiter=",")
+    reader = csv.reader(io.StringIO(csv_text), delimiter=",", strict=True)
     rows: list[RawKlineRecord] = []
 
-    for row in reader:
+    for row in _read_csv_rows(reader):
         if not row or (len(row) == 1 and not row[0].strip()):
             # Skip empty lines
             continue
@@ -341,3 +342,14 @@ def decode_kline_archive(
         row_count=len(rows),
         rows=tuple(rows),
     )
+
+
+def _read_csv_rows(reader: Iterable[list[str]]) -> Iterator[list[str]]:
+    """Iterate CSV rows while keeping parser failures inside the stable adapter contract."""
+    try:
+        yield from reader
+    except csv.Error as exc:
+        raise ArchiveDecodingError(
+            "CSV payload is malformed",
+            code="CSV_PARSE_ERROR",
+        ) from exc
