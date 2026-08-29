@@ -101,3 +101,10 @@ class ArchiveDecodingError(SimulatorError):
 
     def __init__(self, message: str, code: str = "ARCHIVE_DECODING_ERROR") -> None:
         super().__init__(message, code=code)
+
+
+class SnapshotStoreError(SimulatorError):
+    """Raised when snapshot storage, retrieval, or integrity verification fails."""
+
+    def __init__(self, message: str, code: str = "SNAPSHOT_STORE_ERROR") -> None:
+        super().__init__(message, code=code)

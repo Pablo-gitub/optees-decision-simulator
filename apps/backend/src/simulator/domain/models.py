@@ -463,6 +463,14 @@ class AcquisitionReceipt:
     def compute_hash(self) -> str:
         return compute_record_hash(self.to_dict())
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> AcquisitionReceipt:
+        d = dict(data)
+        d.pop("$type", None)
+        if "failure_reasons" in d and isinstance(d["failure_reasons"], (list, tuple)):
+            d["failure_reasons"] = tuple(d["failure_reasons"])
+        return cls(**d)
+
 
 @dataclass(frozen=True)
 class ObservationRecord:

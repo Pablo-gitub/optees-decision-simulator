@@ -3,14 +3,14 @@
 ## Work Unit
 
 - **ID:** `DS-02`
-- **State:** `DS-02A`, `DS-02B`, `DS-02C1`, and `DS-02C2A` completed after review (Gates `DS-D0`, `DS-D1`, `DS-D2A`, and `DS-D2B1` satisfied); `DS-02C2B` is next
+- **State:** `DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2A`, and `DS-02C2B` completed (Gates `DS-D0`, `DS-D1`, `DS-D2A`, `DS-D2B1`, and `DS-D2B` satisfied); `DS-02C3` is next
 - **Type:** backend data provenance, market interpretation and baseline evidence; no UI
 - **Parent roadmap:** `../ROADMAP.md`
 - **Prerequisite:** `DS-K` satisfied by `DS-01`
 - **Parallel Optees work:** `OPT-DS-03A` robust-scenario contract decision
 - **Implementation owner:** Gemini
 - **Review:** Codex after every micro-gate
-- **Completion gate:** `DS-D` (Current micro-gates: `DS-D0`, `DS-D1`, `DS-D2A`, and `DS-D2B1` Satisfied)
+- **Completion gate:** `DS-D` (Current micro-gates: `DS-D0`, `DS-D1`, `DS-D2A`, `DS-D2B1`, and `DS-D2B` Satisfied)
 
 ## Objective
 
@@ -292,9 +292,9 @@ Completion checklist:
 - [x] Manifest-owned licence and safe provider metadata.
 - [x] Nineteen focused acquisition tests and complete backend regression gate.
 - [x] `DS-02C2A` pure bounded ZIP/CSV decoder.
-- [ ] `DS-02C2B` immutable offline snapshot pipeline (store plus `DatasetPort` adapter).
+- [x] `DS-02C2B` immutable offline snapshot pipeline (store plus `DatasetPort` adapter).
 
-Only after review may `DS-02C2B` begin.
+Only after review may `DS-02C3` begin.
 
 ### Micro-gate C2 — Bounded Offline Snapshot Adapter (`DS-02C2`)
 
@@ -356,8 +356,6 @@ strict resource and archive-shape limits without filesystem or network access.
 - **Unit Test Suite:** 25 unit tests in `apps/backend/tests/unit/infrastructure/test_archive_decoder.py` covering all positive, negative, and edge-case invariants with 108 total backend tests passing.
 - **Integrity review:** strict CSV parsing converts malformed quoting and other parser failures into the bounded `CSV_PARSE_ERROR` contract instead of leaking `_csv.Error`.
 
-Only after review may `DS-02C2B` begin.
-
 #### Medium gate C2B — Immutable Offline Snapshot Pipeline (`DS-02C2B`)
 
 Implement the storage boundary and its first consumer together, in the internal
@@ -379,8 +377,9 @@ derived path component before filesystem access; reject traversal, symlinks,
 special files, identity/hash mismatch, overwrite attempts, partial packages,
 and post-publication tampering. Staging failure, interrupted replacement, and
 retention failure must never make a partial acquisition observable. Existing
-accepted content is immutable; identical republishing is either an explicit
-idempotent success or a stable rejection, chosen once and tested.
+accepted content is immutable; identical republishing is an explicit idempotent
+success without file modification, while any conflicting republishing is stably
+rejected with `OVERWRITE_FORBIDDEN`.
 
 Required tests use temporary private roots and deterministic synthetic archives.
 Cover successful publish/reopen, exact byte and canonical hash parity, repeated
@@ -401,9 +400,19 @@ if the existing `DatasetPort` cannot preserve the frozen observation/manifest
 contract, if retention could delete the package being opened, or if hash parity
 requires changing an accepted receipt.
 
-**Gate `DS-D2B`:** interrupted or malicious writes publish nothing, accepted
+**Gate `DS-D2B` (Satisfied):** interrupted or malicious writes publish nothing, accepted
 content cannot be overwritten, and a synthetic acquisition reopens offline to
 reproduce byte-for-byte observations, manifest, receipt, and hashes.
+
+### Gate `DS-D2B` Evidence Delivered:
+- **Application Port & DTOs:** Defined `SnapshotStorePort` and `StoredAcquisitionPackage` in `simulator.application.ports.snapshot_store` with zero filesystem or path leaks.
+- **Filesystem Store Adapter:** Implemented `FileSystemSnapshotStore` under a caller-supplied private root with path traversal validation, checksum-first staging, atomic rename, and verified reopen.
+- **Identical Republish Decision:** Frozen as idempotent no-op on identical content, and stable `OVERWRITE_FORBIDDEN` rejection on conflicting hashes/content.
+- **Failure Injection & Defense-in-Depth:** Verified failure seams (`SnapshotStoreFailureInjector`) before staging, after staging, and during atomic rename; confirmed complete staging cleanup and zero partial publication.
+- **Offline Dataset Adapter:** Implemented `OfflineDatasetAdapter` fulfilling `DatasetPort`, producing exact byte-for-byte canonical `ObservationRecord` and `DatasetSnapshotManifest` items with strict cryptographic parity.
+- **Verification Suite:** 12 focused store tests and 3 end-to-end adapter tests with 123/123 backend tests passing.
+
+Only after review may `DS-02C3` begin.
 
 ### Micro-gate C3 — Optional Provider Fetcher (`DS-02C3`)
 
