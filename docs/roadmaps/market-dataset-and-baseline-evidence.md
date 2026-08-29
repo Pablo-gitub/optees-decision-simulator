@@ -291,17 +291,76 @@ Completion checklist:
 - [x] Honest accepted/rejected shapes with bounded machine-readable reasons.
 - [x] Manifest-owned licence and safe provider metadata.
 - [x] Nineteen focused acquisition tests and complete backend regression gate.
-- [ ] `DS-02C2` filesystem, ZIP/CSV, and offline `DatasetPort` adapter.
+- [ ] `DS-02C2A` pure bounded ZIP/CSV decoder.
 
-Only after review may `DS-02C2` begin.
+Only after review may `DS-02C2A` begin.
 
 ### Micro-gate C2 — Bounded Offline Snapshot Adapter (`DS-02C2`)
 
-After `DS-D2A` review, implement bounded local storage, safe ZIP/CSV decoding,
-checksum-first acceptance, atomic writes, immutable acquisition versions, and
-an offline `DatasetPort` adapter using miniature synthetic archives only.
-Prevent traversal, symlinks, decompression bombs, duplicate members, unexpected
-filenames/columns, partial writes, overwrite, and unbounded records/bytes.
+This stage is split into three separately reviewed implementation units. Do not
+combine them. The accepted `AcquisitionReceipt`, exact raw and normalized byte
+hashes, current market normalizer, `DatasetPort`, immutable persistence rules,
+and threat model are sources of truth.
+
+#### Micro-gate C2A — Pure Bounded Archive Decoder (`DS-02C2A`)
+
+Implement only a pure infrastructure decoder that receives caller-supplied ZIP
+bytes plus the reviewed accepted `AcquisitionReceipt`. It performs no network
+or filesystem I/O. Before decoding, recompute raw size and SHA-256 and require
+exact equality with the receipt; rejected receipts are never decodable.
+
+Freeze explicit conservative limits for raw archive bytes, member count,
+compressed and uncompressed member bytes, compression ratio, CSV row count,
+column count, and cell length. The v1 synthetic Binance-kline shape contains
+exactly one regular CSV member whose basename matches the archive basename
+without `.zip`, exactly twelve headerless columns per non-empty row, UTF-8 text,
+and no NUL bytes. Return one immutable typed decoded package with deterministic
+row and member ordering; do not create `ObservationRecord` or a second manifest.
+
+Reject before publishing decoded rows:
+
+- malformed/truncated/non-ZIP input or raw hash/size mismatch;
+- empty archives, directories, multiple or duplicate members;
+- absolute, nested, traversal, backslash, drive-prefixed, or mismatched names;
+- symlink/special entries, encrypted members, unsupported compression methods,
+  suspicious declared sizes, or exceeded byte/ratio limits;
+- invalid UTF-8, NUL content, blank-only payloads, unexpected columns, excessive
+  rows/cells, or parser errors.
+
+Tests build miniature archives entirely in memory and cover one valid package,
+deterministic repetition, raw mutation, rejected receipt, wrong member name,
+duplicate/nested/traversal/absolute/backslash members, directory/symlink/
+encrypted entries, truncation, compression-ratio and every explicit size/count
+limit, invalid UTF-8/NUL, empty CSV, and eleven/thirteen-column rows. Tests must
+assert stable bounded error codes and must not write temporary files.
+
+Explicit exclusions: no filesystem/cache, temporary file, atomic write,
+`DatasetPort`, market normalization, observation/manifest creation, HTTP,
+provider SDK, FastAPI, database, Optees, frontend, or live Binance bytes.
+
+Stop if Python ZIP metadata cannot establish a required safety fact before
+decompression, if accepted receipt semantics must change, or if a proposed
+limit contradicts the frozen dataset decision.
+
+**Gate `DS-D2B1`:** synthetic accepted ZIP bytes decode deterministically under
+strict resource and archive-shape limits without filesystem or network access.
+
+#### Micro-gate C2B — Immutable Local Snapshot Store (`DS-02C2B`)
+
+After `DS-D2B1` review, add bounded filesystem storage behind an
+application-owned port. Use private roots, checksum-first staging, atomic
+publication, immutable acquisition-version paths, verified reopen, bounded
+retention and failure injection. Never expose absolute paths in domain records.
+
+**Gate `DS-D2B2`:** interrupted or malicious writes publish nothing; accepted
+content reopens with identical receipt and byte hashes and cannot be overwritten.
+
+#### Micro-gate C2C — Offline Dataset Adapter (`DS-02C2C`)
+
+After `DS-D2B2` review, connect the reviewed decoder, market normalizer and
+store through an offline `DatasetPort` adapter. Reopen accepted acquisitions,
+produce the existing observations and manifest, and prove exact hash parity
+without introducing a second dataset contract.
 
 **Gate `DS-D2B`:** a synthetic acquired snapshot reopens offline and reproduces
 byte-for-byte observations, manifest, receipt, and hashes under failure injection.

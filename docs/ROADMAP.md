@@ -153,7 +153,7 @@ made execution/replay preserve and verify policy-version identity and configurat
 - Implemented pure market kline infrastructure normalizer (`simulator.infrastructure.adapters.market_normalizer`), exact sub-second timestamp boundary decoding (ms < 2025 <= us), and D+2 knowledge cutoff anti-leakage eligibility.
 - Built and validated synthetic fixtures (stable, trend, reversal, volatile, missing-day, structural-break) and verified schema roundtrip against real v1 contracts.
 - Implemented pure provider-neutral acquisition evidence verification (`simulator.application.services.acquisition`), added `acquisition_receipt.v1.json` schema and inventory entry, and verified constant-time hash linkage from raw bytes to canonical manifest hash.
-- Next authorized micro-gate: `DS-02C2` (Bounded Offline Snapshot Adapter). Later gates remain `DS-02C3` (Optional Provider Fetcher), `DS-02D` (Market Valuation & Transition Rules), and `DS-02E` (Baseline Episodes).
+- Next authorized micro-gate: `DS-02C2A` (Pure Bounded Archive Decoder). Later gates remain the local store and offline adapter portions of `DS-02C2`, then `DS-02C3` (Optional Provider Fetcher), `DS-02D` (Market Valuation & Transition Rules), and `DS-02E` (Baseline Episodes).
 
 Detailed plan: [Market dataset and baseline evidence](roadmaps/market-dataset-and-baseline-evidence.md).
 
@@ -177,7 +177,7 @@ matches the existing manifest; omission or mismatch is a rejected evidence outco
 - [x] Bind licence text to the reviewed manifest.
 - [x] Restrict evidence URIs to credential-free HTTPS and exact basenames.
 - [x] Validate the receipt schema, examples, determinism, and failure reasons.
-- [ ] Implement bounded offline storage and decoding in `DS-02C2`.
+- [ ] Implement the pure bounded ZIP/CSV decoder in `DS-02C2A`.
 **Gate DS-D (Planned):** the same frozen observations and valuations reproduce the same baseline episode hashes.
 
 ## Phase DS-03 — Persistence, API, And Existing Optees Capabilities
