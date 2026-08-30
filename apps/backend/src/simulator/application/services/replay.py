@@ -6,6 +6,7 @@ from simulator.application.ports.clock import ClockPort
 from simulator.application.ports.dataset import DatasetPort
 from simulator.application.ports.persistence import PersistencePort
 from simulator.application.ports.policy import PolicyContext, PolicyPort
+from simulator.application.ports.pricing import PricingPort
 from simulator.application.services.eligibility import EligibilityService
 from simulator.application.services.execution import ExecutionService
 from simulator.domain.lifecycle import DivergenceCategory, ReplayMode, ReplayStatus
@@ -24,10 +25,12 @@ class ReplayService:
         persistence: PersistencePort,
         dataset: DatasetPort,
         clock: ClockPort,
+        pricing: PricingPort | None = None,
     ) -> None:
         self._persistence = persistence
         self._dataset = dataset
         self._clock = clock
+        self._pricing = pricing
 
     def record_replay(self, original_run_id: str, report_id: str) -> ReplayReport:
         """Replay episode trajectory purely from stored transitions without running policy code."""
@@ -293,14 +296,34 @@ class ReplayService:
                     divergences.append(div)
                     self._persistence.save_divergence_report(div)
 
+                pricing_res = None
+                if self._pricing is not None:
+                    req_resources = tuple(
+                        sorted(
+                            set(
+                                [b.resource_id for b in curr_acc.balances]
+                                + [a.resource_id for a in replayed_proposal.requested_actions]
+                                + [episode_def.reference_resource_id]
+                            )
+                        )
+                    )
+                    pricing_res = self._pricing.resolve_pricing(
+                        all_observations=all_obs,
+                        knowledge_cutoff=cutoff,
+                        effective_time=effective_time,
+                        required_resources=req_resources,
+                        reference_resource_id=episode_def.reference_resource_id,
+                    )
+
                 outcome, transition, next_account = ExecutionService.evaluate_and_apply_decision(
                     episode_def=episode_def,
                     current_account=curr_acc,
                     proposal=replayed_proposal,
-                    eligible_observations=eligible_obs,
                     round_id=r_rec.round_id,
                     round_index=r_idx + 1,
                     effective_time=effective_time,
+                    pricing_result=pricing_res,
+                    eligible_observations=eligible_obs,
                 )
 
                 replayed_acc_hash = next_account.compute_hash()

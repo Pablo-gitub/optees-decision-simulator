@@ -10,6 +10,7 @@ from simulator.application.ports.clock import ClockPort
 from simulator.application.ports.dataset import DatasetPort
 from simulator.application.ports.persistence import PersistencePort, RoundCommit
 from simulator.application.ports.policy import PolicyContext, PolicyPort
+from simulator.application.ports.pricing import PricingPort
 from simulator.application.services.eligibility import EligibilityService
 from simulator.application.services.evaluator import EvaluatorService
 from simulator.application.services.execution import ExecutionService
@@ -46,11 +47,13 @@ class EpisodeRunner:
         dataset: DatasetPort,
         clock: ClockPort,
         policies: dict[str, PolicyPort],
+        pricing: PricingPort | None = None,
     ) -> None:
         self._persistence = persistence
         self._dataset = dataset
         self._clock = clock
         self._policies = policies
+        self._pricing = pricing
 
     def initialize_episode(self, episode_def: EpisodeDefinition, run_id: str) -> EpisodeRun:
         """Validate, freeze, and persist episode definition and initial run record."""
@@ -271,15 +274,36 @@ class EpisodeRunner:
             prop_hash = proposal.compute_hash()
             round_item_hashes.append(prop_hash)
 
+            # Resolve pricing context if pricing port is configured
+            pricing_res = None
+            if self._pricing is not None:
+                req_resources = tuple(
+                    sorted(
+                        set(
+                            [b.resource_id for b in current_acc.balances]
+                            + [a.resource_id for a in proposal.requested_actions]
+                            + [episode_def.reference_resource_id]
+                        )
+                    )
+                )
+                pricing_res = self._pricing.resolve_pricing(
+                    all_observations=all_obs,
+                    knowledge_cutoff=cutoff,
+                    effective_time=effective_time,
+                    required_resources=req_resources,
+                    reference_resource_id=episode_def.reference_resource_id,
+                )
+
             # Execute & validate decision
             outcome, transition, next_account = ExecutionService.evaluate_and_apply_decision(
                 episode_def=episode_def,
                 current_account=current_acc,
                 proposal=proposal,
-                eligible_observations=eligible_obs,
                 round_id=round_id,
                 round_index=round_idx + 1,
                 effective_time=effective_time,
+                pricing_result=pricing_res,
+                eligible_observations=eligible_obs,
             )
             staged_outcomes.append(outcome)
             staged_account_states.append(next_account)

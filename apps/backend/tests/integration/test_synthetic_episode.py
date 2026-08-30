@@ -49,13 +49,13 @@ def test_complete_synthetic_episode_execution(synthetic_episode_def: EpisodeDefi
     rounds = store.get_rounds(run_id)
     assert len(rounds) == 3
     assert [record.compute_hash() for record in rounds] == [
-        "sha256:c49fecd8189a419429cc245e268874d99c2dcb191463ddcd4f3cd6fffb614a5a",
-        "sha256:271c1a1ec95ebb58368631ed84f7aad5feb1faaa65baab8781feab20857c072b",
-        "sha256:d4c4e5957f5c01322e113956850325e69ceafababfd23b70f4d1628f14ae3313",
+        "sha256:491a35d4c55cb03cc6fa0f9b04c6f4d32dbd44533ef52f50858314fcd162ef7b",
+        "sha256:64123d4977deafc4c59249c368fab5dc4d72263d6f562a625b9af84e6f1e9fe1",
+        "sha256:0680c7a456ea2b44b995ca0febeb463ba2d946b1ae9a17b90e7ceda600aab0ae",
     ]
     assert (
         final_run.final_state_hash
-        == "sha256:d4c4e5957f5c01322e113956850325e69ceafababfd23b70f4d1628f14ae3313"
+        == "sha256:0680c7a456ea2b44b995ca0febeb463ba2d946b1ae9a17b90e7ceda600aab0ae"
     )
 
     # Check round hashes are chained

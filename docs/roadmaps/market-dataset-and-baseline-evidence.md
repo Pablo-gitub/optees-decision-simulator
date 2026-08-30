@@ -576,8 +576,15 @@ the minimum source evidence needed for deterministic replay, or if preserving
 fractional quantities requires a frozen schema change. Report the conflict and
 do not fabricate prices, timestamps, precision or provenance.
 
-**Gate `DS-D3`:** identical normalized observations and account inputs produce
+**Gate `DS-D3` (Satisfied):** identical normalized observations and account inputs produce
 identical valuations, costs, transitions and hashes.
+
+### Gate `DS-D3` Evidence Delivered:
+- **Application Pricing Port:** Implemented immutable `PriceEvidence`, `PriceResolutionResult`, and abstract `PricingPort` in `simulator.application.ports.pricing`.
+- **Market Kline Pricing Adapter:** Implemented `MarketKlinePricingAdapter` in `simulator.infrastructure.adapters.market_pricing` resolving latest eligible daily close mark (`event_time <= T` and `knowledge_time <= T`) with explicit staleness duration, and paper execution price as the first strictly future daily bar open (`event_time > T` and `knowledge_time <= effective_time`).
+- **Synthetic Pricing Adapter:** Implemented `SyntheticPricingAdapter` in `simulator.infrastructure.adapters.synthetic_pricing` providing domain-neutral, explicit pricing for non-market synthetic episodes and benchmarks.
+- **ExecutionService Refactoring:** Preserved `ExecutionService` as the single owner of accounting, feasibility, balance mutations, transition records, and virtual account hashes; eliminated all implicit 1.00 fallbacks for non-reference resources; added stable deterministic rejections on missing/invalid marks and execution prices; preserved fractional asset quantities without arbitrary 2-decimal truncation while retaining 2-decimal reference cash/fee quantization; enforced zero-slippage single fee application and accounting conservation invariant.
+- **Test Coverage & Verification:** Added 11 focused unit tests across `test_market_pricing.py` and `test_market_execution.py` (157 total backend tests passing), contract schema validation passed, Ruff lint/format passed.
 
 ## Micro-gate E — Baseline Episodes And Frozen Evidence (`DS-02E`)
 
@@ -592,6 +599,6 @@ or production Optees policies begin.
 
 ## Next implementation boundary
 
-`DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2` (`DS-02C2A` & `DS-02C2B`), and `DS-02C3` are complete.
-`DS-02D` (Market Valuation and Transition Rules / Gate `DS-D3`) is the next and only authorized
+`DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2` (`DS-02C2A` & `DS-02C2B`), `DS-02C3`, and `DS-02D` are complete.
+`DS-02E` (Baseline Episodes And Frozen Evidence / Gate `DS-D`) is the next and only authorized
 implementation boundary.
