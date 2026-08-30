@@ -145,7 +145,7 @@ made execution/replay preserve and verify policy-version identity and configurat
 
 ## Phase DS-02 — Market Dataset And Baseline Evidence
 
-- **Status:** In Progress (Micro-gates `DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2A`, and `DS-02C2B` complete; Gates `DS-D0`, `DS-D1`, `DS-D2A`, `DS-D2B1`, and `DS-D2B` satisfied)
+- **Status:** In Progress (Micro-gates `DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2A`, `DS-02C2B`, and `DS-02C3` complete; Gates `DS-D0`, `DS-D1`, `DS-D2A`, `DS-D2B1`, `DS-D2B`, `DS-D2C`, and `DS-D2` satisfied)
 - Selected Binance Public Historical Data Archive (`data.binance.vision`) 1d spot klines for liquid multi-asset universe (BTC, ETH, SOL, BNB quoted in USDT).
 - Frozen dataset provenance contract, zero-credential unauthenticated retrieval, 24/7 continuous calendar, and field semantics in [`contracts/market-dataset-provenance.md`](contracts/market-dataset-provenance.md).
 - Defined conservative four-time temporal semantics, upstream replacement handling, and three-tier SHA-256 hash boundaries.
@@ -155,7 +155,8 @@ made execution/replay preserve and verify policy-version identity and configurat
 - Implemented pure provider-neutral acquisition evidence verification (`simulator.application.services.acquisition`), added `acquisition_receipt.v1.json` schema and inventory entry, and verified constant-time hash linkage from raw bytes to canonical manifest hash.
 - Implemented pure bounded ZIP/CSV archive decoder (`simulator.infrastructure.adapters.archive_decoder`), enforcing strict resource bounds, zip bomb streaming protection, 12-column headerless CSV parsing, and typed immutable output.
 - Implemented immutable offline snapshot store (`simulator.infrastructure.adapters.fs_snapshot_store`) and offline `DatasetPort` adapter (`simulator.infrastructure.adapters.offline_dataset`), ensuring atomic staging, verified reopen, and exact byte-for-byte observation and manifest parity.
-- Next authorized medium gate: `DS-02C3` (Optional Provider Acquisition). Later gates remain `DS-02D` (Market Valuation & Transition Rules) and `DS-02E` (Baseline Episodes).
+- Implemented bounded streaming HTTPS acquisition transport (`simulator.infrastructure.adapters.https_acquisition_transport`) and provider acquisition service (`simulator.application.services.provider_acquisition`), with strict security bounds, redirect rejection, sanitized error categories, and idempotent immutable publication.
+- Next authorized micro-gate: `DS-02D` (Market Valuation & Transition Rules). Later gate remains `DS-02E` (Baseline Episodes).
 
 Detailed plan: [Market dataset and baseline evidence](roadmaps/market-dataset-and-baseline-evidence.md).
 
@@ -174,10 +175,15 @@ strict resource and archive-shape limits without filesystem or network access; m
 **Medium gate DS-D2B (Satisfied):** interrupted or malicious writes publish nothing, accepted
 content cannot be overwritten, and a synthetic acquisition reopens offline to
 reproduce byte-for-byte observations, manifest, receipt, and hashes.
+**Medium gate DS-D2C (Satisfied):** fake-transport tests prove provider-neutral acquisition transport,
+strict HTTPS URL validation, streaming size boundaries, redirect rejection, sanitized error categories,
+and idempotent immutable publication without touching live networks.
+**Medium gate DS-D2 (Satisfied):** full acquisition evidence pipeline (`DS-D2A` + `DS-D2B` + `DS-D2C`)
+is verified and complete.
 
-- [ ] Implement bounded provider acquisition and immutable publication in `DS-02C3`.
+- [x] Implement bounded provider acquisition and immutable publication in `DS-02C3`.
 
-`DS-D2A` and `DS-D2B` completion checklist:
+`DS-D2A`, `DS-D2B`, and `DS-D2C` completion checklist:
 
 - [x] Bind raw bytes to the strict publisher checksum and exact byte size.
 - [x] Compute the normalized snapshot digest from caller-supplied bytes.
@@ -189,6 +195,7 @@ reproduce byte-for-byte observations, manifest, receipt, and hashes.
 - [x] Implement the pure bounded ZIP/CSV decoder in `DS-02C2A`.
 - [x] Implement the immutable store and offline `DatasetPort` adapter in medium gate `DS-02C2B`.
 - [x] Review path containment, deep immutability, verified existence, storage bounds, and pruning failures.
+- [x] Implement bounded provider acquisition transport and orchestration service in `DS-02C3`.
 **Gate DS-D (Planned):** the same frozen observations and valuations reproduce the same baseline episode hashes.
 
 ## Phase DS-03 — Persistence, API, And Existing Optees Capabilities

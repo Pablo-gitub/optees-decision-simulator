@@ -108,3 +108,10 @@ class SnapshotStoreError(SimulatorError):
 
     def __init__(self, message: str, code: str = "SNAPSHOT_STORE_ERROR") -> None:
         super().__init__(message, code=code)
+
+
+class AcquisitionTransportError(SimulatorError):
+    """Raised when fetching external data artifacts over HTTP/transport fails."""
+
+    def __init__(self, message: str, code: str = "TRANSPORT_ERROR") -> None:
+        super().__init__(message, code=code)

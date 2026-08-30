@@ -3,14 +3,14 @@
 ## Work Unit
 
 - **ID:** `DS-02`
-- **State:** `DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2A`, and `DS-02C2B` completed (Gates `DS-D0`, `DS-D1`, `DS-D2A`, `DS-D2B1`, and `DS-D2B` satisfied); `DS-02C3` is next
+- **State:** `DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2`, and `DS-02C3` completed (Gates `DS-D0`, `DS-D1`, `DS-D2A`, `DS-D2B`, `DS-D2C`, and `DS-D2` satisfied); `DS-02D` is next
 - **Type:** backend data provenance, market interpretation and baseline evidence; no UI
 - **Parent roadmap:** `../ROADMAP.md`
 - **Prerequisite:** `DS-K` satisfied by `DS-01`
 - **Parallel Optees work:** `OPT-DS-03A` robust-scenario contract decision
 - **Implementation owner:** Gemini
 - **Review:** Codex after every micro-gate
-- **Completion gate:** `DS-D` (Current micro-gates: `DS-D0`, `DS-D1`, `DS-D2A`, `DS-D2B1`, and `DS-D2B` Satisfied)
+- **Completion gate:** `DS-D` (Current micro-gates: `DS-D0`, `DS-D1`, `DS-D2A`, `DS-D2B`, `DS-D2C`, and `DS-D2` Satisfied)
 
 ## Objective
 
@@ -477,10 +477,12 @@ streaming before buffering, or cannot sanitize failure metadata; if the frozen
 provider contract conflicts with actual documented archive behavior; or if an
 accepted receipt would need mutation after immutable publication.
 
-**Gate `DS-D2C`:** fake-transport tests prove acquisition behavior; an optional
-live smoke remains separate from frozen outputs.
+**Gate `DS-D2C` (Satisfied):** fake-transport tests prove provider-neutral acquisition transport,
+strict HTTPS URL validation, streaming size boundaries, redirect rejection, sanitized error categories,
+and idempotent immutable publication without touching live networks.
 
-**Gate `DS-D2`:** achieved only after `DS-D2A`, `DS-D2B`, and `DS-D2C` review.
+**Gate `DS-D2` (Satisfied):** achieved across `DS-D2A` (evidence verification), `DS-D2B` (bounded archive
+decoding and offline snapshot storage), and `DS-D2C` (optional streaming HTTPS provider acquisition).
 
 ## Micro-gate D — Market Valuation And Transition Rules (`DS-02D`)
 
@@ -505,6 +507,6 @@ or production Optees policies begin.
 
 ## Next implementation boundary
 
-`DS-02A/B`, `DS-02C1`, and `DS-02C2` are complete after review. `DS-02C3` is
-the only next implementation boundary authorized here. D–E remain later,
-separately reviewed work units.
+`DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2` (`DS-02C2A` & `DS-02C2B`), and `DS-02C3` are complete.
+`DS-02D` (Market Valuation and Transition Rules / Gate `DS-D3`) is the next and only authorized
+implementation boundary.
