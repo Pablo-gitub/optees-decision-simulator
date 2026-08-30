@@ -182,6 +182,11 @@ and idempotent immutable publication without touching live networks.
 is verified and complete.
 
 - [x] Implement bounded provider acquisition and immutable publication in `DS-02C3`.
+- [ ] Implement market valuation and paper-transition rules in `DS-02D`.
+  - [ ] Select evidenced latest-close marks and strictly future-open execution prices.
+  - [ ] Remove non-reference `1.00` price fallbacks and reject unavailable prices safely.
+  - [ ] Preserve fractional quantities and apply the existing fee model exactly once.
+  - [ ] Prove deterministic valuation, transition, account-state and hash outputs.
 
 `DS-D2A`, `DS-D2B`, and `DS-D2C` completion checklist:
 

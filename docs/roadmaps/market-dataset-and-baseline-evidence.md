@@ -489,10 +489,92 @@ decoding and offline snapshot storage), and `DS-D2C` (optional streaming HTTPS p
 
 ## Micro-gate D — Market Valuation And Transition Rules (`DS-02D`)
 
-Add market-specific valuation and paper-transition adapters outside the core.
-Freeze valuation price, quantity precision, cash/quote asset, fees, slippage
-assumptions, unavailable-price behavior and accounting invariants. Verify the
-rules manually and with synthetic fixtures before using real observations.
+Implement one deterministic market interpretation boundary around the existing
+domain-neutral execution kernel. `ExecutionService` remains the sole owner of
+decision feasibility, balance mutations, transaction costs, transition records
+and account hashes; do not create a second portfolio/accounting engine.
+
+### Frozen v1 market rules
+
+- The market universe remains `BTC`, `ETH`, `SOL` and `BNB`, quoted in `USDT`.
+  `USDT` is the reference resource and always has mark `1` in its own unit.
+- A valuation mark at decision cutoff `T` is the latest eligible daily close
+  for `{ASSET}USDT` with `event_time <= T` and `knowledge_time <= T`, after the
+  production eligibility/revision rules have been applied. The selected mark
+  carries its source observation identity, event time and an explicit
+  non-negative staleness duration; it is never silently forward-filled into a
+  synthetic observation.
+- A paper transition decided at `T` executes at the first eligible daily bar
+  whose event is strictly after `T`: use that bar's `open` as the unadjusted
+  execution price and its exact event/knowledge identity as evidence. The
+  transition cannot become effective before that observation is available to
+  the simulation clock. Never execute at the already-known day-D close.
+- Version 1 uses no invented market-impact model: slippage is explicitly zero.
+  Transaction fees remain exactly the episode's existing linear plus fixed
+  fee model and are applied once by `ExecutionService`; holding cost remains
+  unchanged and outside this gate. A later non-zero slippage model requires a
+  versioned contract change, not an implicit constant.
+- Source prices and quantities are finite positive `Decimal` values. Monetary
+  amounts and fees retain the kernel's existing two-decimal reference-unit
+  quantization. Asset balance quantities retain the action quantity supplied
+  by the frozen episode contract; this gate must not silently round them to two
+  decimals. Any required exchange lot-size/tick-size model is deferred until
+  provider evidence is frozen.
+- A missing, malformed, non-positive or unavailable mark/execution price is a
+  stable rejected-decision outcome with no transition and no balance mutation.
+  Existing non-reference holdings also require a mark before the next account
+  valuation. Delete every implicit `1.00` fallback for a non-reference
+  resource; zero, stale or absent data must never fabricate value.
+
+### Architecture and implementation boundary
+
+Add immutable application-owned price/evidence value types and a narrow market
+pricing port (or equivalent protocol). Implement the Binance-kline-specific
+selection adapter in infrastructure using the already normalized observation
+payload and production eligibility semantics. The application service passes
+the resulting complete mark/execution-price set into the existing
+`ExecutionService`; market series naming and OHLC payload knowledge must not
+enter domain models or generic accounting logic.
+
+Refactor `ExecutionService` only as needed to consume explicit validated prices
+and preserve fractional asset quantities. Keep its public behavior for
+non-market synthetic episodes available through an explicit deterministic
+pricing implementation used by those episodes; do not retain the current
+implicit lookup/default path. Do not change frozen record schemas unless a
+reviewed incompatibility makes the evidence impossible to represent.
+
+### Required evidence
+
+Use synthetic observations only. Add hand-calculated cases for buy/allocation,
+partial/full liquidation, fixed plus linear fees, fractional quantities,
+multiple holdings and `USDT` conservation. Prove:
+
+- latest eligible mark selection, revision handling and deterministic ties;
+- strict future-open execution selection and absence of day-D close leakage;
+- effective-time availability, source-evidence retention and staleness;
+- stable rejection for missing/malformed/non-positive mark or execution price;
+- no mutation on rejection, no shorting/borrowing regression and no duplicate
+  application of costs;
+- conservation identity: account value change equals market revaluation less
+  recorded costs under the frozen zero-slippage model;
+- identical inputs and input permutations produce identical valuations,
+  transitions, account states and hashes;
+- existing synthetic kernel episodes remain deterministic through their
+  explicit pricing implementation.
+
+Run focused market-pricing/execution tests, the complete backend suite,
+contract validation, architecture boundaries, Ruff and formatting checks.
+
+Explicit exclusions: network calls, real Binance archives, baseline policies or
+episodes (`DS-02E`), persistence/API, Optees integration, broker semantics,
+profitability claims, non-zero slippage calibration, lot/tick-size claims and UI.
+
+Stop without guessing if normalized observations cannot distinguish the future
+bar open from the valuation close, if availability cannot be represented
+without lookahead, if the existing transition/account contracts cannot retain
+the minimum source evidence needed for deterministic replay, or if preserving
+fractional quantities requires a frozen schema change. Report the conflict and
+do not fabricate prices, timestamps, precision or provenance.
 
 **Gate `DS-D3`:** identical normalized observations and account inputs produce
 identical valuations, costs, transitions and hashes.
