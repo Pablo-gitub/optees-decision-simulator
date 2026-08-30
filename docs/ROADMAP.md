@@ -155,7 +155,7 @@ made execution/replay preserve and verify policy-version identity and configurat
 - Implemented pure provider-neutral acquisition evidence verification (`simulator.application.services.acquisition`), added `acquisition_receipt.v1.json` schema and inventory entry, and verified constant-time hash linkage from raw bytes to canonical manifest hash.
 - Implemented pure bounded ZIP/CSV archive decoder (`simulator.infrastructure.adapters.archive_decoder`), enforcing strict resource bounds, zip bomb streaming protection, 12-column headerless CSV parsing, and typed immutable output.
 - Implemented immutable offline snapshot store (`simulator.infrastructure.adapters.fs_snapshot_store`) and offline `DatasetPort` adapter (`simulator.infrastructure.adapters.offline_dataset`), ensuring atomic staging, verified reopen, and exact byte-for-byte observation and manifest parity.
-- Next authorized micro-gate: `DS-02C3` (Optional Provider Fetcher). Later gates remain `DS-02D` (Market Valuation & Transition Rules) and `DS-02E` (Baseline Episodes).
+- Next authorized medium gate: `DS-02C3` (Optional Provider Acquisition). Later gates remain `DS-02D` (Market Valuation & Transition Rules) and `DS-02E` (Baseline Episodes).
 
 Detailed plan: [Market dataset and baseline evidence](roadmaps/market-dataset-and-baseline-evidence.md).
 
@@ -174,6 +174,8 @@ strict resource and archive-shape limits without filesystem or network access; m
 **Medium gate DS-D2B (Satisfied):** interrupted or malicious writes publish nothing, accepted
 content cannot be overwritten, and a synthetic acquisition reopens offline to
 reproduce byte-for-byte observations, manifest, receipt, and hashes.
+
+- [ ] Implement bounded provider acquisition and immutable publication in `DS-02C3`.
 
 `DS-D2A` and `DS-D2B` completion checklist:
 

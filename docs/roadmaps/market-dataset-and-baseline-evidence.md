@@ -415,14 +415,67 @@ reproduce byte-for-byte observations, manifest, receipt, and hashes.
 
 Only after review may `DS-02C3` begin.
 
-### Micro-gate C3 — Optional Provider Fetcher (`DS-02C3`)
+### Medium gate C3 — Optional Provider Acquisition (`DS-02C3`)
 
-After `DS-D2B` review, add a bounded HTTPS fetcher behind an application-owned
-acquisition port. Redirect, host, timeout, byte-count, content-type,
-archive-name, and checksum policies are explicit. Deterministic tests use a
-fake transport; a live-provider smoke is optional, marked, and never required
-for offline CI or gate acceptance. Replacement creates a new immutable
-acquisition and never overwrites accepted evidence.
+After `DS-D2B` review, add the optional provider acquisition boundary from
+bounded HTTPS retrieval through immutable publication. Keep transport,
+verification/normalization orchestration, and storage as separate roles:
+
+1. define an application-owned, provider-neutral acquisition transport port
+   with immutable request/response DTOs and stable transport failure categories;
+2. implement one concrete streaming HTTPS adapter for the frozen Binance archive
+   host, with no ambient credentials and no filesystem ownership;
+3. implement one application acquisition service that retrieves archive and
+   checksum evidence, invokes the reviewed decoder, market normalizer,
+   manifest builder, `verify_acquisition_evidence`, and `SnapshotStorePort`, and
+   returns the accepted receipt plus immutable publication identity;
+4. prove that a second upstream artifact creates a new acquisition and that no
+   path can overwrite an already accepted package.
+
+The HTTPS adapter must require `https`, an exact allowlisted hostname and port,
+credential-free URLs, provider-approved path prefixes and basenames, and no
+query or fragment. Redirects are disabled by default; if the selected client
+surfaces a redirect, reject it rather than following it. Freeze separate archive
+and checksum byte limits, connect/read/total timeouts, allowed content types,
+status handling, chunk size, and bounded sanitized error metadata. Reject
+missing or conflicting `Content-Length`, length overflow while streaming,
+wrong archive/checksum basename, compression/content-type mismatch, truncated
+responses, TLS/timeout/connection failures, and unexpected status codes. Never
+include response bodies, credentials, local paths, or raw exception text in
+domain/application records.
+
+The application service must accept an explicit retrieval timestamp from an
+injected clock or caller; wall-clock access does not belong in the transport.
+It must build normalized bytes using the existing canonical observation
+serialization, verify all receipt/manifest/hash bindings before publication,
+store only `ACCEPTED` evidence, and return rejected evidence without publishing
+anything. Re-fetching identical evidence follows the reviewed idempotent store
+semantics: because acquisition identity is derived from snapshot identity and
+raw digest, an already accepted identical artifact returns the first immutable
+receipt rather than attempting to replace its retrieval timestamp. Changed
+upstream bytes produce a distinct acquisition identity and never replace
+history.
+
+Required deterministic tests use a scripted fake transport and small in-memory
+ZIP/checksum fixtures. Cover successful acquisition/publication/reopen,
+identical retry, changed upstream artifact, rejected checksum, malformed ZIP,
+normalization failure, store failure, exact call order and byte limits, timeout,
+TLS/connection error, redirect, non-200 status, disallowed host/path/port,
+credentials/query/fragment, wrong content type/name, declared and streamed size
+overflow, truncation, secret/path redaction, and zero publication on every
+failure. Focused concrete-adapter tests must use a fake HTTP engine or local
+stub abstraction and must not access the public network.
+
+Explicit exclusions: no scheduler or background refresh, retry/backoff,
+provider SDK, credentials, live trading/broker endpoint, database, FastAPI,
+CLI, Optees, frontend, UI, valuation, baseline episode, or automatic replacement
+policy. A live `data.binance.vision` smoke is optional, separately marked,
+manually enabled, and never gate evidence.
+
+Stop if the chosen HTTP client cannot disable or expose redirects, cannot bound
+streaming before buffering, or cannot sanitize failure metadata; if the frozen
+provider contract conflicts with actual documented archive behavior; or if an
+accepted receipt would need mutation after immutable publication.
 
 **Gate `DS-D2C`:** fake-transport tests prove acquisition behavior; an optional
 live smoke remains separate from frozen outputs.
@@ -452,5 +505,6 @@ or production Optees policies begin.
 
 ## Next implementation boundary
 
-`DS-02A/B` are complete after review. `DS-02C1` is the only next implementation
-authorized here. C2–E remain later, separately reviewed work units.
+`DS-02A/B`, `DS-02C1`, and `DS-02C2` are complete after review. `DS-02C3` is
+the only next implementation boundary authorized here. D–E remain later,
+separately reviewed work units.
