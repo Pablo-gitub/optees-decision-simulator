@@ -58,7 +58,7 @@ class ProviderAcquisitionService:
     def derive_acquisition_id(self, snapshot_id: str, raw_sha256: str) -> str:
         """Derive the immutable acquisition identifier from snapshot ID and raw digest."""
         digest_hex = raw_sha256.split(":", 1)[-1]
-        return f"acq_{digest_hex[:16]}"
+        return f"acq_{snapshot_id}_{digest_hex[:12]}"
 
     def acquire_spot_kline_snapshot(
         self,
@@ -133,7 +133,7 @@ class ProviderAcquisitionService:
                 retrieval_time=retrieval_time,
                 archive_filename=archive_filename,
             )
-        except (SimulatorError, ValueError, Exception):
+        except (SimulatorError, ValueError):
             # Normalization/decoding failed: build empty dummy manifest to record failure evidence
             manifest = DatasetSnapshotManifest(
                 snapshot_id=snapshot_id,

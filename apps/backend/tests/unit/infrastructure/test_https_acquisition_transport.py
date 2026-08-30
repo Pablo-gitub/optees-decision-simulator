@@ -12,6 +12,7 @@ from simulator.domain.errors import AcquisitionTransportError
 from simulator.infrastructure.adapters.https_acquisition_transport import (
     HttpsAcquisitionTransport,
     StreamingHttpResponse,
+    TransportTimeouts,
 )
 
 
@@ -55,13 +56,16 @@ class FakeHttpEngine:
     ) -> None:
         self.response_factory = response_factory
         self.requested_urls: list[str] = []
+        self.requested_timeouts: list[tuple[float, float]] = []
 
     def open_request(
         self,
         url: str,
-        timeout_seconds: float,
+        connect_timeout_seconds: float,
+        read_timeout_seconds: float,
     ) -> StreamingHttpResponse:
         self.requested_urls.append(url)
+        self.requested_timeouts.append((connect_timeout_seconds, read_timeout_seconds))
         if isinstance(self.response_factory, Exception):
             raise self.response_factory
         if self.response_factory is None:
@@ -337,3 +341,35 @@ def test_connection_error_and_timeout() -> None:
     with pytest.raises(AcquisitionTransportError) as exc2:
         transport_conn.fetch_artifact(req)
     assert exc2.value.code == "CONNECTION_ERROR"
+
+
+def test_distinct_timeouts_are_forwarded_and_total_deadline_is_enforced() -> None:
+    body = b"PK\x03\x04payload"
+    response = FakeStreamingResponse(
+        200,
+        {"content-type": "application/zip", "content-length": str(len(body))},
+        body,
+    )
+    engine = FakeHttpEngine(response)
+    times = iter((0.0, 0.0, 0.0, 2.1))
+    transport = HttpsAcquisitionTransport(
+        engine=engine,
+        timeouts=TransportTimeouts(
+            connect_timeout_seconds=0.5,
+            read_timeout_seconds=1.5,
+            total_timeout_seconds=2.0,
+        ),
+        monotonic=lambda: next(times),
+    )
+    request = AcquisitionArtifactRequest(
+        uri="https://data.binance.vision/data/spot/daily/klines/BTCUSDT/1d/BTCUSDT-1d-2024-01-01.zip",
+        expected_filename="BTCUSDT-1d-2024-01-01.zip",
+        max_bytes=1024,
+        allowed_content_types=("application/zip",),
+    )
+
+    with pytest.raises(AcquisitionTransportError) as exc_info:
+        transport.fetch_artifact(request)
+
+    assert exc_info.value.code == "TIMEOUT"
+    assert engine.requested_timeouts == [(0.5, 1.5)]

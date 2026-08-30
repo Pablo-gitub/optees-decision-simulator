@@ -15,6 +15,7 @@ from simulator.application.ports.acquisition_transport import (
     AcquisitionArtifactResponse,
     AcquisitionTransportPort,
 )
+from simulator.application.ports.market_decoder import MarketArchiveNormalizerPort
 from simulator.application.services.provider_acquisition import ProviderAcquisitionService
 from simulator.domain.errors import AcquisitionTransportError, SnapshotStoreError
 from simulator.infrastructure.adapters.fs_snapshot_store import (
@@ -119,6 +120,7 @@ def test_successful_acquisition_and_publication(tmp_path: Path) -> None:
     assert receipt.raw_artifact_sha256 == raw_sha
     assert receipt.snapshot_id == snapshot_id
     assert receipt.acquisition_id == acq_id
+    assert acq_id.startswith(f"acq_{snapshot_id}_")
 
     # Verify presence in store and reopen via OfflineDatasetAdapter
     assert store.exists(acquisition_id=acq_id, snapshot_id=snapshot_id)
@@ -352,6 +354,28 @@ def test_store_failure_cleans_up_and_does_not_publish(tmp_path: Path) -> None:
 
     # Assert nothing was published
     assert len(store.list_acquisitions(snapshot_id)) == 0
+
+
+def test_unexpected_normalizer_bug_is_not_masked_as_rejected_evidence(tmp_path: Path) -> None:
+    class BuggyNormalizer(MarketArchiveNormalizerPort):
+        def decode_and_normalize(self, *args: object, **kwargs: object) -> object:
+            raise RuntimeError("programming defect")
+
+    responses, _, _ = _build_fixture_responses()
+    service = ProviderAcquisitionService(
+        transport=ScriptedFakeTransport(responses),
+        store=FileSystemSnapshotStore(tmp_path),
+        normalizer=BuggyNormalizer(),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(RuntimeError, match="programming defect"):
+        service.acquire_spot_kline_snapshot(
+            snapshot_id="ds-snap_btc_20240101",
+            symbol="BTCUSDT",
+            interval="1d",
+            date_str="2024-01-01",
+            retrieval_time="2026-08-30T00:00:00Z",
+        )
 
 
 def test_call_order_and_transport_error_propagation(tmp_path: Path) -> None:

@@ -5,10 +5,13 @@ from __future__ import annotations
 import hashlib
 import http.client
 import io
+import math
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Final, Protocol
 
@@ -50,7 +53,8 @@ class HttpEngine(Protocol):
     def open_request(
         self,
         url: str,
-        timeout_seconds: float,
+        connect_timeout_seconds: float,
+        read_timeout_seconds: float,
     ) -> StreamingHttpResponse: ...
 
 
@@ -80,7 +84,8 @@ class StandardHttpEngine(HttpEngine):
     def open_request(
         self,
         url: str,
-        timeout_seconds: float,
+        connect_timeout_seconds: float,
+        read_timeout_seconds: float,
     ) -> StreamingHttpResponse:
         req = urllib.request.Request(
             url,
@@ -90,10 +95,12 @@ class StandardHttpEngine(HttpEngine):
             },
         )
         try:
-            resp = self._opener.open(req, timeout=timeout_seconds)
+            resp = self._opener.open(req, timeout=connect_timeout_seconds)
+            _set_response_read_timeout(resp, read_timeout_seconds)
             return _StandardStreamingResponse(resp)
         except urllib.error.HTTPError as exc:
             # Return HTTP error response for status code evaluation
+            _set_response_read_timeout(exc, read_timeout_seconds)
             return _StandardStreamingResponse(exc)
 
 
@@ -130,6 +137,15 @@ class TransportTimeouts:
     read_timeout_seconds: float = 30.0
     total_timeout_seconds: float = 60.0
 
+    def __post_init__(self) -> None:
+        for value in (
+            self.connect_timeout_seconds,
+            self.read_timeout_seconds,
+            self.total_timeout_seconds,
+        ):
+            if isinstance(value, bool) or not math.isfinite(value) or value <= 0:
+                raise ValueError("transport timeouts must be finite positive numbers")
+
 
 class HttpsAcquisitionTransport(AcquisitionTransportPort):
     """Streaming HTTPS acquisition transport adapter enforcing strict allowlists and boundaries."""
@@ -138,9 +154,11 @@ class HttpsAcquisitionTransport(AcquisitionTransportPort):
         self,
         engine: HttpEngine | None = None,
         timeouts: TransportTimeouts | None = None,
+        monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         self._engine = engine if engine is not None else StandardHttpEngine()
         self._timeouts = timeouts if timeouts is not None else TransportTimeouts()
+        self._monotonic = monotonic
 
     def _validate_request_uri(self, uri: str, expected_filename: str) -> urllib.parse.ParseResult:
         """Enforce URL allowlists, schema, port, path prefix, basename, and forbidden parameters."""
@@ -160,14 +178,20 @@ class HttpsAcquisitionTransport(AcquisitionTransportPort):
 
         if not parsed.hostname or parsed.hostname.lower() not in ALLOWED_HOSTS:
             raise AcquisitionTransportError(
-                f"Disallowed host: {parsed.hostname!r}",
+                "Request host is not allowlisted",
                 code="DISALLOWED_HOST",
             )
 
-        port = parsed.port
+        try:
+            port = parsed.port
+        except ValueError as exc:
+            raise AcquisitionTransportError(
+                "Request port is invalid",
+                code="INVALID_URL",
+            ) from exc
         if port is not None and port != ALLOWED_PORT:
             raise AcquisitionTransportError(
-                f"Disallowed port: {port}",
+                "Request port is not allowed",
                 code="DISALLOWED_PORT",
             )
 
@@ -198,14 +222,14 @@ class HttpsAcquisitionTransport(AcquisitionTransportPort):
 
         if not any(path.startswith(prefix) for prefix in ALLOWED_PATH_PREFIXES):
             raise AcquisitionTransportError(
-                f"URI path prefix not in allowed list: {path!r}",
+                "Request path prefix is not allowed",
                 code="DISALLOWED_PATH",
             )
 
         basename = path.rsplit("/", 1)[-1]
         if not SAFE_FILENAME_PATTERN.match(basename) or basename != expected_filename:
             raise AcquisitionTransportError(
-                f"URI basename mismatch: expected {expected_filename!r}, got {basename!r}",
+                "Request basename does not match the expected artifact",
                 code="DISALLOWED_PATH",
             )
 
@@ -215,10 +239,18 @@ class HttpsAcquisitionTransport(AcquisitionTransportPort):
         """Fetch and validate a single remote data artifact over streaming HTTPS."""
         self._validate_request_uri(request.uri, request.expected_filename)
 
+        started_at = self._monotonic()
         try:
             resp = self._engine.open_request(
                 url=request.uri,
-                timeout_seconds=self._timeouts.total_timeout_seconds,
+                connect_timeout_seconds=min(
+                    self._timeouts.connect_timeout_seconds,
+                    self._timeouts.total_timeout_seconds,
+                ),
+                read_timeout_seconds=min(
+                    self._timeouts.read_timeout_seconds,
+                    self._timeouts.total_timeout_seconds,
+                ),
             )
         except urllib.error.URLError as exc:
             reason = str(exc.reason).lower()
@@ -245,6 +277,7 @@ class HttpsAcquisitionTransport(AcquisitionTransportPort):
             ) from exc
 
         try:
+            self._require_total_time_remaining(started_at)
             status = resp.status_code
 
             # 1. Reject Redirects (3xx)
@@ -271,8 +304,7 @@ class HttpsAcquisitionTransport(AcquisitionTransportPort):
                 clean_content_type == allowed.lower() for allowed in request.allowed_content_types
             ):
                 raise AcquisitionTransportError(
-                    f"Content-Type mismatch: got {clean_content_type!r}, "
-                    f"expected one of {request.allowed_content_types}",
+                    "Response Content-Type is not allowed",
                     code="CONTENT_TYPE_MISMATCH",
                 )
 
@@ -286,7 +318,7 @@ class HttpsAcquisitionTransport(AcquisitionTransportPort):
                         raise ValueError
                 except ValueError as exc:
                     raise AcquisitionTransportError(
-                        f"Invalid Content-Length header: {raw_len!r}",
+                        "Response Content-Length is invalid",
                         code="CONTENT_LENGTH_MISMATCH",
                     ) from exc
 
@@ -302,7 +334,9 @@ class HttpsAcquisitionTransport(AcquisitionTransportPort):
             total_read = 0
 
             while True:
+                self._require_total_time_remaining(started_at)
                 chunk = resp.read_chunk(CHUNK_SIZE)
+                self._require_total_time_remaining(started_at)
                 if not chunk:
                     break
                 total_read += len(chunk)
@@ -340,3 +374,19 @@ class HttpsAcquisitionTransport(AcquisitionTransportPort):
 
         finally:
             resp.close()
+
+    def _require_total_time_remaining(self, started_at: float) -> None:
+        if self._monotonic() - started_at > self._timeouts.total_timeout_seconds:
+            raise AcquisitionTransportError(
+                "Request exceeded total timeout",
+                code="TIMEOUT",
+            )
+
+
+def _set_response_read_timeout(response: object, timeout_seconds: float) -> None:
+    """Apply the read timeout to urllib's underlying socket when available."""
+    fp = getattr(response, "fp", None)
+    raw = getattr(fp, "raw", None)
+    sock = getattr(raw, "_sock", None)
+    if sock is not None:
+        sock.settimeout(timeout_seconds)

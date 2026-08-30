@@ -477,11 +477,14 @@ streaming before buffering, or cannot sanitize failure metadata; if the frozen
 provider contract conflicts with actual documented archive behavior; or if an
 accepted receipt would need mutation after immutable publication.
 
-**Gate `DS-D2C` (Satisfied):** fake-transport tests prove provider-neutral acquisition transport,
+**Gate `DS-D2C` (Satisfied after review correction):** fake-transport tests prove provider-neutral acquisition transport,
 strict HTTPS URL validation, streaming size boundaries, redirect rejection, sanitized error categories,
-and idempotent immutable publication without touching live networks.
+and idempotent immutable publication without touching live networks. The integrity
+review binds acquisition identity to snapshot plus raw digest, preserves unexpected
+programming failures, applies distinct connect/read settings and an explicit total
+deadline, and removes attacker-controlled metadata from transport messages.
 
-**Gate `DS-D2` (Satisfied):** achieved across `DS-D2A` (evidence verification), `DS-D2B` (bounded archive
+**Gate `DS-D2` (Satisfied after review correction):** achieved across `DS-D2A` (evidence verification), `DS-D2B` (bounded archive
 decoding and offline snapshot storage), and `DS-D2C` (optional streaming HTTPS provider acquisition).
 
 ## Micro-gate D — Market Valuation And Transition Rules (`DS-02D`)

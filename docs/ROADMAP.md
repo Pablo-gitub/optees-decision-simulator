@@ -175,10 +175,10 @@ strict resource and archive-shape limits without filesystem or network access; m
 **Medium gate DS-D2B (Satisfied):** interrupted or malicious writes publish nothing, accepted
 content cannot be overwritten, and a synthetic acquisition reopens offline to
 reproduce byte-for-byte observations, manifest, receipt, and hashes.
-**Medium gate DS-D2C (Satisfied):** fake-transport tests prove provider-neutral acquisition transport,
+**Medium gate DS-D2C (Satisfied after review correction):** fake-transport tests prove provider-neutral acquisition transport,
 strict HTTPS URL validation, streaming size boundaries, redirect rejection, sanitized error categories,
 and idempotent immutable publication without touching live networks.
-**Medium gate DS-D2 (Satisfied):** full acquisition evidence pipeline (`DS-D2A` + `DS-D2B` + `DS-D2C`)
+**Medium gate DS-D2 (Satisfied after review correction):** full acquisition evidence pipeline (`DS-D2A` + `DS-D2B` + `DS-D2C`)
 is verified and complete.
 
 - [x] Implement bounded provider acquisition and immutable publication in `DS-02C3`.
@@ -196,6 +196,7 @@ is verified and complete.
 - [x] Implement the immutable store and offline `DatasetPort` adapter in medium gate `DS-02C2B`.
 - [x] Review path containment, deep immutability, verified existence, storage bounds, and pruning failures.
 - [x] Implement bounded provider acquisition transport and orchestration service in `DS-02C3`.
+- [x] Review acquisition identity, exception containment, timeout enforcement, and transport redaction.
 **Gate DS-D (Planned):** the same frozen observations and valuations reproduce the same baseline episode hashes.
 
 ## Phase DS-03 — Persistence, API, And Existing Optees Capabilities
