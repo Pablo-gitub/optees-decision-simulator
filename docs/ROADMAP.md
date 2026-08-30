@@ -145,7 +145,7 @@ made execution/replay preserve and verify policy-version identity and configurat
 
 ## Phase DS-02 — Market Dataset And Baseline Evidence
 
-- **Status:** In Progress (Micro-gates `DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2A`, `DS-02C2B`, `DS-02C3`, and `DS-02D` complete; Gates `DS-D0`, `DS-D1`, `DS-D2A`, `DS-D2B1`, `DS-D2B`, `DS-D2C`, `DS-D2`, and `DS-D3` satisfied)
+- **Status:** In Progress (Micro-gates through `DS-02C3` complete; `DS-02D` remains in review correction because the synchronous kernel cannot yet apply an evidenced future-open transition causally; Gates through `DS-D2` are satisfied)
 - Selected Binance Public Historical Data Archive (`data.binance.vision`) 1d spot klines for liquid multi-asset universe (BTC, ETH, SOL, BNB quoted in USDT).
 - Frozen dataset provenance contract, zero-credential unauthenticated retrieval, 24/7 continuous calendar, and field semantics in [`contracts/market-dataset-provenance.md`](contracts/market-dataset-provenance.md).
 - Defined conservative four-time temporal semantics, upstream replacement handling, and three-tier SHA-256 hash boundaries.
@@ -156,8 +156,9 @@ made execution/replay preserve and verify policy-version identity and configurat
 - Implemented pure bounded ZIP/CSV archive decoder (`simulator.infrastructure.adapters.archive_decoder`), enforcing strict resource bounds, zip bomb streaming protection, 12-column headerless CSV parsing, and typed immutable output.
 - Implemented immutable offline snapshot store (`simulator.infrastructure.adapters.fs_snapshot_store`) and offline `DatasetPort` adapter (`simulator.infrastructure.adapters.offline_dataset`), ensuring atomic staging, verified reopen, and exact byte-for-byte observation and manifest parity.
 - Implemented bounded streaming HTTPS acquisition transport (`simulator.infrastructure.adapters.https_acquisition_transport`) and provider acquisition service (`simulator.application.services.provider_acquisition`), with strict security bounds, redirect rejection, sanitized error categories, and idempotent immutable publication.
-- Implemented market valuation and paper-transition rules (`simulator.application.ports.pricing`, `simulator.infrastructure.adapters.market_pricing`, `simulator.infrastructure.adapters.synthetic_pricing`), strictly selecting evidenced latest-close marks and future-open execution prices without lookahead, eliminating implicit fallbacks, and preserving fractional asset quantities under single-fee accounting.
-- Next authorized micro-gate: `DS-02E` (Baseline Episodes And Frozen Evidence / Gate `DS-D`).
+- Implemented the reviewed foundation for market valuation and paper-transition pricing (`simulator.application.ports.pricing`, `simulator.infrastructure.adapters.market_pricing`, `simulator.infrastructure.adapters.synthetic_pricing`), including evidenced marks, strict future-open selection, explicit rejection, fractional quantities and single-fee accounting.
+- Review found that `EpisodeRunner` still applies every transition at the decision cutoff. Under the frozen D+2 availability rule, a strictly future bar cannot also be available at that instant. `DS-D3` therefore remains open until a versioned pending/delayed-transition lifecycle is frozen and verified end to end.
+- Next authorized work remains the `DS-02D` temporal-lifecycle correction. `DS-02E` is not yet authorized.
 
 Detailed plan: [Market dataset and baseline evidence](roadmaps/market-dataset-and-baseline-evidence.md).
 
@@ -181,15 +182,16 @@ strict HTTPS URL validation, streaming size boundaries, redirect rejection, sani
 and idempotent immutable publication without touching live networks.
 **Medium gate DS-D2 (Satisfied after review correction):** full acquisition evidence pipeline (`DS-D2A` + `DS-D2B` + `DS-D2C`)
 is verified and complete.
-**Medium gate DS-D3 (Satisfied):** identical normalized observations and account inputs produce
-identical valuations, costs, transitions, account states, and hashes under zero slippage and single-fee application.
+**Medium gate DS-D3 (Open after review):** adapter and accounting determinism are covered, but the production runner does not yet provide a causal effective time for the evidenced future-open execution price.
 
 - [x] Implement bounded provider acquisition and immutable publication in `DS-02C3`.
-- [x] Implement market valuation and paper-transition rules in `DS-02D`.
+- [ ] Complete market valuation and paper-transition rules in `DS-02D`.
   - [x] Select evidenced latest-close marks and strictly future-open execution prices.
   - [x] Remove non-reference `1.00` price fallbacks and reject unavailable prices safely.
   - [x] Preserve fractional quantities and apply the existing fee model exactly once.
-  - [x] Prove deterministic valuation, transition, account-state and hash outputs.
+  - [x] Prove deterministic adapter and accounting outputs for explicit valid pricing inputs.
+  - [ ] Freeze and implement a causal pending/delayed-transition lifecycle in runner and replay.
+  - [ ] Prove normalized D+2 observations execute end to end without temporal leakage.
 
 `DS-D2A`, `DS-D2B`, and `DS-D2C` completion checklist:
 

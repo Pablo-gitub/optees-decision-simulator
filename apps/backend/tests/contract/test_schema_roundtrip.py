@@ -26,6 +26,7 @@ from simulator.domain.models import (
 from simulator.infrastructure.adapters.in_memory_clock import InMemoryClock
 from simulator.infrastructure.adapters.in_memory_store import InMemoryStore
 from simulator.infrastructure.adapters.synthetic_dataset import SyntheticDatasetAdapter
+from simulator.infrastructure.adapters.synthetic_pricing import SyntheticPricingAdapter
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
@@ -52,7 +53,7 @@ def test_all_15_entities_schema_conformance(synthetic_episode_def: EpisodeDefini
         "pol-def_static_baseline": StaticBaselinePolicy(),
         "pol-def_reactive_baseline": ReactiveObservationPolicy(),
     }
-    runner = EpisodeRunner(store, dataset, clock, policies)
+    runner = EpisodeRunner(store, dataset, clock, policies, SyntheticPricingAdapter())
     ep_def = synthetic_episode_def
     run_id = "ep-run_schema_test"
 

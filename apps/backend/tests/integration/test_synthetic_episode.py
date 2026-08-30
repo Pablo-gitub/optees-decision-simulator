@@ -12,6 +12,7 @@ from simulator.domain.models import EpisodeDefinition
 from simulator.infrastructure.adapters.in_memory_clock import InMemoryClock
 from simulator.infrastructure.adapters.in_memory_store import InMemoryStore
 from simulator.infrastructure.adapters.synthetic_dataset import SyntheticDatasetAdapter
+from simulator.infrastructure.adapters.synthetic_pricing import SyntheticPricingAdapter
 
 
 def test_complete_synthetic_episode_execution(synthetic_episode_def: EpisodeDefinition) -> None:
@@ -32,6 +33,7 @@ def test_complete_synthetic_episode_execution(synthetic_episode_def: EpisodeDefi
         dataset=dataset,
         clock=clock,
         policies=policies,
+        pricing=SyntheticPricingAdapter(),
     )
 
     episode_def = synthetic_episode_def
@@ -108,7 +110,7 @@ def test_policy_order_independence(synthetic_episode_def: EpisodeDefinition) -> 
         "pol-def_static_baseline": StaticBaselinePolicy(),
         "pol-def_reactive_baseline": ReactiveObservationPolicy(),
     }
-    runner1 = EpisodeRunner(store1, dataset1, clock1, policies1)
+    runner1 = EpisodeRunner(store1, dataset1, clock1, policies1, SyntheticPricingAdapter())
     runner1.initialize_episode(synthetic_episode_def, "run_order_test")
     res1 = runner1.run_all_rounds("run_order_test")
 
@@ -120,7 +122,7 @@ def test_policy_order_independence(synthetic_episode_def: EpisodeDefinition) -> 
         "pol-def_reactive_baseline": ReactiveObservationPolicy(),
         "pol-def_static_baseline": StaticBaselinePolicy(),
     }
-    runner2 = EpisodeRunner(store2, dataset2, clock2, policies2)
+    runner2 = EpisodeRunner(store2, dataset2, clock2, policies2, SyntheticPricingAdapter())
     runner2.initialize_episode(synthetic_episode_def, "run_order_test")
     res2 = runner2.run_all_rounds("run_order_test")
 
@@ -140,6 +142,7 @@ def test_two_runs_share_a_store_without_record_identity_collisions(
             "pol-def_static_baseline": StaticBaselinePolicy(),
             "pol-def_reactive_baseline": ReactiveObservationPolicy(),
         },
+        SyntheticPricingAdapter(),
     )
 
     for run_id in ("ep-run_repeat_001", "ep-run_repeat_002"):
@@ -168,6 +171,7 @@ def test_failed_round_commit_publishes_no_partial_records(
             "pol-def_static_baseline": StaticBaselinePolicy(),
             "pol-def_reactive_baseline": ReactiveObservationPolicy(),
         },
+        SyntheticPricingAdapter(),
     )
     run_id = "ep-run_atomic_failure"
     runner.initialize_episode(synthetic_episode_def, run_id)

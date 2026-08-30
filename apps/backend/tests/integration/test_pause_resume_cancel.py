@@ -7,6 +7,7 @@ from simulator.domain.models import EpisodeDefinition
 from simulator.infrastructure.adapters.in_memory_clock import InMemoryClock
 from simulator.infrastructure.adapters.in_memory_store import InMemoryStore
 from simulator.infrastructure.adapters.synthetic_dataset import SyntheticDatasetAdapter
+from simulator.infrastructure.adapters.synthetic_pricing import SyntheticPricingAdapter
 
 
 def test_pause_idempotent_resume_and_completion(synthetic_episode_def: EpisodeDefinition) -> None:
@@ -20,7 +21,7 @@ def test_pause_idempotent_resume_and_completion(synthetic_episode_def: EpisodeDe
             policy_version_id="pol-ver_reactive_v1",
         ),
     }
-    runner = EpisodeRunner(store, dataset, clock, policies)
+    runner = EpisodeRunner(store, dataset, clock, policies, SyntheticPricingAdapter())
     ep_def = synthetic_episode_def
     run_id = "run_pause_test"
 
@@ -62,7 +63,7 @@ def test_cancellation_at_boundary(synthetic_episode_def: EpisodeDefinition) -> N
             policy_version_id="pol-ver_reactive_v1",
         ),
     }
-    runner = EpisodeRunner(store, dataset, clock, policies)
+    runner = EpisodeRunner(store, dataset, clock, policies, SyntheticPricingAdapter())
     ep_def = synthetic_episode_def
     run_id = "run_cancel_test"
 

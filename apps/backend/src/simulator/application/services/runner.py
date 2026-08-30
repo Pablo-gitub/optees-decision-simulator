@@ -277,7 +277,7 @@ class EpisodeRunner:
             # Resolve pricing context if pricing port is configured
             pricing_res = None
             if self._pricing is not None:
-                req_resources = tuple(
+                valuation_resources = tuple(
                     sorted(
                         set(
                             [b.resource_id for b in current_acc.balances]
@@ -286,11 +286,21 @@ class EpisodeRunner:
                         )
                     )
                 )
+                execution_resources = tuple(
+                    sorted(
+                        {
+                            action.resource_id
+                            for action in proposal.requested_actions
+                            if action.action_type.value != "HOLD"
+                        }
+                    )
+                )
                 pricing_res = self._pricing.resolve_pricing(
                     all_observations=all_obs,
                     knowledge_cutoff=cutoff,
                     effective_time=effective_time,
-                    required_resources=req_resources,
+                    valuation_resources=valuation_resources,
+                    execution_resources=execution_resources,
                     reference_resource_id=episode_def.reference_resource_id,
                 )
 
@@ -303,7 +313,6 @@ class EpisodeRunner:
                 round_index=round_idx + 1,
                 effective_time=effective_time,
                 pricing_result=pricing_res,
-                eligible_observations=eligible_obs,
             )
             staged_outcomes.append(outcome)
             staged_account_states.append(next_account)

@@ -5,6 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
+from types import MappingProxyType
 from typing import Mapping
 
 from simulator.domain.models import ObservationRecord, RejectionReason
@@ -48,6 +49,16 @@ class PriceResolutionResult:
     execution_prices: Mapping[str, PriceEvidence]
     rejection_reasons: tuple[RejectionReason, ...] = ()
 
+    def __post_init__(self) -> None:
+        valuation_marks = dict(self.valuation_marks)
+        execution_prices = dict(self.execution_prices)
+        for resource_id, evidence in (*valuation_marks.items(), *execution_prices.items()):
+            if resource_id != evidence.resource_id:
+                raise ValueError("pricing map key must match evidence resource_id")
+        object.__setattr__(self, "valuation_marks", MappingProxyType(valuation_marks))
+        object.__setattr__(self, "execution_prices", MappingProxyType(execution_prices))
+        object.__setattr__(self, "rejection_reasons", tuple(self.rejection_reasons))
+
     @property
     def is_valid(self) -> bool:
         """True if pricing was resolved successfully with zero rejection reasons."""
@@ -63,8 +74,9 @@ class PricingPort(ABC):
         all_observations: tuple[ObservationRecord, ...],
         knowledge_cutoff: str,
         effective_time: str,
-        required_resources: tuple[str, ...],
+        valuation_resources: tuple[str, ...],
+        execution_resources: tuple[str, ...],
         reference_resource_id: str,
     ) -> PriceResolutionResult:
-        """Resolve valuation marks at cutoff and execution prices for required resources."""
+        """Resolve cutoff marks and prices only for resources that will execute."""
         raise NotImplementedError

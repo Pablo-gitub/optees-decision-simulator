@@ -9,6 +9,7 @@ from simulator.domain.models import EpisodeDefinition
 from simulator.infrastructure.adapters.in_memory_clock import InMemoryClock
 from simulator.infrastructure.adapters.in_memory_store import InMemoryStore
 from simulator.infrastructure.adapters.synthetic_dataset import SyntheticDatasetAdapter
+from simulator.infrastructure.adapters.synthetic_pricing import SyntheticPricingAdapter
 
 
 def test_record_replay_success(synthetic_episode_def: EpisodeDefinition) -> None:
@@ -19,7 +20,7 @@ def test_record_replay_success(synthetic_episode_def: EpisodeDefinition) -> None
         "pol-def_static_baseline": StaticBaselinePolicy(),
         "pol-def_reactive_baseline": ReactiveObservationPolicy(),
     }
-    runner = EpisodeRunner(store, dataset, clock, policies)
+    runner = EpisodeRunner(store, dataset, clock, policies, SyntheticPricingAdapter())
     ep_def = synthetic_episode_def
     run_id = "run_replay_ok"
 
@@ -45,14 +46,15 @@ def test_deterministic_re_execution_success(synthetic_episode_def: EpisodeDefini
         "pol-def_static_baseline": StaticBaselinePolicy(),
         "pol-def_reactive_baseline": ReactiveObservationPolicy(),
     }
-    runner = EpisodeRunner(store, dataset, clock, policies)
+    pricing = SyntheticPricingAdapter()
+    runner = EpisodeRunner(store, dataset, clock, policies, pricing)
     ep_def = synthetic_episode_def
     run_id = "run_reexec_ok"
 
     runner.initialize_episode(ep_def, run_id)
     runner.run_all_rounds(run_id)
 
-    replay_svc = ReplayService(store, dataset, clock)
+    replay_svc = ReplayService(store, dataset, clock, pricing)
     report = replay_svc.deterministic_re_execution(run_id, "rep-rep_reexec_001", policies)
 
     assert report.overall_status == ReplayStatus.MATCH
@@ -70,7 +72,8 @@ def test_deterministic_re_execution_divergence_detection(
         "pol-def_static_baseline": StaticBaselinePolicy(),
         "pol-def_reactive_baseline": ReactiveObservationPolicy(),
     }
-    runner = EpisodeRunner(store, dataset, clock, policies)
+    pricing = SyntheticPricingAdapter()
+    runner = EpisodeRunner(store, dataset, clock, policies, pricing)
     ep_def = synthetic_episode_def
     run_id = "run_diverge_test"
 
@@ -87,7 +90,7 @@ def test_deterministic_re_execution_divergence_detection(
         ),
     }
 
-    replay_svc = ReplayService(store, dataset, clock)
+    replay_svc = ReplayService(store, dataset, clock, pricing)
     report = replay_svc.deterministic_re_execution(run_id, "rep-rep_diverge_001", tampered_policies)
 
     assert report.overall_status == ReplayStatus.DIVERGED

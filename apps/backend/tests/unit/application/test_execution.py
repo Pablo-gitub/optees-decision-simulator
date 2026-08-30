@@ -17,7 +17,6 @@ from simulator.domain.models import (
     EpisodeRulesSpec,
     FailurePolicySpec,
     InitialAccountSpec,
-    ObservationRecord,
     PolicyVersionRef,
     ProposedDecision,
     ReferenceValuation,
@@ -97,18 +96,6 @@ def _make_test_account() -> VirtualAccountState:
 def test_execution_accepted_proposal() -> None:
     ep_def = _make_test_episode_def()
     account = _make_test_account()
-    obs = (
-        ObservationRecord(
-            observation_id="obs_1",
-            snapshot_id="ds_1",
-            series_id="RES_ALPHA_PRICE",
-            event_time="2026-07-31T23:59:00Z",
-            knowledge_time="2026-08-01T00:00:00Z",
-            revision=1,
-            payload={"price": "100.00"},
-        ),
-    )
-
     # Allocate 20 units of RES_ALPHA at 100 USD = 2000 USD
     # Fee: 0.001 * 2000 = 2.00 USD + fixed 1.00 USD = 3.00 USD
     # Total deduction from USD: 2003.00 USD -> remaining USD: 7997.00 USD
@@ -128,7 +115,8 @@ def test_execution_accepted_proposal() -> None:
         episode_def=ep_def,
         current_account=account,
         proposal=proposal,
-        eligible_observations=obs,
+        valuation_marks={"RES_ALPHA": Decimal("100.00")},
+        execution_prices={"RES_ALPHA": Decimal("100.00")},
         round_id="rnd_0",
         round_index=1,
         effective_time="2026-08-01T00:00:00Z",
@@ -150,18 +138,6 @@ def test_execution_accepted_proposal() -> None:
 def test_execution_rejected_insufficient_funds() -> None:
     ep_def = _make_test_episode_def()
     account = _make_test_account()
-    obs = (
-        ObservationRecord(
-            observation_id="obs_1",
-            snapshot_id="ds_1",
-            series_id="RES_ALPHA_PRICE",
-            event_time="2026-07-31T23:59:00Z",
-            knowledge_time="2026-08-01T00:00:00Z",
-            revision=1,
-            payload={"price": "100.00"},
-        ),
-    )
-
     # Request allocating 150 units at 100 USD = 15000 USD (only 10000 USD available)
     proposal = ProposedDecision(
         decision_id="dec_prop_reject",
@@ -179,7 +155,8 @@ def test_execution_rejected_insufficient_funds() -> None:
         episode_def=ep_def,
         current_account=account,
         proposal=proposal,
-        eligible_observations=obs,
+        valuation_marks={"RES_ALPHA": Decimal("100.00")},
+        execution_prices={"RES_ALPHA": Decimal("100.00")},
         round_id="rnd_0",
         round_index=1,
         effective_time="2026-08-01T00:00:00Z",
@@ -199,8 +176,6 @@ def test_execution_rejected_insufficient_funds() -> None:
 def test_execution_cross_policy_rejection() -> None:
     ep_def = _make_test_episode_def()
     account = _make_test_account()
-    obs = ()
-
     # Proposal with external source_policy_id
     proposal = ProposedDecision(
         decision_id="dec_prop_cross",
@@ -225,7 +200,8 @@ def test_execution_cross_policy_rejection() -> None:
         episode_def=ep_def,
         current_account=account,
         proposal=proposal,
-        eligible_observations=obs,
+        valuation_marks={"RES_ALPHA": Decimal("100.00")},
+        execution_prices={"RES_ALPHA": Decimal("100.00")},
         round_id="rnd_0",
         round_index=1,
         effective_time="2026-08-01T00:00:00Z",

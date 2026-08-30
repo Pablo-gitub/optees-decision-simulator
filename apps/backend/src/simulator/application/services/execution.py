@@ -16,7 +16,6 @@ from simulator.domain.models import (
     CumulativeCostItem,
     DecisionOutcome,
     EpisodeDefinition,
-    ObservationRecord,
     ProposedDecision,
     ReferenceValuation,
     RejectionReason,
@@ -40,7 +39,6 @@ class ExecutionService:
         pricing_result: PriceResolutionResult | None = None,
         valuation_marks: Mapping[str, Decimal | PriceEvidence] | None = None,
         execution_prices: Mapping[str, Decimal | PriceEvidence] | None = None,
-        eligible_observations: tuple[ObservationRecord, ...] | None = None,
     ) -> tuple[DecisionOutcome, TransitionRecord | None, VirtualAccountState]:
         """Validate proposal, calculate transition costs and resource deltas,
 
@@ -107,33 +105,12 @@ class ExecutionService:
                 for res, ev in execution_prices.items():
                     exec_map[res] = ev.price if isinstance(ev, PriceEvidence) else Decimal(str(ev))
 
-        elif eligible_observations is not None:
-            # Domain-neutral fallback for synthetic observations: resolve latest eligible price
-            for obs in eligible_observations:
-                for res_id in [b.resource_id for b in current_account.balances] + [
-                    a.resource_id for a in proposal.requested_actions
-                ]:
-                    if obs.series_id in (f"{res_id}_PRICE", res_id):
-                        raw_p = obs.payload.get("price", obs.payload.get("close"))
-                        if raw_p is not None:
-                            try:
-                                p_dec = Decimal(str(raw_p))
-                                if (
-                                    not p_dec.is_nan()
-                                    and not p_dec.is_infinite()
-                                    and p_dec > Decimal("0")
-                                ):
-                                    marks_map[res_id] = p_dec
-                                    exec_map[res_id] = p_dec
-                            except Exception:
-                                pass
         else:
             rejection_reasons.append(
                 RejectionReason(
                     code="MISSING_PRICING_CONTEXT",
                     message=(
-                        "No pricing context, explicit marks, or observations provided "
-                        "to ExecutionService"
+                        "No explicit pricing result or price maps were provided to ExecutionService"
                     ),
                 )
             )

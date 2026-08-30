@@ -21,7 +21,8 @@ class SyntheticPricingAdapter(PricingPort):
         all_observations: tuple[ObservationRecord, ...],
         knowledge_cutoff: str,
         effective_time: str,
-        required_resources: tuple[str, ...],
+        valuation_resources: tuple[str, ...],
+        execution_resources: tuple[str, ...],
         reference_resource_id: str,
     ) -> PriceResolutionResult:
         """Resolve valuation marks and execution prices for synthetic episodes."""
@@ -32,7 +33,9 @@ class SyntheticPricingAdapter(PricingPort):
         execution_prices: dict[str, PriceEvidence] = {}
         rejection_reasons: list[RejectionReason] = []
 
-        for resource_id in required_resources:
+        resources = tuple(sorted(set(valuation_resources) | set(execution_resources)))
+        execution_resource_set = set(execution_resources)
+        for resource_id in resources:
             # 1. Reference resource is always 1.00
             if resource_id == reference_resource_id:
                 ref_evidence = PriceEvidence(
@@ -45,7 +48,8 @@ class SyntheticPricingAdapter(PricingPort):
                     staleness_seconds=Decimal("0"),
                 )
                 valuation_marks[resource_id] = ref_evidence
-                execution_prices[resource_id] = ref_evidence
+                if resource_id in execution_resource_set:
+                    execution_prices[resource_id] = ref_evidence
                 continue
 
             # Match series for this resource: {resource_id}_PRICE or resource_id
@@ -130,6 +134,9 @@ class SyntheticPricingAdapter(PricingPort):
                             violating_field=f"balances[{resource_id}]",
                         )
                     )
+
+            if resource_id not in execution_resource_set:
+                continue
 
             # 3. Execution price candidates:
             # Check for future bar (event_time > T and knowledge_time <= effective_time)

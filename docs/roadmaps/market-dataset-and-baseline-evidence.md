@@ -576,15 +576,17 @@ the minimum source evidence needed for deterministic replay, or if preserving
 fractional quantities requires a frozen schema change. Report the conflict and
 do not fabricate prices, timestamps, precision or provenance.
 
-**Gate `DS-D3` (Satisfied):** identical normalized observations and account inputs produce
+**Gate `DS-D3` (Open after review):** identical normalized observations and account inputs produce
 identical valuations, costs, transitions and hashes.
 
-### Gate `DS-D3` Evidence Delivered:
+### `DS-D3` implementation evidence and remaining blocker
 - **Application Pricing Port:** Implemented immutable `PriceEvidence`, `PriceResolutionResult`, and abstract `PricingPort` in `simulator.application.ports.pricing`.
 - **Market Kline Pricing Adapter:** Implemented `MarketKlinePricingAdapter` in `simulator.infrastructure.adapters.market_pricing` resolving latest eligible daily close mark (`event_time <= T` and `knowledge_time <= T`) with explicit staleness duration, and paper execution price as the first strictly future daily bar open (`event_time > T` and `knowledge_time <= effective_time`).
 - **Synthetic Pricing Adapter:** Implemented `SyntheticPricingAdapter` in `simulator.infrastructure.adapters.synthetic_pricing` providing domain-neutral, explicit pricing for non-market synthetic episodes and benchmarks.
 - **ExecutionService Refactoring:** Preserved `ExecutionService` as the single owner of accounting, feasibility, balance mutations, transition records, and virtual account hashes; eliminated all implicit 1.00 fallbacks for non-reference resources; added stable deterministic rejections on missing/invalid marks and execution prices; preserved fractional asset quantities without arbitrary 2-decimal truncation while retaining 2-decimal reference cash/fee quantization; enforced zero-slippage single fee application and accounting conservation invariant.
-- **Test Coverage & Verification:** Added 11 focused unit tests across `test_market_pricing.py` and `test_market_execution.py` (157 total backend tests passing), contract schema validation passed, Ruff lint/format passed.
+- **Test Coverage & Verification:** focused adapter and accounting tests prove deterministic behavior when valid mark and future execution evidence are supplied explicitly.
+- **Review blocker:** production `EpisodeRunner` fixes `effective_time` to the decision cutoff. The market adapter correctly requires the execution observation to have `event_time > cutoff` and `knowledge_time <= effective_time`; with the frozen D+2 historical availability rule those conditions cannot hold at the same cutoff. The isolated tests used a manually later effective time and therefore did not prove an executable market episode.
+- **Required correction:** freeze a versioned pending/delayed-transition lifecycle, including account visibility between decision and settlement, feasibility reservation, failure handling, round/effective-time records, replay and hashing. Do not weaken the future-open or D+2 rules to make the synchronous kernel pass.
 
 ## Micro-gate E — Baseline Episodes And Frozen Evidence (`DS-02E`)
 
@@ -599,6 +601,6 @@ or production Optees policies begin.
 
 ## Next implementation boundary
 
-`DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2` (`DS-02C2A` & `DS-02C2B`), `DS-02C3`, and `DS-02D` are complete.
-`DS-02E` (Baseline Episodes And Frozen Evidence / Gate `DS-D`) is the next and only authorized
-implementation boundary.
+`DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2` (`DS-02C2A` & `DS-02C2B`), and `DS-02C3` are complete.
+The temporal-lifecycle correction inside `DS-02D` is the next and only authorized
+implementation boundary. `DS-02E` remains blocked until `DS-D3` is satisfied.

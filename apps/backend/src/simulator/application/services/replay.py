@@ -298,7 +298,7 @@ class ReplayService:
 
                 pricing_res = None
                 if self._pricing is not None:
-                    req_resources = tuple(
+                    valuation_resources = tuple(
                         sorted(
                             set(
                                 [b.resource_id for b in curr_acc.balances]
@@ -307,11 +307,21 @@ class ReplayService:
                             )
                         )
                     )
+                    execution_resources = tuple(
+                        sorted(
+                            {
+                                action.resource_id
+                                for action in replayed_proposal.requested_actions
+                                if action.action_type.value != "HOLD"
+                            }
+                        )
+                    )
                     pricing_res = self._pricing.resolve_pricing(
                         all_observations=all_obs,
                         knowledge_cutoff=cutoff,
                         effective_time=effective_time,
-                        required_resources=req_resources,
+                        valuation_resources=valuation_resources,
+                        execution_resources=execution_resources,
                         reference_resource_id=episode_def.reference_resource_id,
                     )
 
@@ -323,7 +333,6 @@ class ReplayService:
                     round_index=r_idx + 1,
                     effective_time=effective_time,
                     pricing_result=pricing_res,
-                    eligible_observations=eligible_obs,
                 )
 
                 replayed_acc_hash = next_account.compute_hash()

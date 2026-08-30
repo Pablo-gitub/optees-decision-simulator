@@ -3,6 +3,8 @@
 import random
 from decimal import Decimal
 
+import pytest
+
 from simulator.domain.models import ObservationRecord
 from simulator.infrastructure.adapters.market_pricing import MarketKlinePricingAdapter
 
@@ -78,7 +80,8 @@ def test_market_pricing_valuation_mark_latest_eligible_close() -> None:
         all_observations=all_obs,
         knowledge_cutoff=cutoff,
         effective_time=effective_time,
-        required_resources=("BTC", "USDT"),
+        valuation_resources=("BTC", "USDT"),
+        execution_resources=("BTC",),
         reference_resource_id="USDT",
     )
 
@@ -87,7 +90,7 @@ def test_market_pricing_valuation_mark_latest_eligible_close() -> None:
 
     # USDT is reference resource
     assert res.valuation_marks["USDT"].price == Decimal("1.00")
-    assert res.execution_prices["USDT"].price == Decimal("1.00")
+    assert "USDT" not in res.execution_prices
 
     # BTC valuation mark is Day 2 close (65000.00), NOT Day 1 close or Day 3 close
     btc_mark = res.valuation_marks["BTC"]
@@ -146,7 +149,8 @@ def test_market_pricing_revision_handling() -> None:
         all_observations=all_obs,
         knowledge_cutoff=cutoff,
         effective_time=effective_time,
-        required_resources=("ETH", "USDT"),
+        valuation_resources=("ETH", "USDT"),
+        execution_resources=("ETH",),
         reference_resource_id="USDT",
     )
 
@@ -178,7 +182,8 @@ def test_market_pricing_permutation_invariance() -> None:
         all_observations=tuple(obs_list),
         knowledge_cutoff=cutoff,
         effective_time=effective_time,
-        required_resources=("SOL", "USDT"),
+        valuation_resources=("SOL", "USDT"),
+        execution_resources=("SOL",),
         reference_resource_id="USDT",
     )
 
@@ -190,7 +195,8 @@ def test_market_pricing_permutation_invariance() -> None:
             all_observations=tuple(shuffled),
             knowledge_cutoff=cutoff,
             effective_time=effective_time,
-            required_resources=("SOL", "USDT"),
+            valuation_resources=("SOL", "USDT"),
+            execution_resources=("SOL",),
             reference_resource_id="USDT",
         )
         assert perm_res == base_res
@@ -213,7 +219,8 @@ def test_market_pricing_missing_valuation_mark() -> None:
         all_observations=(obs_fut,),
         knowledge_cutoff="2026-08-01T00:00:00Z",
         effective_time="2026-08-03T00:00:00Z",
-        required_resources=("BNB", "USDT"),
+        valuation_resources=("BNB", "USDT"),
+        execution_resources=("BNB",),
         reference_resource_id="USDT",
     )
 
@@ -239,13 +246,54 @@ def test_market_pricing_missing_execution_price() -> None:
         all_observations=(obs_past,),
         knowledge_cutoff="2026-08-02T00:00:00Z",
         effective_time="2026-08-03T00:00:00Z",
-        required_resources=("BNB", "USDT"),
+        valuation_resources=("BNB", "USDT"),
+        execution_resources=("BNB",),
         reference_resource_id="USDT",
     )
 
     assert not res.is_valid
     assert len(res.rejection_reasons) == 1
     assert res.rejection_reasons[0].code == "MISSING_EXECUTION_PRICE"
+
+
+def test_market_pricing_does_not_require_execution_price_for_held_only_resource() -> None:
+    adapter = MarketKlinePricingAdapter()
+    obs_past = _make_kline_obs(
+        obs_id="obs_bnb_mark",
+        series_id="BNB_USDT_PRICE_1D",
+        event_time="2026-08-01T00:00:00Z",
+        knowledge_time="2026-08-02T00:00:00Z",
+        open_p="540.00",
+        close_p="550.00",
+    )
+
+    result = adapter.resolve_pricing(
+        all_observations=(obs_past,),
+        knowledge_cutoff="2026-08-02T00:00:00Z",
+        effective_time="2026-08-02T00:00:00Z",
+        valuation_resources=("BNB", "USDT"),
+        execution_resources=(),
+        reference_resource_id="USDT",
+    )
+
+    assert result.is_valid
+    assert result.valuation_marks["BNB"].price == Decimal("550.00")
+    assert result.execution_prices == {}
+
+
+def test_price_resolution_result_copies_mutable_input_maps() -> None:
+    adapter = MarketKlinePricingAdapter()
+    result = adapter.resolve_pricing(
+        all_observations=(),
+        knowledge_cutoff="2026-08-02T00:00:00Z",
+        effective_time="2026-08-02T00:00:00Z",
+        valuation_resources=("USDT",),
+        execution_resources=(),
+        reference_resource_id="USDT",
+    )
+
+    with pytest.raises(TypeError):
+        result.valuation_marks["USDT"] = result.valuation_marks["USDT"]
 
 
 def test_market_pricing_unsupported_resource() -> None:
@@ -255,7 +303,8 @@ def test_market_pricing_unsupported_resource() -> None:
         all_observations=(),
         knowledge_cutoff="2026-08-02T00:00:00Z",
         effective_time="2026-08-03T00:00:00Z",
-        required_resources=("UNKNOWN_TOKEN", "USDT"),
+        valuation_resources=("UNKNOWN_TOKEN", "USDT"),
+        execution_resources=("UNKNOWN_TOKEN",),
         reference_resource_id="USDT",
     )
 
@@ -289,7 +338,8 @@ def test_market_pricing_malformed_and_non_positive_prices() -> None:
         all_observations=(obs_zero, obs_fut),
         knowledge_cutoff="2026-08-02T00:00:00Z",
         effective_time="2026-08-03T00:00:00Z",
-        required_resources=("BTC", "USDT"),
+        valuation_resources=("BTC", "USDT"),
+        execution_resources=("BTC",),
         reference_resource_id="USDT",
     )
 
