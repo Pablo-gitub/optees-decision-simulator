@@ -194,12 +194,14 @@ flowchart TB
 - **Residual Risk:** Low while the architectural prohibition and dependency checks remain enforced.
 
 ### Threat Vector 13: Lookahead via Incomplete Daily Bar Leakage
-- **Description:** A decision policy consumes a completed daily bar before its conservatively assigned availability time, or executes at the already-known closing price.
-- **Attack / Failure Mode:** Dataset parsing backdates knowledge or conflates the valuation mark with a transaction execution price.
+- **Description:** A decision policy consumes a completed daily bar before its conservatively assigned availability time, executes at the already-known closing price, or trades at future prices within the same cutoff.
+- **Attack / Failure Mode:** Dataset parsing backdates knowledge, conflates the valuation mark with a transaction execution price, or simulates instantaneous execution against future bars.
 - **Mitigation:**
-  - The provenance contract preserves exact upstream close time and assigns historical `knowledge_time = (D+2)T00:00:00Z` unless a verifiable first-observed instant exists.
-  - The existing eligibility service enforces `knowledge_time <= cutoff`; `DS-02D` must separately freeze post-decision execution pricing.
-- **Residual Risk:** Medium until the market normalizer and execution-price contract are implemented and tested; low thereafter, never zero.
+  - The provenance contract preserves exact upstream close time and assigns historical `knowledge_time = (D+2)T00:00:00Z`.
+  - The [Deferred Paper Settlement Contract](deferred-settlement-contract.md) (Gate `DS-D3T`) decouples decision proposal from transition settlement: orders fill at the first bar with `open_time >= T`, but settlement is strictly deferred until $t_{\text{settle}} \ge t_{\text{knowledge}}$ ($D+2$).
+  - Strict causal separation: $T_{\text{cutoff}} = t_{\text{prop}} \le t_{\text{fill}} < t_{\text{knowledge}} \le t_{\text{settle}}$.
+  - The single-pending policy invariant prevents issuing new trading actions or spending unsettled proceeds while an order is pending.
+- **Residual Risk:** Low for contract specification (Gate `DS-D3T`); verified by pure decision probes; low after runtime deferred-settlement kernel implementation (`DS-02D2`).
 
 ### Threat Vector 14: Upstream Restatement & Silent Historical Rewrites
 - **Description:** An upstream market data provider restates, adjusts, or silently rewrites historical observations without updating timestamps or revision counters, invalidating previously recorded episode hashes.
@@ -233,7 +235,7 @@ flowchart TB
 | Solver Timeout / Crash | Medium | Medium | High (Receipts, Frozen Fallback Policies) | Low |
 | Resource Exhaustion | Medium | Low | High (Hard Caps, Streamed Ingestion) | Low |
 | Accidental Live Orders | Critical | Zero | Absolute (No Brokerage Connectors) | Zero |
-| Lookahead Bar Leakage | Critical | Medium | Partial until DS-02D (conservative knowledge cutoff plus future execution-price contract) | Medium |
+| Lookahead Bar Leakage | Critical | Low | High (Deferred Settlement Contract DS-D3T: fill at open, settlement at D+2, single pending invariant) | Low |
 | Silent Upstream Rewrites | High | Low | High (Three-Tier Checksum Boundaries) | Very Low |
 | Upstream Outage Drift | Medium | Low | High (Offline Local Snapshot Cache) | Very Low |
 

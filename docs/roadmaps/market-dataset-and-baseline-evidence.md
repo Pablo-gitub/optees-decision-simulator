@@ -652,13 +652,23 @@ Update `core-contracts.md`, `market-dataset-provenance.md`, `threat-model.md`,
 decision changes their planned semantics. Planned records and schema versions
 must remain clearly marked planned.
 
-**Gate `DS-D3T`:** one reviewed temporal contract proves that no policy input,
+**Gate `DS-D3T` (Satisfied):** one reviewed temporal contract proves that no policy input,
 execution price or account mutation crosses its authorized time boundary and
 defines a lossless implementation path.
 
-Stop if the model needs simultaneous pending transitions, partial fills,
-intrabar liquidity, broker/order-book claims or a silent rewrite of frozen v1
-history. Record those as deferred rather than expanding this case study.
+### Gate `DS-D3T` Evidence Delivered:
+- **Authoritative Contract Specification:** Shipped [`docs/contracts/deferred-settlement-contract.md`](../contracts/deferred-settlement-contract.md), freezing the five-time temporal model ($T_{\text{cutoff}} = t_{\text{prop}} \le t_{\text{fill}} < t_{\text{knowledge}} \le t_{\text{settle}}$), sub-second `open_time` retention in observation payload, the closed pending transition state machine (`ADMITTED_PENDING`, `SETTLED`, `REJECTED`), single-pending policy invariant, and feasibility verification timing.
+- **Pure Decision Probes Suite:** Added `apps/backend/tests/unit/domain/test_deferred_settlement_contract.py` containing 9 focused decision probes (all passing) verifying:
+  1. Standard D+2 lifecycle and causal inequality ($T_{\text{cutoff}} \le t_{\text{fill}} < t_{\text{knowledge}} \le t_{\text{settle}}$);
+  2. Missing day timeout and terminal rejection without account mutation;
+  3. Pre-settlement revision handling vs post-settlement historical immutability;
+  4. Fill price movement causing insufficient cash and terminal rejection;
+  5. Unsettled order at episode termination;
+  6. Episode cancellation during pending state;
+  7. Deterministic ordering: settlement strictly precedes policy proposals at shared timestamps;
+  8. Cryptographic reproducibility and state Merkle root determinism;
+  9. Rejection of second trading decision while an order is pending settlement.
+- **Contract & Architecture Alignment:** Updated `core-contracts.md`, `market-dataset-provenance.md`, `threat-model.md`, `ARCHITECTURE.md`, and `ROADMAP.md` with explicit distinction of planned v1.1 structures.
 
 ### Correction gate D2 — Deferred Settlement Kernel (`DS-02D2`)
 
@@ -682,6 +692,6 @@ or production Optees policies begin.
 
 ## Next implementation boundary
 
-`DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2` (`DS-02C2A` & `DS-02C2B`), and `DS-02C3` are complete.
-`DS-02D1` is the next and only authorized boundary. `DS-02D2` requires review
-of `DS-D3T`; `DS-02E` remains blocked until `DS-D3` is satisfied.
+`DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2` (`DS-02C2A` & `DS-02C2B`), `DS-02C3`, and `DS-02D1` are complete.
+`DS-02D2` (Deferred Settlement Kernel / Gate `DS-D3`) is the next and only authorized boundary.
+`DS-02E` remains blocked until `DS-D3` is satisfied.

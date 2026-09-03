@@ -71,7 +71,9 @@ Timestamp units must be decoded without loss:
 Prices must be finite positive decimal strings. Volumes are finite
 non-negative decimal strings and trade count is a non-negative integer. Decimal
 text is preserved until explicit domain conversion; binary floats are not used
-as the canonical financial representation.
+as the canonical financial representation. In planned normalizer v1.1 (`DS-02D2`),
+`open_time` is preserved in `payload["open_time"]` as an explicit UTC ISO 8601 string
+with sub-second precision (`.sssZ` pre-2025, `.ssssssZ` from 2025).
 
 ## 4. Four-time semantics and anti-leakage rule
 
@@ -104,11 +106,17 @@ The eligible day-D `close` is the mark used to value holdings at the decision
 cutoff. It is **not** also an executable day-D close price: that would trade at
 a price known only after the bar closed.
 
-The price and timestamp used for a transition are a separate market-execution
-contract owned by `DS-02D`. Its minimum invariant is that the execution price is
-drawn from an observation whose event is at or after the decision cutoff and
-whose availability is compatible with the simulation clock. Until `DS-02D`
-freezes that rule, market rebalancing results must not be presented as valid.
+The execution and settlement contract is formally frozen in
+[Deferred Paper Settlement Contract](deferred-settlement-contract.md) (Gate `DS-D3T`).
+Its core invariants are:
+1. **Fill at Open:** Trades are economically priced at the first daily bar whose `open_time >= T`.
+2. **Deferred Settlement:** Because that bar's complete observation is subject to the historical
+   $D+2$ knowledge lag, settlement occurs at $t_{\text{settle}} \ge (D+2)\text{T}00:00:00\text{Z}$
+   when the bar becomes available.
+3. **Causal Progression:** $T_{\text{cutoff}} = t_{\text{prop}} \le t_{\text{fill}} < t_{\text{knowledge}} \le t_{\text{settle}}$.
+4. **Feasibility at Fill:** Cash, shorting, and fee checks are evaluated against the actual $P_{\text{open}}$ at settlement.
+5. **Single Pending Order:** A policy may have at most one pending non-HOLD transition in v1.1.
+Same-cutoff execution, trading at the already-known close, and lookahead policy price feeds are strictly rejected.
 
 ## 6. Missing data and calendar rules
 

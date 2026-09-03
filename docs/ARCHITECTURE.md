@@ -17,16 +17,16 @@
 
 To maintain architectural clarity, the repository explicitly distinguishes between what is currently implemented at Gate `DS-K` and what is planned for subsequent delivery phases.
 
-### Currently Implemented (Gates `DS-C` and `DS-K`)
-- **Documentation & Specifications:** `docs/contracts/` containing canonical contracts, temporal semantics, replay taxonomy, and threat model.
-- **Contract Schemas:** `docs/contracts/schemas/` containing 15 versioned JSON Schema Draft 2020-12 specifications and `schema_inventory.json`.
+### Currently Implemented (Gates `DS-C`, `DS-K`, `DS-D0`, `DS-D1`, `DS-D2`, and `DS-D3T`)
+- **Documentation & Specifications:** `docs/contracts/` containing canonical contracts, temporal semantics, replay taxonomy, threat model, market provenance, and [Deferred Settlement Contract](contracts/deferred-settlement-contract.md).
+- **Contract Schemas:** `docs/contracts/schemas/` containing 16 versioned JSON Schema Draft 2020-12 specifications (including `acquisition_receipt.v1.json`) and `schema_inventory.json`.
 - **Validation Fixtures:** `docs/contracts/examples/` containing valid and invalid canonical JSON fixtures.
 - **Contract Verification Tooling:** `tools/validate_contracts.py` verifying schemas, RFC 8785 canonical JSON golden vectors, SHA-256 hash properties, cutoff filtering, and secret absence.
 - **Deterministic Episode Kernel Backend (`apps/backend/`):**
-  - `src/simulator/domain/`: Immutable dataclass entities (`EpisodeDefinition`, `EpisodeRun`, `RoundRecord`, `VirtualAccountState`, `ProposedDecision`, `DecisionOutcome`, `TransitionRecord`, `MetricRecord`, `ReplayReport`, `DivergenceReport`, etc.), RFC 8785 canonical JSON serializer, SHA-256 hasher, state Merkle tree builder, strict UTC ISO 8601 parsing (`Z`), Decimal arithmetic, and domain error codes.
-  - `src/simulator/application/`: Abstract ports (`ClockPort`, `DatasetPort`, `PersistencePort`, `PolicyPort`, `PricingPort`, `ExportPort`, `OpteesClientPort`), baseline policies (`StaticBaselinePolicy`, `AllReferenceCashPolicy`, `EqualAllocationPolicy`, `ReactiveObservationPolicy`), `EligibilityService` (knowledge-time cutoff filtering and revision deduplication), `ExecutionService` (proposal validation, acceptance, cost calculations, transition application from explicit pricing evidence), `EvaluatorService` (valuation, metrics, drawdowns), `EpisodeRunner` (lifecycle state machine, transactional round commit, pause/resume/cancel), and `ReplayService` (record replay, deterministic re-execution, and divergence analysis).
-  - `src/simulator/infrastructure/`: In-memory adapters (`InMemoryStore`, `InMemoryClock`, `InMemoryExportAdapter`, `SyntheticDatasetAdapter`).
-  - `tests/`: 45 automated tests across unit (domain, application, infrastructure), integration (synthetic 3-round episode, repeated-run identity isolation, transactional failure, pause/idempotent resume/cancel, replay/divergence, Node.js canonical parity), and contract (all 15 schemas roundtrip validation, strict architectural boundary verification).
+  - `src/simulator/domain/`: Immutable dataclass entities (`EpisodeDefinition`, `EpisodeRun`, `RoundRecord`, `VirtualAccountState`, `ProposedDecision`, `DecisionOutcome`, `TransitionRecord`, `MetricRecord`, `ReplayReport`, `DivergenceReport`, `AcquisitionReceipt`, etc.), RFC 8785 canonical JSON serializer, SHA-256 hasher, state Merkle tree builder, strict UTC ISO 8601 parsing (`Z`), Decimal arithmetic, and domain error codes.
+  - `src/simulator/application/`: Abstract ports (`ClockPort`, `DatasetPort`, `PersistencePort`, `PolicyPort`, `PricingPort`, `SnapshotStorePort`, `AcquisitionTransportPort`, `ExportPort`, `OpteesClientPort`), services (`EligibilityService`, `ExecutionService`, `EvaluatorService`, `EpisodeRunner`, `ReplayService`, `ProviderAcquisitionService`, `verify_acquisition_evidence`), and baseline policies.
+  - `src/simulator/infrastructure/`: In-memory adapters, filesystem snapshot store, offline dataset adapter, streaming HTTPS acquisition transport, ZIP/CSV archive decoder, market normalizer, and market kline pricing adapter.
+  - `tests/`: 168 automated tests across unit, integration, contract, and pure decision probes (`test_deferred_settlement_contract.py` verifying the 9 deferred settlement decision probes).
 
 ### Implemented Skeleton and Planned Expansion (Phases `DS-02` through `DS-09`)
 The repository is a monorepo containing two independently testable
@@ -132,7 +132,8 @@ complete graph. The backend does not adopt frontend MVVM terminology.
 - Optees capability discovery, validation, contract pinning, and execution;
 - Relational persistence, Merkle state chaining, replay, and divergence analysis;
 - Server-side report generation and artifact coordination;
-- Process management and stdio sanitization for MCP child processes.
+- Process management and stdio sanitization for MCP child processes;
+- Planned deferred paper settlement: causal decoupling of decision admission at $T$ from transition settlement at $t_{\text{settle}} \ge t_{\text{knowledge}}$ ($D+2$), enforced via single-pending policy invariance.
 
 FastAPI is used exclusively as a thin loopback transport over application services.
 

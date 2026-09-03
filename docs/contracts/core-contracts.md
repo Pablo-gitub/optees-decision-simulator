@@ -9,6 +9,7 @@
 - **Related Documents:**
   - [Architecture Reference](../ARCHITECTURE.md)
   - [Market Dataset Provenance](market-dataset-provenance.md)
+  - [Deferred Settlement Contract](deferred-settlement-contract.md)
   - [Threat Model](threat-model.md)
   - [Schema Inventory](schemas/schema_inventory.json)
   - [Benchmark Protocol](../BENCHMARK_PROTOCOL.md)
@@ -147,6 +148,20 @@ Real-world datasets contain delayed observations and retroactive revisions (e.g.
 - For rounds with cutoff $T_k < T_2$, only revision 1 is visible.
 - For rounds with cutoff $T_k \ge T_2$, revision 2 is visible and supersedes revision 1 according to dataset adapter rules. Past round logs are never rewritten.
 
+### 3.6 Planned Market Extension: The Five Times of Deferred Settlement (v1.1 Planned)
+
+For market execution against historical daily klines subject to publication lags (e.g. $D+2$ conservative availability), the synchronous four-time model is causally insufficient because the future fill price is not yet known at decision cutoff $T$. The planned v1.1 market contract formalizes five distinct timestamps:
+
+1. **Decision Cutoff ($T_{\text{cutoff}}$):** The round calendar instant bounding the policy's observation horizon ($t_{\text{knowledge}} \le T_{\text{cutoff}}$).
+2. **Proposal Generated Time ($t_{\text{prop}}$):** Timestamp of `ProposedDecision` creation ($t_{\text{prop}} = T_{\text{cutoff}}$).
+3. **Economic Fill Time ($t_{\text{fill}}$):** The domain instant of trade execution ($t_{\text{fill}} = \text{open\_time}(\text{bar}_{\text{exec}})$, where $\text{open\_time} \ge T_{\text{cutoff}}$).
+4. **Observation Knowledge Time ($t_{\text{knowledge}}$):** The instant the complete bar observation is published and available to the simulation clock ($(D_{\text{exec}} + 2\text{d})\text{T}00:00:00\text{Z}$).
+5. **Account Settlement Time ($t_{\text{settle}}$):** The simulation instant when feasibility is evaluated against $P_{\text{open}}$, balance mutations are applied, and fees are deducted ($t_{\text{settle}} \ge t_{\text{knowledge}}$).
+
+Strict causal invariant:
+$$T_{\text{cutoff}} = t_{\text{prop}} \le t_{\text{fill}} < t_{\text{knowledge}}(\text{bar}_{\text{exec}}) \le t_{\text{settle}}$$
+See [Deferred Paper Settlement Contract](deferred-settlement-contract.md) for full authoritative specifications.
+
 ---
 
 ## 4. Policy Isolation and Observation Delivery
@@ -187,6 +202,19 @@ flowchart TD
 
 > [!IMPORTANT]
 > **Transport & Solver Independence:** A successful Optees solver status or successful network transport does **NOT** constitute decision acceptance. The simulator alone determines decision feasibility against account rules.
+
+### 5.1 Planned Market Extension: Decoupled Deferred Settlement Lifecycle (v1.1 Planned)
+
+In market execution with delayed observations, Stage 5 and Stage 6 of the lifecycle are decoupled across simulation rounds:
+
+1. **Admission Phase (Round $r$ at $T_{\text{cutoff}}$):**
+   The proposal is validated for policy ownership, structural syntax, universe conformance, and single-pending policy invariance. If valid, it is marked `ADMITTED_PENDING`. No balance mutation or cost calculation occurs.
+2. **Intermediate Rounds (e.g. Round $r+1$):**
+   The policy is restricted to `HOLD` while awaiting settlement. Virtual account balances remain unmutated; unsettled sales cannot be spent.
+3. **Settlement Phase (Round $r+2$ at $t_{\text{settle}} = t_{\text{knowledge}}$):**
+   Executed *strictly before* policies propose new decisions. The fill price $P_{\text{open}}$ is extracted, financial feasibility (cash, borrowing, short positions) is evaluated, fees are applied, and the new `VirtualAccountState` is minted. The decision reaches terminal status `SETTLED` (or `REJECTED` if infeasible or timed out).
+
+See [Deferred Paper Settlement Contract](deferred-settlement-contract.md) for full authoritative state diagrams.
 
 ---
 

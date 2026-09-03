@@ -72,7 +72,7 @@ capability ID, contract versions, fixture hashes, and verification results.
 | --- | --- | --- |
 | [x] | `DS-00` — Core Contracts And Threat Model | `DS-C` satisfied |
 | [x] | `DS-01` — Deterministic Episode Kernel | `DS-K` satisfied |
-| [ ] | `DS-02` — Market Dataset And Baseline Evidence | `DS-02D1` deferred-settlement contract next |
+| [ ] | `DS-02` — Market Dataset And Baseline Evidence | `DS-02D1` contract satisfied (`DS-D3T`); `DS-02D2` kernel next |
 | [ ] | `DS-03` — Persistence, API, And Existing Optees Capabilities | Not started |
 | [ ] | `DS-04` — Convex QP Policy Family | QP prerequisite satisfied; not started |
 | [ ] | `DS-05` — Scenario Min-max And Max-min Policies | Awaiting `ROBUST-C` |
@@ -157,8 +157,9 @@ made execution/replay preserve and verify policy-version identity and configurat
 - Implemented immutable offline snapshot store (`simulator.infrastructure.adapters.fs_snapshot_store`) and offline `DatasetPort` adapter (`simulator.infrastructure.adapters.offline_dataset`), ensuring atomic staging, verified reopen, and exact byte-for-byte observation and manifest parity.
 - Implemented bounded streaming HTTPS acquisition transport (`simulator.infrastructure.adapters.https_acquisition_transport`) and provider acquisition service (`simulator.application.services.provider_acquisition`), with strict security bounds, redirect rejection, sanitized error categories, and idempotent immutable publication.
 - Implemented the reviewed foundation for market valuation and paper-transition pricing (`simulator.application.ports.pricing`, `simulator.infrastructure.adapters.market_pricing`, `simulator.infrastructure.adapters.synthetic_pricing`), including evidenced marks, strict future-open selection, explicit rejection, fractional quantities and single-fee accounting.
-- Review found that `EpisodeRunner` still applies every transition at the decision cutoff. Under the frozen D+2 availability rule, a strictly future bar cannot also be available at that instant. `DS-D3` therefore remains open until a versioned pending/delayed-transition lifecycle is frozen and verified end to end.
-- Next authorized work remains the `DS-02D` temporal-lifecycle correction. `DS-02E` is not yet authorized.
+- Review found that `EpisodeRunner` still applies every transition at the decision cutoff. Under the frozen D+2 availability rule, a strictly future bar cannot also be available at that instant.
+- Completed and froze the authoritative [Deferred Paper Settlement Contract](contracts/deferred-settlement-contract.md) (Gate `DS-D3T`), formalizing the five-time temporal model, `open_time` retention in payload, pending transition lifecycle, single-pending policy invariant, feasibility verification at fill, settlement-before-next-decision priority, and 9 pure decision probes.
+- Next authorized work is `DS-02D2` (Deferred Settlement Kernel). `DS-02D` and `DS-D3` remain open until runtime kernel verification. `DS-02E` is not authorized.
 
 Detailed plan: [Market dataset and baseline evidence](roadmaps/market-dataset-and-baseline-evidence.md).
 
@@ -182,7 +183,10 @@ strict HTTPS URL validation, streaming size boundaries, redirect rejection, sani
 and idempotent immutable publication without touching live networks.
 **Medium gate DS-D2 (Satisfied after review correction):** full acquisition evidence pipeline (`DS-D2A` + `DS-D2B` + `DS-D2C`)
 is verified and complete.
-**Medium gate DS-D3 (Open after review):** adapter and accounting determinism are covered, but the production runner does not yet provide a causal effective time for the evidenced future-open execution price.
+**Correction gate DS-D3T (Satisfied):** one reviewed temporal contract proves that no policy input,
+execution price or account mutation crosses its authorized time boundary and defines a lossless
+implementation path with 9 pure decision probes.
+**Medium gate DS-D3 (Open after review):** adapter, accounting determinism, and the deferred settlement contract are complete; production runner and replay deferred settlement kernel implementation remain for `DS-02D2`.
 
 - [x] Implement bounded provider acquisition and immutable publication in `DS-02C3`.
 - [ ] Complete market valuation and paper-transition rules in `DS-02D`.
@@ -190,12 +194,13 @@ is verified and complete.
   - [x] Remove non-reference `1.00` price fallbacks and reject unavailable prices safely.
   - [x] Preserve fractional quantities and apply the existing fee model exactly once.
   - [x] Prove deterministic adapter and accounting outputs for explicit valid pricing inputs.
-  - [ ] Freeze and implement a causal pending/delayed-transition lifecycle in runner and replay.
-  - [ ] Prove normalized D+2 observations execute end to end without temporal leakage.
+  - [x] Freeze deferred-settlement time, state, failure, record and replay semantics (`DS-D3T`).
+  - [ ] Implement a causal pending/delayed-transition lifecycle in runner and replay (`DS-02D2`).
+  - [ ] Prove normalized D+2 observations execute end to end without temporal leakage (`DS-D3`).
 
 `DS-02D` correction sequence:
 
-- [ ] `DS-02D1`: freeze deferred-settlement time, state, failure, record and replay semantics (`DS-D3T`).
+- [x] `DS-02D1`: freeze deferred-settlement time, state, failure, record and replay semantics (`DS-D3T`).
 - [ ] `DS-02D2`: implement the reviewed deferred-settlement kernel and prove `DS-D3`.
 - [ ] Authorize `DS-02E` only after both correction gates pass review.
 
