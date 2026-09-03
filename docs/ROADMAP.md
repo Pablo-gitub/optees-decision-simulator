@@ -72,7 +72,7 @@ capability ID, contract versions, fixture hashes, and verification results.
 | --- | --- | --- |
 | [x] | `DS-00` — Core Contracts And Threat Model | `DS-C` satisfied |
 | [x] | `DS-01` — Deterministic Episode Kernel | `DS-K` satisfied |
-| [ ] | `DS-02` — Market Dataset And Baseline Evidence | C1 complete; C2 next |
+| [ ] | `DS-02` — Market Dataset And Baseline Evidence | `DS-02D1` deferred-settlement contract next |
 | [ ] | `DS-03` — Persistence, API, And Existing Optees Capabilities | Not started |
 | [ ] | `DS-04` — Convex QP Policy Family | QP prerequisite satisfied; not started |
 | [ ] | `DS-05` — Scenario Min-max And Max-min Policies | Awaiting `ROBUST-C` |
@@ -192,6 +192,12 @@ is verified and complete.
   - [x] Prove deterministic adapter and accounting outputs for explicit valid pricing inputs.
   - [ ] Freeze and implement a causal pending/delayed-transition lifecycle in runner and replay.
   - [ ] Prove normalized D+2 observations execute end to end without temporal leakage.
+
+`DS-02D` correction sequence:
+
+- [ ] `DS-02D1`: freeze deferred-settlement time, state, failure, record and replay semantics (`DS-D3T`).
+- [ ] `DS-02D2`: implement the reviewed deferred-settlement kernel and prove `DS-D3`.
+- [ ] Authorize `DS-02E` only after both correction gates pass review.
 
 `DS-D2A`, `DS-D2B`, and `DS-D2C` completion checklist:
 

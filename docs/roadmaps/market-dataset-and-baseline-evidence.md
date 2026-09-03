@@ -588,6 +588,87 @@ identical valuations, costs, transitions and hashes.
 - **Review blocker:** production `EpisodeRunner` fixes `effective_time` to the decision cutoff. The market adapter correctly requires the execution observation to have `event_time > cutoff` and `knowledge_time <= effective_time`; with the frozen D+2 historical availability rule those conditions cannot hold at the same cutoff. The isolated tests used a manually later effective time and therefore did not prove an executable market episode.
 - **Required correction:** freeze a versioned pending/delayed-transition lifecycle, including account visibility between decision and settlement, feasibility reservation, failure handling, round/effective-time records, replay and hashing. Do not weaken the future-open or D+2 rules to make the synchronous kernel pass.
 
+### Correction gate D1 — Deferred Settlement Contract (`DS-02D1`)
+
+Before changing runtime code, freeze the smallest causal lifecycle that closes
+the review blocker. This is a contract-and-decision gate: production Python,
+schemas, normalizers and adapters must not be modified here.
+
+The decision document must reconcile these facts explicitly:
+
+1. a normalized daily observation currently uses the upstream close timestamp
+   as `event_time`, while its payload contains an `open` price but not the
+   upstream `open_time`;
+2. a policy at cutoff `T` may use only observations with
+   `knowledge_time <= T`;
+3. an execution fill must occur after the decision and cannot reuse the known
+   close;
+4. under conservative historical D+2 availability, the complete future bar is
+   processed later than its market open;
+5. the synchronous kernel currently proposes, accepts and mutates the account
+   at one cutoff and has no pending state.
+
+Freeze, with state diagrams and one canonical timeline, all of the following:
+
+- whether `open_time` must be retained in the normalized observation payload,
+  how its millisecond/microsecond precision is preserved, and which normalizer
+  or fixture version changes;
+- the distinction among decision cutoff, proposal creation, economic fill
+  time, observation knowledge/processing time and account settlement time;
+- a closed pending-transition lifecycle and stable identifiers/statuses;
+- whether initial acceptance means syntactic admission rather than financial
+  feasibility, and exactly when price-dependent cash, short-position, fee and
+  quantity checks occur;
+- the rule for account visibility while a transition is pending. The v1
+  default should permit at most one pending non-HOLD decision per policy and
+  must not allow a later policy decision to spend unsettled proceeds or bypass
+  an unknown execution price;
+- missing future bar, delayed publication, invalid open, insufficient funds at
+  fill, cancellation, end-of-episode and dataset-exhaustion behavior;
+- ordering when settlement and a later decision share a timestamp;
+- immutable records, parent hashes, round Merkle coverage and deterministic
+  replay/re-execution behavior;
+- whether existing v1 records can represent the lifecycle losslessly or which
+  minimally versioned schema additions are required. Never overload
+  `DecisionStatus.ACCEPTED` or backdate a stored mutation with undocumented
+  semantics.
+
+The default candidate to assess is deferred paper settlement: admit the
+proposal at `T`, select the first bar whose retained `open_time` is at or after
+`T`, process the fill only when that observation is available, and prohibit the
+next decision for that policy until settlement or terminal rejection. The
+document must either adopt this model with a proof of causality or reject it
+with a more conservative alternative. It must compare and explicitly reject
+same-cutoff execution, execution at the already-known close, and any rule that
+lets a policy observe the future price.
+
+Required evidence is documentation plus pure decision probes only: normal day,
+missing day, D+2 availability, revision, insufficient cash after price change,
+pending decision at episode end, and deterministic replay ordering. Probes may
+demonstrate current incompatibility but must not implement the future engine.
+
+Update `core-contracts.md`, `market-dataset-provenance.md`, `threat-model.md`,
+`ARCHITECTURE.md`, this detailed roadmap and the general roadmap wherever the
+decision changes their planned semantics. Planned records and schema versions
+must remain clearly marked planned.
+
+**Gate `DS-D3T`:** one reviewed temporal contract proves that no policy input,
+execution price or account mutation crosses its authorized time boundary and
+defines a lossless implementation path.
+
+Stop if the model needs simultaneous pending transitions, partial fills,
+intrabar liquidity, broker/order-book claims or a silent rewrite of frozen v1
+history. Record those as deferred rather than expanding this case study.
+
+### Correction gate D2 — Deferred Settlement Kernel (`DS-02D2`)
+
+Only after `DS-D3T` review, implement the frozen lifecycle, versioned records,
+normalizer evidence, runner settlement order, accounting and replay. Its
+detailed implementation prompt must be written after D1 is reviewed.
+
+**Gate `DS-D3`:** a normalized synthetic D+2 market episode admits, settles or
+rejects each decision causally and reproduces identical records and hashes.
+
 ## Micro-gate E — Baseline Episodes And Frozen Evidence (`DS-02E`)
 
 Run static, cash/reference, equal-allocation and simple reactive baselines on
@@ -602,5 +683,5 @@ or production Optees policies begin.
 ## Next implementation boundary
 
 `DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2` (`DS-02C2A` & `DS-02C2B`), and `DS-02C3` are complete.
-The temporal-lifecycle correction inside `DS-02D` is the next and only authorized
-implementation boundary. `DS-02E` remains blocked until `DS-D3` is satisfied.
+`DS-02D1` is the next and only authorized boundary. `DS-02D2` requires review
+of `DS-D3T`; `DS-02E` remains blocked until `DS-D3` is satisfied.
