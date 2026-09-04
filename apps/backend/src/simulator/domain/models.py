@@ -789,6 +789,8 @@ class DeferredTransitionRecord:
         for cost in self.costs:
             if not isinstance(cost, CostItem):
                 raise TypeError(f"costs item must be CostItem, got {type(cost)}")
+            if not isinstance(cost.cost_type, CostType):
+                raise ValueError("CostItem cost_type must be a CostType")
             if not isinstance(cost.resource_id, str) or not cost.resource_id:
                 raise ValueError("CostItem resource_id must be non-empty string")
             if isinstance(cost.amount, bool) or not isinstance(cost.amount, Decimal):
@@ -832,6 +834,12 @@ class DeferredTransitionRecord:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> DeferredTransitionRecord:
+        def decimal_field(value: Any, *, signed: bool = False) -> Decimal:
+            pattern = r"-?[0-9]+(?:\.[0-9]+)?" if signed else r"[0-9]+(?:\.[0-9]+)?"
+            if not isinstance(value, str) or re.fullmatch(pattern, value) is None:
+                raise ValueError("Numeric fields must use schema decimal strings")
+            return Decimal(value)
+
         if not isinstance(data, dict):
             raise TypeError("data must be a dictionary")
         if "outcome_id" in data:
@@ -887,8 +895,8 @@ class DeferredTransitionRecord:
             deltas.append(
                 ResourceDelta(
                     resource_id=d["resource_id"],
-                    delta_quantity=Decimal(str(d["delta_quantity"])),
-                    valuation_price=Decimal(str(d["valuation_price"])),
+                    delta_quantity=decimal_field(d["delta_quantity"], signed=True),
+                    valuation_price=decimal_field(d["valuation_price"]),
                 )
             )
 
@@ -905,13 +913,13 @@ class DeferredTransitionRecord:
                 CostItem(
                     cost_type=CostType(c["cost_type"]),
                     resource_id=c["resource_id"],
-                    amount=Decimal(str(c["amount"])),
+                    amount=decimal_field(c["amount"]),
                 )
             )
 
         if isinstance(data["total_cost_reference_unit"], bool):
             raise TypeError("total_cost_reference_unit cannot be boolean")
-        tot_cost = Decimal(str(data["total_cost_reference_unit"]))
+        tot_cost = decimal_field(data["total_cost_reference_unit"])
 
         return cls(
             transition_id=data["transition_id"],

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 
@@ -382,6 +383,36 @@ def test_unknown_fields_rejected():
     base["extra_field"] = "unknown"
     with pytest.raises(ValueError, match="do not match schema v2"):
         DeferredTransitionRecord.from_dict(base)
+
+
+@pytest.mark.parametrize("value", [1, 1.5, "1e2", "+1", " 1", "1_000"])
+def test_decoder_rejects_noncontractual_decimal_representations(value):
+    payload = _make_valid_record().to_dict()
+    payload["resource_deltas"][0]["delta_quantity"] = value
+    with pytest.raises(ValueError, match="decimal strings"):
+        DeferredTransitionRecord.from_dict(payload)
+
+
+def test_constructor_rejects_invalid_cost_type():
+    with pytest.raises(ValueError, match="cost_type"):
+        replace(_make_valid_record(), costs=(CostItem("unknown", "USDT", Decimal("1")),))
+
+
+def test_canonical_record_chain_matches_request_and_settlement():
+    folder = EXAMPLE_V2_PATH.parent
+    pending = json.loads((folder / "pending_transition.v1.json").read_text())
+    settlement = json.loads((folder / "settlement_outcome_settled.v1.json").read_text())
+    transition = DeferredTransitionRecord.from_dict(json.loads(EXAMPLE_V2_PATH.read_text()))
+    assert settlement["pending_transition_id"] == pending["pending_transition_id"]
+    assert transition.settlement_outcome_id == settlement["settlement_outcome_id"]
+    assert transition.transition_id == settlement["applied_transition_id"]
+    assert transition.policy_id == settlement["policy_id"] == pending["policy_id"]
+    assert transition.account_state_before_hash == pending["predecessor_account_hash"]
+    deltas = {item.resource_id: item.delta_quantity for item in transition.resource_deltas}
+    quantity = Decimal(pending["requested_action"]["quantity"])
+    assert deltas[pending["requested_action"]["resource_id"]] == quantity
+    price = Decimal(settlement["settlement_evidence"]["execution_price"])
+    assert deltas["USDT"] == -(quantity * price + transition.total_cost_reference_unit)
 
 
 def test_deep_immutability():

@@ -10,12 +10,12 @@
   "resource_deltas": [
     {
       "resource_id": "USDT",
-      "delta_quantity": "-60060.00",
+      "delta_quantity": "-90060.00",
       "valuation_price": "1.00"
     },
     {
       "resource_id": "BTC",
-      "delta_quantity": "1.00000000",
+      "delta_quantity": "1.50000000",
       "valuation_price": "60000.00"
     }
   ],
@@ -27,6 +27,6 @@
     }
   ],
   "total_cost_reference_unit": "60.00",
-  "account_state_before_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "account_state_before_hash": "sha256:491a35d4c55cb03cc6fa0f9b04c6f4d32dbd44533ef52f50858314fcd162ef7b",
   "account_state_after_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
 }

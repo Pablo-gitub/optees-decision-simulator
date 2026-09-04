@@ -68,6 +68,11 @@ capability ID, contract versions, fixture hashes, and verification results.
 
 ## Progress Overview
 
+Latest transition-v2 review: strict decimal-string decoding and cost-type validation
+are covered by regressions. The canonical transition now matches the pending
+quantity and predecessor hash; a cross-record test verifies links and cash deltas.
+The record bridge is complete; runtime enforcement remains DS-02D2B/DS-02D2C.
+
 | Done | Phase | Current state |
 | --- | --- | --- |
 | [x] | `DS-00` — Core Contracts And Threat Model | `DS-C` satisfied |

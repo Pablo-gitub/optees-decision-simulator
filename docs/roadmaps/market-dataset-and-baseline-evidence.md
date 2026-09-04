@@ -823,6 +823,13 @@ or production Optees policies begin.
 
 ## Next implementation boundary
 
+Transition-v2 review corrected permissive numeric decoding and missing direct
+cost-type validation. Canonical evidence now matches the pending request's 1.5
+asset units and predecessor hash. Cross-record regression coverage verifies the
+settlement/transition links and expected cash delta. All 217 backend tests pass;
+legacy v1 schema and example bytes are unchanged. This proves the record bridge,
+not runtime settlement enforcement, which remains in D2B/D2C.
+
 `DS-02D2A1` and `DS-02D2A2` are complete, satisfying Gate `DS-D3A`.
 `DS-02D2B` (Admission And Settlement Application Services / Gate `DS-D3B`) is the next and only authorized boundary.
 `DS-02E` remains blocked until `DS-D3` is satisfied.
