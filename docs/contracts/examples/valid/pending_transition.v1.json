@@ -1,0 +1,31 @@
+{
+  "$type": "pending_transition",
+  "schema_version": "1.0.0",
+  "pending_transition_id": "trn-pend_round0_reactive_allocate",
+  "decision_id": "dec-prop_round0_reactive_accept",
+  "round_id": "rnd_round_0",
+  "policy_id": "pol-def_reactive_baseline",
+  "policy_version_id": "pol-ver_reactive_v1",
+  "status": "ADMITTED_PENDING",
+  "knowledge_cutoff": "2026-08-01T00:00:00Z",
+  "admitted_at": "2026-08-01T00:00:01Z",
+  "predecessor_account_hash": "sha256:491a35d4c55cb03cc6fa0f9b04c6f4d32dbd44533ef52f50858314fcd162ef7b",
+  "requested_action": {
+    "action_type": "ALLOCATE",
+    "resource_id": "BTC",
+    "quantity": "1.50000000",
+    "parameters": {
+      "target_series": "BTC_USDT_PRICE_1D"
+    }
+  },
+  "target_bar_rule": {
+    "series_id": "BTC_USDT_PRICE_1D",
+    "selection_rule": "FIRST_OPEN_GE_CUTOFF",
+    "expected_open_time": "2026-08-01T00:00:00.000Z"
+  },
+  "admission_evidence": {
+    "policy_single_pending_verified": true,
+    "syntax_validation_passed": true,
+    "universe_membership_verified": true
+  }
+}

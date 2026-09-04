@@ -23,6 +23,15 @@ class DecisionStatus(str, Enum):
     FALLBACK_HOLD = "FALLBACK_HOLD"
 
 
+class PendingStatus(str, Enum):
+    ADMITTED_PENDING = "ADMITTED_PENDING"
+
+
+class SettlementStatus(str, Enum):
+    SETTLED = "SETTLED"
+    REJECTED = "REJECTED"
+
+
 class ReplayMode(str, Enum):
     RECORD_REPLAY = "RECORD_REPLAY"
     DETERMINISTIC_RE_EXECUTION = "DETERMINISTIC_RE_EXECUTION"

@@ -3,14 +3,14 @@
 ## Work Unit
 
 - **ID:** `DS-02`
-- **State:** gates through `DS-D3T` are satisfied; `DS-02D2A` runtime records and open-time evidence is next
+- **State:** gates through `DS-D3A` are satisfied; `DS-02D2B` admission and settlement application services is next
 - **Type:** backend data provenance, market interpretation and baseline evidence; no UI
 - **Parent roadmap:** `../ROADMAP.md`
 - **Prerequisite:** `DS-K` satisfied by `DS-01`
 - **Parallel Optees work:** `OPT-DS-03A` robust-scenario contract decision
 - **Implementation owner:** Gemini
 - **Review:** Codex after every micro-gate
-- **Completion gate:** `DS-D` (Current micro-gates: `DS-D0`, `DS-D1`, `DS-D2A`, `DS-D2B`, `DS-D2C`, and `DS-D2` Satisfied)
+- **Completion gate:** `DS-D` (Current micro-gates: `DS-D0`, `DS-D1`, `DS-D2A`, `DS-D2B`, `DS-D2C`, `DS-D2`, `DS-D3T`, and `DS-D3A` Satisfied)
 
 ## Objective
 
@@ -739,9 +739,11 @@ Do not extend `decision_outcome.v1` or silently replace the dedicated two-record
 design. Stop if lossless round coverage requires a third record or a change to a
 frozen v1 schema and report the exact incompatibility.
 
-**Gate `DS-D3A`:** both new records are schema-valid, immutable, canonically
-hashable and losslessly linked, and normalized observations retain exact
-open-time evidence without changing legacy artifacts.
+**Gate `DS-D3A` (Satisfied):** both new records (`pending_transition.v1` and
+`settlement_outcome.v1`) are schema-valid, immutable, canonically hashable and
+losslessly linked, and normalized observations retain exact open-time evidence
+without changing legacy artifacts. All contract validations, schema roundtrip,
+Ruff lint/formatting, and domain unit tests pass.
 
 #### D2B — Admission And Settlement Application Services (`DS-02D2B`)
 
@@ -777,6 +779,6 @@ or production Optees policies begin.
 
 ## Next implementation boundary
 
-`DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2` (`DS-02C2A` & `DS-02C2B`), `DS-02C3`, and `DS-02D1` are complete.
-`DS-02D2A` (Runtime Records And Open-Time Evidence / Gate `DS-D3A`) is the next and only authorized boundary.
+`DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2` (`DS-02C2A` & `DS-02C2B`), `DS-02C3`, `DS-02D1`, and `DS-02D2A` are complete.
+`DS-02D2B` (Admission And Settlement Application Services / Gate `DS-D3B`) is the next and only authorized boundary.
 `DS-02E` remains blocked until `DS-D3` is satisfied.

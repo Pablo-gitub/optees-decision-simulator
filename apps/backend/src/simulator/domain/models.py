@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Any
+from typing import Any, Final
 
 from simulator.domain.canonical import (
     compute_record_hash,
@@ -20,11 +21,26 @@ from simulator.domain.lifecycle import (
     DecisionStatus,
     DivergenceCategory,
     LifecycleStatus,
+    PendingStatus,
     PolicyType,
     ReplayMode,
     ReplayStatus,
+    SettlementStatus,
 )
 from simulator.domain.time import parse_utc_timestamp
+
+_PENDING_TRANSITION_ID_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"^(trn-pend|pnd)_[a-zA-Z0-9_-]+$"
+)
+_SETTLEMENT_OUTCOME_ID_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"^(set-out|dec-set)_[a-zA-Z0-9_-]+$"
+)
+_DECISION_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"^dec-prop_[a-zA-Z0-9_-]+$")
+_ROUND_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"^rnd_[a-zA-Z0-9_-]+$")
+_POLICY_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"^pol-def_[a-zA-Z0-9_-]+$")
+_POLICY_VERSION_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"^pol-ver_[a-zA-Z0-9_-]+$")
+_TRANSITION_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"^trn_[a-zA-Z0-9_-]+$")
+_SHA256_HASH_PATTERN: Final[re.Pattern[str]] = re.compile(r"^sha256:[a-f0-9]{64}$")
 
 # ---------------------------------------------------------------------------
 # Supporting Value Objects
@@ -704,6 +720,302 @@ class TransitionRecord:
 
     def compute_hash(self) -> str:
         return compute_record_hash(self.to_dict())
+
+
+@dataclass(frozen=True)
+class TargetBarRule:
+    series_id: str
+    selection_rule: str = "FIRST_OPEN_GE_CUTOFF"
+    expected_open_time: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.series_id or not isinstance(self.series_id, str):
+            raise ValueError("TargetBarRule series_id must be a non-empty string")
+        if not self.selection_rule or not isinstance(self.selection_rule, str):
+            raise ValueError("TargetBarRule selection_rule must be a non-empty string")
+        if self.expected_open_time is not None:
+            parse_utc_timestamp(self.expected_open_time)
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
+            "series_id": self.series_id,
+            "selection_rule": self.selection_rule,
+        }
+        if self.expected_open_time is not None:
+            d["expected_open_time"] = self.expected_open_time
+        return d
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> TargetBarRule:
+        return cls(
+            series_id=data["series_id"],
+            selection_rule=data.get("selection_rule", "FIRST_OPEN_GE_CUTOFF"),
+            expected_open_time=data.get("expected_open_time"),
+        )
+
+
+@dataclass(frozen=True)
+class PendingTransitionRecord:
+    pending_transition_id: str
+    decision_id: str
+    round_id: str
+    policy_id: str
+    policy_version_id: str
+    knowledge_cutoff: str
+    admitted_at: str
+    predecessor_account_hash: str
+    requested_action: RequestedAction
+    target_bar_rule: TargetBarRule
+    admission_evidence: dict[str, Any] = field(default_factory=dict)
+    status: PendingStatus = PendingStatus.ADMITTED_PENDING
+    schema_version: str = "1.0.0"
+
+    def __post_init__(self) -> None:
+        if not _PENDING_TRANSITION_ID_PATTERN.match(self.pending_transition_id):
+            raise ValueError(f"Invalid pending_transition_id: {self.pending_transition_id}")
+        if not _DECISION_ID_PATTERN.match(self.decision_id):
+            raise ValueError(f"Invalid decision_id: {self.decision_id}")
+        if not _ROUND_ID_PATTERN.match(self.round_id):
+            raise ValueError(f"Invalid round_id: {self.round_id}")
+        if not _POLICY_ID_PATTERN.match(self.policy_id):
+            raise ValueError(f"Invalid policy_id: {self.policy_id}")
+        if not _POLICY_VERSION_ID_PATTERN.match(self.policy_version_id):
+            raise ValueError(f"Invalid policy_version_id: {self.policy_version_id}")
+
+        status_val = (
+            self.status.value if isinstance(self.status, PendingStatus) else str(self.status)
+        )
+        if status_val != PendingStatus.ADMITTED_PENDING.value:
+            raise ValueError(
+                f"PendingTransitionRecord status must be ADMITTED_PENDING, got {status_val}"
+            )
+        if not isinstance(self.status, PendingStatus):
+            object.__setattr__(self, "status", PendingStatus.ADMITTED_PENDING)
+
+        cutoff_dt = parse_utc_timestamp(self.knowledge_cutoff)
+        admitted_dt = parse_utc_timestamp(self.admitted_at)
+        if cutoff_dt > admitted_dt:
+            raise ValueError(
+                f"knowledge_cutoff ({self.knowledge_cutoff}) cannot be after "
+                f"admitted_at ({self.admitted_at})"
+            )
+
+        if not _SHA256_HASH_PATTERN.match(self.predecessor_account_hash):
+            raise ValueError(f"Invalid predecessor_account_hash: {self.predecessor_account_hash}")
+
+        if not isinstance(self.requested_action, RequestedAction):
+            raise TypeError(
+                "requested_action must be an instance of RequestedAction, "
+                f"got {type(self.requested_action)}"
+            )
+
+        qty = self.requested_action.quantity
+        if isinstance(qty, bool) or not isinstance(qty, Decimal):
+            raise TypeError(f"requested_action quantity must be a Decimal, got {type(qty)}")
+        if qty.is_nan() or qty.is_infinite() or qty < Decimal("0"):
+            raise ValueError(
+                f"requested_action quantity must be a finite non-negative Decimal, got {qty}"
+            )
+
+        if not isinstance(self.target_bar_rule, TargetBarRule):
+            raise TypeError(
+                "target_bar_rule must be an instance of TargetBarRule, "
+                f"got {type(self.target_bar_rule)}"
+            )
+        if self.target_bar_rule.expected_open_time is not None:
+            expected_dt = parse_utc_timestamp(self.target_bar_rule.expected_open_time)
+            if expected_dt < cutoff_dt:
+                raise ValueError(
+                    f"target_bar_rule.expected_open_time "
+                    f"({self.target_bar_rule.expected_open_time}) "
+                    f"must be >= knowledge_cutoff ({self.knowledge_cutoff})"
+                )
+
+        object.__setattr__(self, "admission_evidence", freeze_json(self.admission_evidence))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "$type": "pending_transition",
+            "schema_version": self.schema_version,
+            "pending_transition_id": self.pending_transition_id,
+            "decision_id": self.decision_id,
+            "round_id": self.round_id,
+            "policy_id": self.policy_id,
+            "policy_version_id": self.policy_version_id,
+            "status": self.status.value,
+            "knowledge_cutoff": self.knowledge_cutoff,
+            "admitted_at": self.admitted_at,
+            "predecessor_account_hash": self.predecessor_account_hash,
+            "requested_action": self.requested_action.to_dict(),
+            "target_bar_rule": self.target_bar_rule.to_dict(),
+            "admission_evidence": thaw_json(self.admission_evidence),
+        }
+
+    def compute_hash(self) -> str:
+        return compute_record_hash(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> PendingTransitionRecord:
+        d = dict(data)
+        d.pop("$type", None)
+        action_data = d["requested_action"]
+        raw_qty = action_data["quantity"]
+        if isinstance(raw_qty, bool):
+            raise TypeError("quantity cannot be a boolean")
+        req_action = RequestedAction(
+            action_type=ActionType(action_data["action_type"]),
+            resource_id=action_data["resource_id"],
+            quantity=Decimal(str(raw_qty)),
+            parameters=action_data.get("parameters", {}),
+        )
+        rule_data = d["target_bar_rule"]
+        target_rule = TargetBarRule.from_dict(rule_data)
+        status_val = PendingStatus(d.get("status", "ADMITTED_PENDING"))
+        return cls(
+            pending_transition_id=d["pending_transition_id"],
+            decision_id=d["decision_id"],
+            round_id=d["round_id"],
+            policy_id=d["policy_id"],
+            policy_version_id=d["policy_version_id"],
+            knowledge_cutoff=d["knowledge_cutoff"],
+            admitted_at=d["admitted_at"],
+            predecessor_account_hash=d["predecessor_account_hash"],
+            requested_action=req_action,
+            target_bar_rule=target_rule,
+            admission_evidence=d.get("admission_evidence", {}),
+            status=status_val,
+            schema_version=d.get("schema_version", "1.0.0"),
+        )
+
+
+@dataclass(frozen=True)
+class SettlementOutcome:
+    settlement_outcome_id: str
+    pending_transition_id: str
+    decision_id: str
+    round_id: str
+    policy_id: str
+    status: SettlementStatus
+    settled_at: str
+    rejection_reasons: tuple[RejectionReason, ...] = ()
+    applied_transition_id: str | None = None
+    settlement_evidence: dict[str, Any] = field(default_factory=dict)
+    schema_version: str = "1.0.0"
+
+    def __post_init__(self) -> None:
+        if not _SETTLEMENT_OUTCOME_ID_PATTERN.match(self.settlement_outcome_id):
+            raise ValueError(f"Invalid settlement_outcome_id: {self.settlement_outcome_id}")
+        if not _PENDING_TRANSITION_ID_PATTERN.match(self.pending_transition_id):
+            raise ValueError(f"Invalid pending_transition_id: {self.pending_transition_id}")
+        if not _DECISION_ID_PATTERN.match(self.decision_id):
+            raise ValueError(f"Invalid decision_id: {self.decision_id}")
+        if not _ROUND_ID_PATTERN.match(self.round_id):
+            raise ValueError(f"Invalid round_id: {self.round_id}")
+        if not _POLICY_ID_PATTERN.match(self.policy_id):
+            raise ValueError(f"Invalid policy_id: {self.policy_id}")
+
+        if isinstance(self.status, str):
+            try:
+                object.__setattr__(self, "status", SettlementStatus(self.status))
+            except ValueError as exc:
+                raise ValueError(f"Invalid settlement status: {self.status}") from exc
+        elif not isinstance(self.status, SettlementStatus):
+            raise ValueError(f"Invalid settlement status type: {type(self.status)}")
+
+        settled_dt = parse_utc_timestamp(self.settled_at)
+
+        if isinstance(self.rejection_reasons, list):
+            object.__setattr__(self, "rejection_reasons", tuple(self.rejection_reasons))
+
+        if self.status == SettlementStatus.SETTLED:
+            if self.applied_transition_id is None:
+                raise ValueError("SETTLED settlement outcome requires applied_transition_id")
+            if not _TRANSITION_ID_PATTERN.match(self.applied_transition_id):
+                raise ValueError(f"Invalid applied_transition_id: {self.applied_transition_id}")
+            if self.rejection_reasons:
+                raise ValueError("SETTLED settlement outcome cannot contain rejection reasons")
+        elif self.status == SettlementStatus.REJECTED:
+            if self.applied_transition_id is not None:
+                raise ValueError("REJECTED settlement outcome forbids applied_transition_id")
+            if not self.rejection_reasons:
+                raise ValueError(
+                    "REJECTED settlement outcome requires at least one rejection reason"
+                )
+
+        for r in self.rejection_reasons:
+            if not isinstance(r, RejectionReason):
+                raise TypeError(f"rejection_reasons items must be RejectionReason, got {type(r)}")
+            if not r.code or not isinstance(r.code, str):
+                raise ValueError("RejectionReason code must be non-empty string")
+            if not r.message or not isinstance(r.message, str):
+                raise ValueError("RejectionReason message must be non-empty string")
+
+        object.__setattr__(self, "settlement_evidence", freeze_json(self.settlement_evidence))
+
+        if isinstance(self.settlement_evidence, dict) or hasattr(self.settlement_evidence, "get"):
+            fill_time = self.settlement_evidence.get("execution_fill_time")
+            if fill_time is not None:
+                fill_dt = parse_utc_timestamp(fill_time)
+                if fill_dt > settled_dt:
+                    raise ValueError(
+                        f"execution_fill_time ({fill_time}) cannot be after "
+                        f"settled_at ({self.settled_at})"
+                    )
+            exec_price = self.settlement_evidence.get("execution_price")
+            if exec_price is not None:
+                if isinstance(exec_price, bool):
+                    raise TypeError("execution_price cannot be a boolean")
+                price_dec = Decimal(str(exec_price))
+                if price_dec.is_nan() or price_dec.is_infinite() or price_dec <= Decimal("0"):
+                    raise ValueError(
+                        f"execution_price must be a positive finite number, got {exec_price}"
+                    )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "$type": "settlement_outcome",
+            "schema_version": self.schema_version,
+            "settlement_outcome_id": self.settlement_outcome_id,
+            "pending_transition_id": self.pending_transition_id,
+            "decision_id": self.decision_id,
+            "round_id": self.round_id,
+            "policy_id": self.policy_id,
+            "status": self.status.value,
+            "settled_at": self.settled_at,
+            "applied_transition_id": self.applied_transition_id,
+            "rejection_reasons": [r.to_dict() for r in self.rejection_reasons],
+            "settlement_evidence": thaw_json(self.settlement_evidence),
+        }
+
+    def compute_hash(self) -> str:
+        return compute_record_hash(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SettlementOutcome:
+        d = dict(data)
+        d.pop("$type", None)
+        reasons = [
+            RejectionReason(
+                code=r["code"],
+                message=r["message"],
+                violating_field=r.get("violating_field"),
+            )
+            for r in d.get("rejection_reasons", [])
+        ]
+        status_val = SettlementStatus(d["status"])
+        return cls(
+            settlement_outcome_id=d["settlement_outcome_id"],
+            pending_transition_id=d["pending_transition_id"],
+            decision_id=d["decision_id"],
+            round_id=d["round_id"],
+            policy_id=d["policy_id"],
+            status=status_val,
+            settled_at=d["settled_at"],
+            applied_transition_id=d.get("applied_transition_id"),
+            rejection_reasons=tuple(reasons),
+            settlement_evidence=d.get("settlement_evidence", {}),
+            schema_version=d.get("schema_version", "1.0.0"),
+        )
 
 
 @dataclass(frozen=True)

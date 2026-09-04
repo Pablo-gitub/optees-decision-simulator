@@ -181,6 +181,7 @@ def normalize_single_kline(
                 "Timestamps from 2025-01-01 onwards must be in microseconds, not milliseconds"
             )
         event_time = _format_subsecond_utc(close_dt, precision=3)
+        open_time = _format_subsecond_utc(open_dt, precision=3)
 
     elif record.open_time >= BOUNDARY_2025_US:
         # 2025+: microsecond precision
@@ -202,6 +203,7 @@ def normalize_single_kline(
                 "Timestamps prior to 2025-01-01 must be in milliseconds, not microseconds"
             )
         event_time = _format_subsecond_utc(close_dt, precision=6)
+        open_time = _format_subsecond_utc(open_dt, precision=6)
 
     else:
         # Ambiguous range (e.g. 2025+ date passed in milliseconds)
@@ -251,6 +253,7 @@ def normalize_single_kline(
     obs_id = f"obs_{resource_id}_{date_str}_r{revision}"
 
     payload: dict[str, Any] = {
+        "open_time": open_time,
         "open": format_decimal(open_dec),
         "high": format_decimal(high_dec),
         "low": format_decimal(low_dec),

@@ -129,6 +129,22 @@
       "title": "AcquisitionReceipt",
       "file_path": "docs/contracts/schemas/acquisition_receipt.v1.json",
       "description": "Immutable receipt recording raw artifact acquisition, publisher checksum verification, and linkage to a normalized dataset snapshot manifest."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/pending_transition.v1.json",
+      "type_discriminator": "pending_transition",
+      "schema_version": "1.0.0",
+      "title": "PendingTransitionRecord",
+      "file_path": "docs/contracts/schemas/pending_transition.v1.json",
+      "description": "Immutable record of an admitted order pending execution and settlement at a future market observation."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/settlement_outcome.v1.json",
+      "type_discriminator": "settlement_outcome",
+      "schema_version": "1.0.0",
+      "title": "SettlementOutcome",
+      "file_path": "docs/contracts/schemas/settlement_outcome.v1.json",
+      "description": "Terminal outcome of a pending transition evaluated at settlement time against observed market evidence."
     }
   ]
 }

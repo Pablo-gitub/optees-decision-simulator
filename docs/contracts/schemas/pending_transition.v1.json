@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optees.org/schemas/simulator/v1/pending_transition.v1.json",
+  "title": "PendingTransitionRecord",
+  "description": "Immutable record of an admitted order pending execution and settlement at a future market observation.",
+  "type": "object",
+  "required": [
+    "$type",
+    "schema_version",
+    "pending_transition_id",
+    "decision_id",
+    "round_id",
+    "policy_id",
+    "policy_version_id",
+    "status",
+    "knowledge_cutoff",
+    "admitted_at",
+    "predecessor_account_hash",
+    "requested_action",
+    "target_bar_rule",
+    "admission_evidence"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$type": {
+      "type": "string",
+      "const": "pending_transition"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "pending_transition_id": {
+      "type": "string",
+      "pattern": "^(trn-pend|pnd)_[a-zA-Z0-9_-]+$"
+    },
+    "decision_id": {
+      "type": "string",
+      "pattern": "^dec-prop_[a-zA-Z0-9_-]+$"
+    },
+    "round_id": {
+      "type": "string",
+      "pattern": "^rnd_[a-zA-Z0-9_-]+$"
+    },
+    "policy_id": {
+      "type": "string",
+      "pattern": "^pol-def_[a-zA-Z0-9_-]+$"
+    },
+    "policy_version_id": {
+      "type": "string",
+      "pattern": "^pol-ver_[a-zA-Z0-9_-]+$"
+    },
+    "status": {
+      "type": "string",
+      "const": "ADMITTED_PENDING"
+    },
+    "knowledge_cutoff": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+    },
+    "admitted_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+    },
+    "predecessor_account_hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "requested_action": {
+      "type": "object",
+      "required": [
+        "action_type",
+        "resource_id",
+        "quantity"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "action_type": {
+          "type": "string",
+          "enum": [
+            "TRANSFER",
+            "HOLD",
+            "ADJUST",
+            "ALLOCATE"
+          ]
+        },
+        "resource_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "string",
+          "pattern": "^\\d+(\\.\\d+)?$"
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "target_bar_rule": {
+      "type": "object",
+      "required": [
+        "series_id",
+        "selection_rule"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "series_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "selection_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_open_time": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+        }
+      }
+    },
+    "admission_evidence": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}
