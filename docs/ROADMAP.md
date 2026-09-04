@@ -72,7 +72,7 @@ capability ID, contract versions, fixture hashes, and verification results.
 | --- | --- | --- |
 | [x] | `DS-00` — Core Contracts And Threat Model | `DS-C` satisfied |
 | [x] | `DS-01` — Deterministic Episode Kernel | `DS-K` satisfied |
-| [ ] | `DS-02` — Market Dataset And Baseline Evidence | `DS-02D1` contract satisfied (`DS-D3T`); `DS-02D2` kernel next |
+| [ ] | `DS-02` — Market Dataset And Baseline Evidence | `DS-D3T` satisfied; `DS-02D2A` runtime records next |
 | [ ] | `DS-03` — Persistence, API, And Existing Optees Capabilities | Not started |
 | [ ] | `DS-04` — Convex QP Policy Family | QP prerequisite satisfied; not started |
 | [ ] | `DS-05` — Scenario Min-max And Max-min Policies | Awaiting `ROBUST-C` |
@@ -162,7 +162,10 @@ made execution/replay preserve and verify policy-version identity and configurat
 - Review selected dedicated immutable pending-transition and settlement-outcome records,
   reconciled cancellation with terminal rejection, and replaced the premature test-local
   engine with declarative contract probes.
-- Next authorized work is `DS-02D2` (Deferred Settlement Kernel). `DS-02D` and `DS-D3` remain open until runtime kernel verification. `DS-02E` is not authorized.
+- Next authorized work is `DS-02D2A` (runtime records and open-time evidence),
+  followed only after review by `DS-02D2B` (application services) and
+  `DS-02D2C` (runner/replay integration). `DS-02D` and `DS-D3` remain open;
+  `DS-02E` is not authorized.
 
 Detailed plan: [Market dataset and baseline evidence](roadmaps/market-dataset-and-baseline-evidence.md).
 
@@ -198,13 +201,18 @@ implementation path with 9 pure decision probes.
   - [x] Preserve fractional quantities and apply the existing fee model exactly once.
   - [x] Prove deterministic adapter and accounting outputs for explicit valid pricing inputs.
   - [x] Freeze deferred-settlement time, state, failure, record and replay semantics (`DS-D3T`).
-  - [ ] Implement a causal pending/delayed-transition lifecycle in runner and replay (`DS-02D2`).
+  - [ ] Implement a causal pending/delayed-transition lifecycle (`DS-02D2`).
+    - [ ] Add immutable runtime records and retain exact open-time evidence (`DS-02D2A` / `DS-D3A`).
+    - [ ] Implement pure admission and settlement application services (`DS-02D2B` / `DS-D3B`).
+    - [ ] Integrate runner, round hashing and replay (`DS-02D2C` / `DS-D3`).
   - [ ] Prove normalized D+2 observations execute end to end without temporal leakage (`DS-D3`).
 
 `DS-02D` correction sequence:
 
 - [x] `DS-02D1`: freeze deferred-settlement time, state, failure, record and replay semantics (`DS-D3T`).
-- [ ] `DS-02D2`: implement the reviewed deferred-settlement kernel and prove `DS-D3`.
+- [ ] `DS-02D2A`: implement runtime records and exact open-time evidence; prove `DS-D3A`.
+- [ ] `DS-02D2B`: implement admission and settlement services; prove `DS-D3B`.
+- [ ] `DS-02D2C`: integrate runner and replay; prove `DS-D3`.
 - [ ] Authorize `DS-02E` only after both correction gates pass review.
 
 `DS-D2A`, `DS-D2B`, and `DS-D2C` completion checklist:

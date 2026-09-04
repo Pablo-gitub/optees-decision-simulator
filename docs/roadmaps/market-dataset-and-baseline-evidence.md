@@ -3,7 +3,7 @@
 ## Work Unit
 
 - **ID:** `DS-02`
-- **State:** `DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2`, and `DS-02C3` completed (Gates `DS-D0`, `DS-D1`, `DS-D2A`, `DS-D2B`, `DS-D2C`, and `DS-D2` satisfied); `DS-02D` is next
+- **State:** gates through `DS-D3T` are satisfied; `DS-02D2A` runtime records and open-time evidence is next
 - **Type:** backend data provenance, market interpretation and baseline evidence; no UI
 - **Parent roadmap:** `../ROADMAP.md`
 - **Prerequisite:** `DS-K` satisfied by `DS-01`
@@ -676,9 +676,90 @@ defines a lossless implementation path.
 
 ### Correction gate D2 — Deferred Settlement Kernel (`DS-02D2`)
 
-Only after `DS-D3T` review, implement the frozen lifecycle, versioned records,
-normalizer evidence, runner settlement order, accounting and replay. Its
-detailed implementation prompt must be written after D1 is reviewed.
+This correction is divided into three independently reviewed units. Do not
+combine them: the record boundary must be executable before account behavior is
+added, and account behavior must be verified before the episode runner and
+replay orchestration change.
+
+#### D2A — Runtime Records And Open-Time Evidence (`DS-02D2A`)
+
+Implement only the immutable record/schema foundation selected by `DS-D3T` and
+preserve exact upstream `open_time` in newly normalized market observations.
+There is no pending-settlement service or runner behavior in this unit.
+
+Before editing, compare the frozen deferred-settlement contract with the actual
+v1 proposed-decision, decision-outcome, transition, round, observation and
+account schemas/models; the schema inventory and canonical examples; market
+normalizer timestamp decoding; canonical hashing and immutable JSON helpers.
+Record how identity, enum, decimal, UTC and deep-immutability conventions are
+reused. Do not create alternate primitives.
+
+Authorized implementation:
+
+- Add authoritative `pending_transition.v1.json` and
+  `settlement_outcome.v1.json`, inventory entries, immutable domain records and
+  canonical valid examples matching the exact selected design in
+  `deferred-settlement-contract.md`.
+- Freeze stable ID prefixes and explicit links among proposal/decision, policy,
+  predecessor account, pending admission, terminal settlement outcome and
+  optional applied transition. Enforce `SETTLED` requires exactly one transition
+  identity and no rejection reasons; `REJECTED` forbids a transition and requires
+  at least one bounded machine-readable reason.
+- Validate finite non-negative quantities where permitted, exact uppercase UTC
+  timestamps, causal timestamp order, supported terminal statuses, immutable
+  evidence mappings and collision-free record identities. Constructors must
+  reject invalid states rather than normalize or repair them.
+- Extend only new normalizer output to retain exact ISO-8601 UTC
+  `payload["open_time"]` decoded from the already supplied upstream timestamp,
+  preserving millisecond/microsecond precision. Existing v1 fixtures and hashes
+  remain immutable; update/add explicitly versioned market fixtures rather than
+  rewriting historical evidence.
+- Provide codecs/serialization only where the existing domain contract pattern
+  requires them for lossless schema round-trip. No transport registration is
+  needed yet.
+
+Required evidence:
+
+- real-schema round-trip for both records and every valid example;
+- invalid fixtures/tests for missing or mismatched links, illegal status,
+  transition/rejection exclusivity, ambiguous/non-UTC or causally invalid times,
+  booleans/non-finite quantities, mutable nested input and unknown fields;
+- canonical hash determinism, input-permutation invariance where mappings are
+  unordered, semantic-mutation sensitivity and deep immutability;
+- exact `open_time` boundary tests before and from 2025, input permutation,
+  schema round-trip and proof that close `event_time` semantics are unchanged;
+- regression proof that legacy v1 fixture bytes/hashes do not change;
+- complete contract validation, focused normalizer/domain tests, architecture,
+  Ruff and formatting gates, followed by the backend suite.
+
+Explicit exclusions: no admission queue, pending repository, settlement service,
+account reservation/mutation, fee calculation, runner/replay changes, API,
+database, Optees integration, baseline policy, real dataset/network access or UI.
+Do not extend `decision_outcome.v1` or silently replace the dedicated two-record
+design. Stop if lossless round coverage requires a third record or a change to a
+frozen v1 schema and report the exact incompatibility.
+
+**Gate `DS-D3A`:** both new records are schema-valid, immutable, canonically
+hashable and losslessly linked, and normalized observations retain exact
+open-time evidence without changing legacy artifacts.
+
+#### D2B — Admission And Settlement Application Services (`DS-02D2B`)
+
+After `DS-D3A` review, implement pure application-owned admission and settlement
+services over injected pricing/accounting dependencies. Verify the single-pending
+rule, zero mutation before settlement, terminal rejection paths and exactly-once
+accounting. Do not modify runner or replay in this unit. Its executable detail
+will be refined after D2A review.
+
+**Gate `DS-D3B`:** deterministic services reproduce the frozen lifecycle and
+account invariants without episode orchestration.
+
+#### D2C — Runner, Round Hashing And Replay Integration (`DS-02D2C`)
+
+After `DS-D3B` review, integrate settlement-before-proposal ordering into the
+production runner, persistence boundary and both replay modes. Add normalized
+synthetic D+2 episodes covering settlement and every terminal rejection. Its
+executable detail will be refined after D2B review.
 
 **Gate `DS-D3`:** a normalized synthetic D+2 market episode admits, settles or
 rejects each decision causally and reproduces identical records and hashes.
@@ -697,5 +778,5 @@ or production Optees policies begin.
 ## Next implementation boundary
 
 `DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2` (`DS-02C2A` & `DS-02C2B`), `DS-02C3`, and `DS-02D1` are complete.
-`DS-02D2` (Deferred Settlement Kernel / Gate `DS-D3`) is the next and only authorized boundary.
+`DS-02D2A` (Runtime Records And Open-Time Evidence / Gate `DS-D3A`) is the next and only authorized boundary.
 `DS-02E` remains blocked until `DS-D3` is satisfied.
