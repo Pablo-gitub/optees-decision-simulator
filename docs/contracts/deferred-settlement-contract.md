@@ -236,12 +236,21 @@ If an episode reaches its final round, or if the dataset ends while a transition
 To maintain strict contract integrity:
 1. **v1.0 Core Schemas Remain Frozen:** We do not silently rewrite `decision_outcome.v1.json` or `transition.v1.json` in place.
 2. **Planned Schema Additions (for `DS-02D2`):**
-   - [`decision_outcome.v1.json`](schemas/decision_outcome.v1.json): Currently supports statuses `ACCEPTED`, `REJECTED`, `PARTIALLY_ACCEPTED`, `FALLBACK_HOLD`.
-   - Planned extension for runtime implementation (`DS-02D2`): Introduce `decision_outcome.v1.1.json` supporting statuses:
-     - `ADMITTED_PENDING` (initial admission);
-     - `SETTLED` (terminal fulfillment);
-     - `REJECTED` (admission or settlement rejection).
-   - Alternatively, maintain a dedicated `pending_transition.v1.json` record tracking pending orders between rounds.
+   - [`decision_outcome.v1.json`](schemas/decision_outcome.v1.json) remains unchanged and
+     continues to describe the synchronous v1 lifecycle only.
+   - Add `pending_transition.v1.json`. One immutable admission record owns the stable
+     `pending_transition_id`, proposal/decision identity, policy identity, requested action,
+     cutoff, target-bar selection rule, admission evidence and predecessor account hash.
+     Admission status is always `ADMITTED_PENDING`; it is not a mutable outcome.
+   - Add `settlement_outcome.v1.json`. Exactly one immutable terminal record links the
+     `pending_transition_id` and decision identity and has status `SETTLED` or `REJECTED`.
+     It records settlement time, selected observation/revision evidence, rejection reasons,
+     and optional applied transition identity. `SETTLED` requires a transition identity;
+     `REJECTED` forbids one.
+   - Cancellation is represented as terminal `REJECTED` with reason
+     `EPISODE_CANCELLED`; the contract does not introduce a third terminal status.
+   This dedicated pair is the selected lossless design. `DS-02D2` must not replace it with
+   a mutable record or extend the v1 decision outcome enum in place.
 3. **Round Merkle Chaining:**
    - In the round where the proposal is admitted (Round $r$):
      `policy_round_records[i].transition_hash = null` (no transition applied yet).
@@ -280,7 +289,7 @@ The contract specifies nine pure decision probes to be verified without runtime 
 3. **Probe DP-03 (Revision Handling Before vs After Settlement):** Revision 2 published before $t_{\text{settle}}$ updates fill price; revision published after $t_{\text{settle}}$ leaves historical transition and account hash unchanged.
 4. **Probe DP-04 (Price Move Exceeding Cash):** Asset price increases between proposal and fill such that total cost exceeds available cash; order rejected at settlement with `INSUFFICIENT_FUNDS_AT_SETTLEMENT` and full cash preserved.
 5. **Probe DP-05 (Pending at Episode Termination):** Proposal admitted in the penultimate/final round; episode ends before $D+2$ arrival; order transitions to `REJECTED` (`UNSETTLED_EPISODE_TERMINATION`).
-6. **Probe DP-06 (Episode Cancellation During Pending):** Episode is cancelled while an order is pending; order transitions to `CANCELLED` with zero mutation.
+6. **Probe DP-06 (Episode Cancellation During Pending):** Episode is cancelled while an order is pending; its settlement outcome is terminal `REJECTED` with reason `EPISODE_CANCELLED` and zero mutation.
 7. **Probe DP-07 (Settlement Precedes Decision Ordering):** At timestamp $T_2$, settlement logic runs before policy proposal logic; policy sees settled cash and no pending lock.
 8. **Probe DP-08 (Deterministic Replay and Merkle Coverage):** Independent evaluation of identical proposal and observations yields identical settlement hashes and identical Merkle tree roots.
 9. **Probe DP-09 (Rejection of Second Order While Pending):** Policy attempts to submit a second non-`HOLD` action while an order is pending; second action is immediately rejected with `POLICY_HAS_PENDING_SETTLEMENT`.

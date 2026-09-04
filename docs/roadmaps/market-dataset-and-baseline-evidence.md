@@ -658,17 +658,21 @@ defines a lossless implementation path.
 
 ### Gate `DS-D3T` Evidence Delivered:
 - **Authoritative Contract Specification:** Shipped [`docs/contracts/deferred-settlement-contract.md`](../contracts/deferred-settlement-contract.md), freezing the five-time temporal model ($T_{\text{cutoff}} = t_{\text{prop}} \le t_{\text{fill}} < t_{\text{knowledge}} \le t_{\text{settle}}$), sub-second `open_time` retention in observation payload, the closed pending transition state machine (`ADMITTED_PENDING`, `SETTLED`, `REJECTED`), single-pending policy invariant, and feasibility verification timing.
-- **Pure Decision Probes Suite:** Added `apps/backend/tests/unit/domain/test_deferred_settlement_contract.py` containing 9 focused decision probes (all passing) verifying:
+- **Pure Decision Probes Suite:** Added `apps/backend/tests/unit/domain/test_deferred_settlement_contract.py` containing declarative decision probes, without a test-local implementation of the future kernel, verifying:
   1. Standard D+2 lifecycle and causal inequality ($T_{\text{cutoff}} \le t_{\text{fill}} < t_{\text{knowledge}} \le t_{\text{settle}}$);
   2. Missing day timeout and terminal rejection without account mutation;
   3. Pre-settlement revision handling vs post-settlement historical immutability;
   4. Fill price movement causing insufficient cash and terminal rejection;
   5. Unsettled order at episode termination;
-  6. Episode cancellation during pending state;
+  6. Episode cancellation as terminal `REJECTED` with `EPISODE_CANCELLED`;
   7. Deterministic ordering: settlement strictly precedes policy proposals at shared timestamps;
   8. Cryptographic reproducibility and state Merkle root determinism;
   9. Rejection of second trading decision while an order is pending settlement.
 - **Contract & Architecture Alignment:** Updated `core-contracts.md`, `market-dataset-provenance.md`, `threat-model.md`, `ARCHITECTURE.md`, and `ROADMAP.md` with explicit distinction of planned v1.1 structures.
+- **Review correction:** selected dedicated immutable `pending_transition.v1` and
+  `settlement_outcome.v1` records as the one lossless implementation path; removed the
+  premature test-local settlement engine and reconciled cancellation with the closed
+  `SETTLED`/`REJECTED` terminal state set.
 
 ### Correction gate D2 — Deferred Settlement Kernel (`DS-02D2`)
 

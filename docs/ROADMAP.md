@@ -159,6 +159,9 @@ made execution/replay preserve and verify policy-version identity and configurat
 - Implemented the reviewed foundation for market valuation and paper-transition pricing (`simulator.application.ports.pricing`, `simulator.infrastructure.adapters.market_pricing`, `simulator.infrastructure.adapters.synthetic_pricing`), including evidenced marks, strict future-open selection, explicit rejection, fractional quantities and single-fee accounting.
 - Review found that `EpisodeRunner` still applies every transition at the decision cutoff. Under the frozen D+2 availability rule, a strictly future bar cannot also be available at that instant.
 - Completed and froze the authoritative [Deferred Paper Settlement Contract](contracts/deferred-settlement-contract.md) (Gate `DS-D3T`), formalizing the five-time temporal model, `open_time` retention in payload, pending transition lifecycle, single-pending policy invariant, feasibility verification at fill, settlement-before-next-decision priority, and 9 pure decision probes.
+- Review selected dedicated immutable pending-transition and settlement-outcome records,
+  reconciled cancellation with terminal rejection, and replaced the premature test-local
+  engine with declarative contract probes.
 - Next authorized work is `DS-02D2` (Deferred Settlement Kernel). `DS-02D` and `DS-D3` remain open until runtime kernel verification. `DS-02E` is not authorized.
 
 Detailed plan: [Market dataset and baseline evidence](roadmaps/market-dataset-and-baseline-evidence.md).
