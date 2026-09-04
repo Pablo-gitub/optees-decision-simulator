@@ -72,13 +72,13 @@ def test_pending_transition_schema_roundtrip() -> None:
     schema = _load_schema("pending_transition.v1.json")
 
     record = PendingTransitionRecord(
-        pending_transition_id="trn-pend_round0_reactive_alloc",
+        pending_transition_id="pnd_round0_reactive_alloc",
         decision_id="dec-prop_round0_reactive",
         round_id="rnd_round_0",
         policy_id="pol-def_reactive_baseline",
         policy_version_id="pol-ver_reactive_v1",
         knowledge_cutoff="2026-08-01T00:00:00Z",
-        admitted_at="2026-08-01T00:00:01Z",
+        admitted_at="2026-08-01T00:00:00Z",
         predecessor_account_hash="sha256:1111111111111111111111111111111111111111111111111111111111111111",
         requested_action=RequestedAction(
             action_type=ActionType.ALLOCATE,
@@ -121,7 +121,7 @@ def test_settlement_outcome_settled_schema_roundtrip() -> None:
 
     record = SettlementOutcome(
         settlement_outcome_id="set-out_round2_reactive_settled",
-        pending_transition_id="trn-pend_round0_reactive_alloc",
+        pending_transition_id="pnd_round0_reactive_alloc",
         decision_id="dec-prop_round0_reactive",
         round_id="rnd_round_2",
         policy_id="pol-def_reactive_baseline",
@@ -134,6 +134,7 @@ def test_settlement_outcome_settled_schema_roundtrip() -> None:
             "selected_revision": 1,
             "execution_price": "60000.00",
             "execution_fill_time": "2026-08-01T00:00:00.000Z",
+            "observation_knowledge_time": "2026-08-03T00:00:00Z",
         },
     )
 
@@ -182,7 +183,7 @@ def test_settled_requires_transition_and_forbids_rejection_reasons() -> None:
     with pytest.raises(ValueError, match="requires applied_transition_id"):
         SettlementOutcome(
             settlement_outcome_id="set-out_001",
-            pending_transition_id="trn-pend_001",
+            pending_transition_id="pnd_001",
             decision_id="dec-prop_001",
             round_id="rnd_001",
             policy_id="pol-def_001",
@@ -196,7 +197,7 @@ def test_settled_requires_transition_and_forbids_rejection_reasons() -> None:
     with pytest.raises(ValueError, match="cannot contain rejection reasons"):
         SettlementOutcome(
             settlement_outcome_id="set-out_001",
-            pending_transition_id="trn-pend_001",
+            pending_transition_id="pnd_001",
             decision_id="dec-prop_001",
             round_id="rnd_001",
             policy_id="pol-def_001",
@@ -212,7 +213,7 @@ def test_rejected_requires_reasons_and_forbids_transition() -> None:
     with pytest.raises(ValueError, match="forbids applied_transition_id"):
         SettlementOutcome(
             settlement_outcome_id="set-out_001",
-            pending_transition_id="trn-pend_001",
+            pending_transition_id="pnd_001",
             decision_id="dec-prop_001",
             round_id="rnd_001",
             policy_id="pol-def_001",
@@ -226,7 +227,7 @@ def test_rejected_requires_reasons_and_forbids_transition() -> None:
     with pytest.raises(ValueError, match="requires at least one rejection reason"):
         SettlementOutcome(
             settlement_outcome_id="set-out_001",
-            pending_transition_id="trn-pend_001",
+            pending_transition_id="pnd_001",
             decision_id="dec-prop_001",
             round_id="rnd_001",
             policy_id="pol-def_001",
@@ -240,7 +241,7 @@ def test_rejected_requires_reasons_and_forbids_transition() -> None:
 def test_cancellation_represented_as_rejected_with_episode_cancelled() -> None:
     outcome = SettlementOutcome(
         settlement_outcome_id="set-out_cancel_001",
-        pending_transition_id="trn-pend_001",
+        pending_transition_id="pnd_001",
         decision_id="dec-prop_001",
         round_id="rnd_001",
         policy_id="pol-def_001",
@@ -266,7 +267,7 @@ def test_illegal_status_values_are_rejected() -> None:
         with pytest.raises(ValueError):
             SettlementOutcome(
                 settlement_outcome_id="set-out_001",
-                pending_transition_id="trn-pend_001",
+                pending_transition_id="pnd_001",
                 decision_id="dec-prop_001",
                 round_id="rnd_001",
                 policy_id="pol-def_001",
@@ -277,7 +278,7 @@ def test_illegal_status_values_are_rejected() -> None:
     # Pending transition allows only ADMITTED_PENDING
     with pytest.raises(ValueError, match="ADMITTED_PENDING"):
         PendingTransitionRecord(
-            pending_transition_id="trn-pend_001",
+            pending_transition_id="pnd_001",
             decision_id="dec-prop_001",
             round_id="rnd_001",
             policy_id="pol-def_001",
@@ -289,6 +290,45 @@ def test_illegal_status_values_are_rejected() -> None:
             target_bar_rule=TargetBarRule("BTC_USDT_PRICE_1D"),
             status="SETTLED",  # type: ignore[arg-type]
         )
+
+
+def test_versions_prefixes_and_target_rule_are_frozen() -> None:
+    example = _load_example("pending_transition.v1.json")
+    example["schema_version"] = "1.1.0"
+    with pytest.raises(ValueError, match="schema_version"):
+        PendingTransitionRecord.from_dict(example)
+
+    example = _load_example("pending_transition.v1.json")
+    example["pending_transition_id"] = "trn-pend_legacy_alias"
+    with pytest.raises(ValueError, match="pending_transition_id"):
+        PendingTransitionRecord.from_dict(example)
+
+    with pytest.raises(ValueError, match="FIRST_OPEN_GE_CUTOFF"):
+        TargetBarRule("BTC_USDT_PRICE_1D", selection_rule="ANY_FUTURE_BAR")
+
+
+def test_settled_outcome_requires_complete_causal_execution_evidence() -> None:
+    base = _load_example("settlement_outcome_settled.v1.json")
+    del base["settlement_evidence"]["observation_knowledge_time"]
+    with pytest.raises(ValueError, match="missing execution evidence"):
+        SettlementOutcome.from_dict(base)
+
+    base = _load_example("settlement_outcome_settled.v1.json")
+    base["settlement_evidence"]["observation_knowledge_time"] = "2026-07-31T00:00:00Z"
+    with pytest.raises(ValueError, match="execution_fill_time"):
+        SettlementOutcome.from_dict(base)
+
+
+def test_from_dict_rejects_unknown_nested_fields() -> None:
+    pending = _load_example("pending_transition.v1.json")
+    pending["target_bar_rule"]["future_option"] = True
+    with pytest.raises(ValueError, match="TargetBarRule fields"):
+        PendingTransitionRecord.from_dict(pending)
+
+    outcome = _load_example("settlement_outcome_rejected.v1.json")
+    outcome["rejection_reasons"][0]["debug"] = "not contractual"
+    with pytest.raises(ValueError, match="Rejection reason fields"):
+        SettlementOutcome.from_dict(outcome)
 
 
 # ---------------------------------------------------------------------------
@@ -315,7 +355,7 @@ def test_id_prefix_validation() -> None:
     # Invalid decision_id prefix
     with pytest.raises(ValueError, match="Invalid decision_id"):
         PendingTransitionRecord(
-            pending_transition_id="trn-pend_001",
+            pending_transition_id="pnd_001",
             decision_id="bad-prop_001",
             round_id="rnd_001",
             policy_id="pol-def_001",
@@ -331,7 +371,7 @@ def test_id_prefix_validation() -> None:
     with pytest.raises(ValueError, match="Invalid settlement_outcome_id"):
         SettlementOutcome(
             settlement_outcome_id="bad-set_001",
-            pending_transition_id="trn-pend_001",
+            pending_transition_id="pnd_001",
             decision_id="dec-prop_001",
             round_id="rnd_001",
             policy_id="pol-def_001",
@@ -347,15 +387,15 @@ def test_id_prefix_validation() -> None:
 
 
 def test_timestamp_causal_inequalities() -> None:
-    # knowledge_cutoff cannot be after admitted_at
-    with pytest.raises(ValueError, match="cannot be after admitted_at"):
+    # admitted_at must equal the policy knowledge cutoff
+    with pytest.raises(ValueError, match="must equal knowledge_cutoff"):
         PendingTransitionRecord(
-            pending_transition_id="trn-pend_001",
+            pending_transition_id="pnd_001",
             decision_id="dec-prop_001",
             round_id="rnd_001",
             policy_id="pol-def_001",
             policy_version_id="pol-ver_001",
-            knowledge_cutoff="2026-08-01T00:00:02Z",
+            knowledge_cutoff="2026-08-01T00:00:00Z",
             admitted_at="2026-08-01T00:00:01Z",
             predecessor_account_hash="sha256:1111111111111111111111111111111111111111111111111111111111111111",
             requested_action=RequestedAction(ActionType.ALLOCATE, "BTC", Decimal("1.0")),
@@ -365,7 +405,7 @@ def test_timestamp_causal_inequalities() -> None:
     # expected_open_time cannot be before knowledge_cutoff
     with pytest.raises(ValueError, match="must be >= knowledge_cutoff"):
         PendingTransitionRecord(
-            pending_transition_id="trn-pend_001",
+            pending_transition_id="pnd_001",
             decision_id="dec-prop_001",
             round_id="rnd_001",
             policy_id="pol-def_001",
@@ -380,11 +420,11 @@ def test_timestamp_causal_inequalities() -> None:
             ),
         )
 
-    # In settlement, execution_fill_time cannot be after settled_at
-    with pytest.raises(ValueError, match="cannot be after settled_at"):
+    # Partial execution evidence cannot establish a causal settlement.
+    with pytest.raises(ValueError, match="missing execution evidence"):
         SettlementOutcome(
             settlement_outcome_id="set-out_001",
-            pending_transition_id="trn-pend_001",
+            pending_transition_id="pnd_001",
             decision_id="dec-prop_001",
             round_id="rnd_001",
             policy_id="pol-def_001",
@@ -399,7 +439,7 @@ def test_timestamp_utc_strictness() -> None:
     # Non-UTC / timezone offset rejected
     with pytest.raises(InvalidTimestampError):
         PendingTransitionRecord(
-            pending_transition_id="trn-pend_001",
+            pending_transition_id="pnd_001",
             decision_id="dec-prop_001",
             round_id="rnd_001",
             policy_id="pol-def_001",
@@ -421,7 +461,7 @@ def test_boolean_quantities_are_rejected() -> None:
     # Booleans in PendingTransitionRecord requested_action quantity
     with pytest.raises(TypeError, match="must be a Decimal"):
         PendingTransitionRecord(
-            pending_transition_id="trn-pend_001",
+            pending_transition_id="pnd_001",
             decision_id="dec-prop_001",
             round_id="rnd_001",
             policy_id="pol-def_001",
@@ -437,14 +477,20 @@ def test_boolean_quantities_are_rejected() -> None:
     with pytest.raises(TypeError, match="cannot be a boolean"):
         SettlementOutcome(
             settlement_outcome_id="set-out_001",
-            pending_transition_id="trn-pend_001",
+            pending_transition_id="pnd_001",
             decision_id="dec-prop_001",
             round_id="rnd_001",
             policy_id="pol-def_001",
             status=SettlementStatus.SETTLED,
             settled_at="2026-08-03T00:00:00Z",
             applied_transition_id="trn_001",
-            settlement_evidence={"execution_price": True},
+            settlement_evidence={
+                "observation_id": "obs_BTC_20260801_r1",
+                "selected_revision": 1,
+                "execution_fill_time": "2026-08-01T00:00:00Z",
+                "observation_knowledge_time": "2026-08-03T00:00:00Z",
+                "execution_price": True,
+            },
         )
 
 
@@ -452,7 +498,7 @@ def test_non_finite_and_negative_quantities_are_rejected() -> None:
     # NaN in PendingTransitionRecord
     with pytest.raises(ValueError, match="finite"):
         PendingTransitionRecord(
-            pending_transition_id="trn-pend_001",
+            pending_transition_id="pnd_001",
             decision_id="dec-prop_001",
             round_id="rnd_001",
             policy_id="pol-def_001",
@@ -467,7 +513,7 @@ def test_non_finite_and_negative_quantities_are_rejected() -> None:
     # Infinity in PendingTransitionRecord
     with pytest.raises(ValueError, match="finite"):
         PendingTransitionRecord(
-            pending_transition_id="trn-pend_001",
+            pending_transition_id="pnd_001",
             decision_id="dec-prop_001",
             round_id="rnd_001",
             policy_id="pol-def_001",
@@ -482,7 +528,7 @@ def test_non_finite_and_negative_quantities_are_rejected() -> None:
     # Negative quantity in PendingTransitionRecord
     with pytest.raises(ValueError, match="finite non-negative"):
         PendingTransitionRecord(
-            pending_transition_id="trn-pend_001",
+            pending_transition_id="pnd_001",
             decision_id="dec-prop_001",
             round_id="rnd_001",
             policy_id="pol-def_001",
@@ -503,7 +549,7 @@ def test_non_finite_and_negative_quantities_are_rejected() -> None:
 def test_deep_immutability_of_evidence() -> None:
     mutable_evidence = {"flag": True, "nested": {"key": "val"}}
     record = PendingTransitionRecord(
-        pending_transition_id="trn-pend_001",
+        pending_transition_id="pnd_001",
         decision_id="dec-prop_001",
         round_id="rnd_001",
         policy_id="pol-def_001",
@@ -546,7 +592,7 @@ def test_unknown_properties_rejected_by_schemas() -> None:
 
 def test_hash_determinism_and_permutation_invariance() -> None:
     rec1 = PendingTransitionRecord(
-        pending_transition_id="trn-pend_001",
+        pending_transition_id="pnd_001",
         decision_id="dec-prop_001",
         round_id="rnd_001",
         policy_id="pol-def_001",
@@ -560,7 +606,7 @@ def test_hash_determinism_and_permutation_invariance() -> None:
     )
 
     rec2 = PendingTransitionRecord(
-        pending_transition_id="trn-pend_001",
+        pending_transition_id="pnd_001",
         decision_id="dec-prop_001",
         round_id="rnd_001",
         policy_id="pol-def_001",
@@ -577,7 +623,7 @@ def test_hash_determinism_and_permutation_invariance() -> None:
 
     # Mutation sensitivity
     rec3 = PendingTransitionRecord(
-        pending_transition_id="trn-pend_001",
+        pending_transition_id="pnd_001",
         decision_id="dec-prop_001",
         round_id="rnd_001",
         policy_id="pol-def_001",

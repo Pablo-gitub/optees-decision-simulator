@@ -193,6 +193,9 @@ is verified and complete.
 execution price or account mutation crosses its authorized time boundary and defines a lossless
 implementation path with 9 pure decision probes.
 **Micro-gate DS-D3A (Satisfied):** both dedicated deferred-settlement runtime records (pending transition and settlement outcome) are schema-valid, immutable, canonically hashable and losslessly linked, and newly normalized observations retain exact open-time evidence without altering legacy fixtures.
+Review correction freezes one ID prefix per record, the sole target-bar rule and
+admission-time equality, rejects schema/nested-field drift, and requires complete
+causal execution evidence for every settled outcome.
 **Medium gate DS-D3 (Open after review):** adapter, accounting determinism, and the deferred settlement contract are complete; production runner and replay deferred settlement kernel implementation remain for `DS-02D2`.
 
 - [x] Implement bounded provider acquisition and immutable publication in `DS-02C3`.

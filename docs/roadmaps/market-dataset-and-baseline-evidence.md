@@ -744,6 +744,10 @@ frozen v1 schema and report the exact incompatibility.
 losslessly linked, and normalized observations retain exact open-time evidence
 without changing legacy artifacts. All contract validations, schema roundtrip,
 Ruff lint/formatting, and domain unit tests pass.
+The independent review correction reduced each record to one stable ID prefix,
+enforced the fixed target-bar rule and exact admission cutoff, rejected schema
+version and nested-field drift, bounded rejection details, and made complete
+observation/revision/fill/knowledge/price evidence mandatory for `SETTLED`.
 
 #### D2B — Admission And Settlement Application Services (`DS-02D2B`)
 

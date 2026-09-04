@@ -239,14 +239,18 @@ To maintain strict contract integrity:
    - [`decision_outcome.v1.json`](schemas/decision_outcome.v1.json) remains unchanged and
      continues to describe the synchronous v1 lifecycle only.
    - Add `pending_transition.v1.json`. One immutable admission record owns the stable
-     `pending_transition_id`, proposal/decision identity, policy identity, requested action,
+     `pending_transition_id` (`pnd_` prefix), proposal/decision identity, policy identity, requested action,
      cutoff, target-bar selection rule, admission evidence and predecessor account hash.
      Admission status is always `ADMITTED_PENDING`; it is not a mutable outcome.
    - Add `settlement_outcome.v1.json`. Exactly one immutable terminal record links the
-     `pending_transition_id` and decision identity and has status `SETTLED` or `REJECTED`.
+     `pending_transition_id` and decision identity, uses the `set-out_` identifier prefix,
+     and has status `SETTLED` or `REJECTED`.
      It records settlement time, selected observation/revision evidence, rejection reasons,
      and optional applied transition identity. `SETTLED` requires a transition identity;
      `REJECTED` forbids one.
+     Whenever execution evidence exists it is complete and records observation identity,
+     positive revision, fill time, observation knowledge time and positive execution price;
+     it must prove `fill_time < knowledge_time <= settlement_time`.
    - Cancellation is represented as terminal `REJECTED` with reason
      `EPISODE_CANCELLED`; the contract does not introduce a third terminal status.
    This dedicated pair is the selected lossless design. `DS-02D2` must not replace it with

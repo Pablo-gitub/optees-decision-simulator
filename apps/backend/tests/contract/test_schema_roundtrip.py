@@ -53,7 +53,7 @@ def _load_schema(schema_filename: str) -> dict:
         return json.load(f)
 
 
-def test_all_15_entities_schema_conformance(synthetic_episode_def: EpisodeDefinition) -> None:
+def test_all_18_entities_schema_conformance(synthetic_episode_def: EpisodeDefinition) -> None:
     # Set up and execute a 3-round episode to populate all runtime domain models
     store = InMemoryStore()
     dataset = SyntheticDatasetAdapter()
@@ -233,13 +233,13 @@ def test_all_15_entities_schema_conformance(synthetic_episode_def: EpisodeDefini
     # 16. PendingTransitionRecord
     schema_pnd = _load_schema("pending_transition.v1.json")
     pnd = PendingTransitionRecord(
-        pending_transition_id="trn-pend_test_01",
+        pending_transition_id="pnd_test_01",
         decision_id="dec-prop_round0_reactive_accept",
         round_id="rnd_round_0",
         policy_id="pol-def_reactive_baseline",
         policy_version_id="pol-ver_reactive_v1",
         knowledge_cutoff="2026-08-01T00:00:00Z",
-        admitted_at="2026-08-01T00:00:01Z",
+        admitted_at="2026-08-01T00:00:00Z",
         predecessor_account_hash="sha256:0000000000000000000000000000000000000000000000000000000000000000",
         requested_action=RequestedAction(
             action_type=ActionType.ALLOCATE,
@@ -262,7 +262,7 @@ def test_all_15_entities_schema_conformance(synthetic_episode_def: EpisodeDefini
     schema_set = _load_schema("settlement_outcome.v1.json")
     set_outcome = SettlementOutcome(
         settlement_outcome_id="set-out_test_01",
-        pending_transition_id="trn-pend_test_01",
+        pending_transition_id="pnd_test_01",
         decision_id="dec-prop_round0_reactive_accept",
         round_id="rnd_round_2",
         policy_id="pol-def_reactive_baseline",
@@ -273,6 +273,8 @@ def test_all_15_entities_schema_conformance(synthetic_episode_def: EpisodeDefini
         settlement_evidence={
             "observation_id": "obs_BTC_20260801_r1",
             "selected_revision": 1,
+            "execution_fill_time": "2026-08-01T00:00:00Z",
+            "observation_knowledge_time": "2026-08-03T00:00:00Z",
             "execution_price": "60000.00",
         },
     )
@@ -282,7 +284,7 @@ def test_all_15_entities_schema_conformance(synthetic_episode_def: EpisodeDefini
     # 18. SettlementOutcome (REJECTED)
     rej_outcome = SettlementOutcome(
         settlement_outcome_id="set-out_test_02",
-        pending_transition_id="trn-pend_test_01",
+        pending_transition_id="pnd_test_01",
         decision_id="dec-prop_round0_reactive_accept",
         round_id="rnd_round_2",
         policy_id="pol-def_reactive_baseline",
@@ -295,7 +297,13 @@ def test_all_15_entities_schema_conformance(synthetic_episode_def: EpisodeDefini
                 message="Account balance insufficient at settlement fill price",
             ),
         ),
-        settlement_evidence={"execution_price": "75000.00"},
+        settlement_evidence={
+            "observation_id": "obs_BTC_20260801_r1",
+            "selected_revision": 1,
+            "execution_fill_time": "2026-08-01T00:00:00Z",
+            "observation_knowledge_time": "2026-08-03T00:00:00Z",
+            "execution_price": "75000.00",
+        },
     )
     errs = validate_data(rej_outcome.to_dict(), schema_set)
     assert not errs, f"SettlementOutcome (REJECTED) errors: {errs}"

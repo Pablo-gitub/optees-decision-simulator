@@ -2,7 +2,7 @@
   "$type": "settlement_outcome",
   "schema_version": "1.0.0",
   "settlement_outcome_id": "set-out_round2_reactive_settled",
-  "pending_transition_id": "trn-pend_round0_reactive_allocate",
+  "pending_transition_id": "pnd_round0_reactive_allocate",
   "decision_id": "dec-prop_round0_reactive_accept",
   "round_id": "rnd_round_2",
   "policy_id": "pol-def_reactive_baseline",
@@ -12,6 +12,7 @@
   "rejection_reasons": [],
   "settlement_evidence": {
     "execution_fill_time": "2026-08-01T00:00:00.000Z",
+    "observation_knowledge_time": "2026-08-03T00:00:00Z",
     "execution_price": "60000.00",
     "observation_id": "obs_BTC_20260801_r1",
     "selected_revision": 1,

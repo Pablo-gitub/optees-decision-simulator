@@ -29,12 +29,8 @@ from simulator.domain.lifecycle import (
 )
 from simulator.domain.time import parse_utc_timestamp
 
-_PENDING_TRANSITION_ID_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"^(trn-pend|pnd)_[a-zA-Z0-9_-]+$"
-)
-_SETTLEMENT_OUTCOME_ID_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"^(set-out|dec-set)_[a-zA-Z0-9_-]+$"
-)
+_PENDING_TRANSITION_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"^pnd_[a-zA-Z0-9_-]+$")
+_SETTLEMENT_OUTCOME_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"^set-out_[a-zA-Z0-9_-]+$")
 _DECISION_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"^dec-prop_[a-zA-Z0-9_-]+$")
 _ROUND_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"^rnd_[a-zA-Z0-9_-]+$")
 _POLICY_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"^pol-def_[a-zA-Z0-9_-]+$")
@@ -729,10 +725,10 @@ class TargetBarRule:
     expected_open_time: str | None = None
 
     def __post_init__(self) -> None:
-        if not self.series_id or not isinstance(self.series_id, str):
+        if not isinstance(self.series_id, str) or not self.series_id:
             raise ValueError("TargetBarRule series_id must be a non-empty string")
-        if not self.selection_rule or not isinstance(self.selection_rule, str):
-            raise ValueError("TargetBarRule selection_rule must be a non-empty string")
+        if self.selection_rule != "FIRST_OPEN_GE_CUTOFF":
+            raise ValueError("TargetBarRule selection_rule must be FIRST_OPEN_GE_CUTOFF")
         if self.expected_open_time is not None:
             parse_utc_timestamp(self.expected_open_time)
 
@@ -747,6 +743,11 @@ class TargetBarRule:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TargetBarRule:
+        if set(data) not in (
+            {"series_id", "selection_rule"},
+            {"series_id", "selection_rule", "expected_open_time"},
+        ):
+            raise ValueError("TargetBarRule fields do not match schema v1")
         return cls(
             series_id=data["series_id"],
             selection_rule=data.get("selection_rule", "FIRST_OPEN_GE_CUTOFF"),
@@ -771,6 +772,8 @@ class PendingTransitionRecord:
     schema_version: str = "1.0.0"
 
     def __post_init__(self) -> None:
+        if self.schema_version != "1.0.0":
+            raise ValueError("PendingTransitionRecord schema_version must be 1.0.0")
         if not _PENDING_TRANSITION_ID_PATTERN.match(self.pending_transition_id):
             raise ValueError(f"Invalid pending_transition_id: {self.pending_transition_id}")
         if not _DECISION_ID_PATTERN.match(self.decision_id):
@@ -794,10 +797,10 @@ class PendingTransitionRecord:
 
         cutoff_dt = parse_utc_timestamp(self.knowledge_cutoff)
         admitted_dt = parse_utc_timestamp(self.admitted_at)
-        if cutoff_dt > admitted_dt:
+        if cutoff_dt != admitted_dt:
             raise ValueError(
-                f"knowledge_cutoff ({self.knowledge_cutoff}) cannot be after "
-                f"admitted_at ({self.admitted_at})"
+                f"admitted_at ({self.admitted_at}) must equal "
+                f"knowledge_cutoff ({self.knowledge_cutoff})"
             )
 
         if not _SHA256_HASH_PATTERN.match(self.predecessor_account_hash):
@@ -831,6 +834,8 @@ class PendingTransitionRecord:
                     f"must be >= knowledge_cutoff ({self.knowledge_cutoff})"
                 )
 
+        if not isinstance(self.admission_evidence, dict):
+            raise TypeError("admission_evidence must be a JSON object")
         object.__setattr__(self, "admission_evidence", freeze_json(self.admission_evidence))
 
     def to_dict(self) -> dict[str, Any]:
@@ -857,8 +862,32 @@ class PendingTransitionRecord:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PendingTransitionRecord:
         d = dict(data)
-        d.pop("$type", None)
+        expected_fields = {
+            "$type",
+            "schema_version",
+            "pending_transition_id",
+            "decision_id",
+            "round_id",
+            "policy_id",
+            "policy_version_id",
+            "status",
+            "knowledge_cutoff",
+            "admitted_at",
+            "predecessor_account_hash",
+            "requested_action",
+            "target_bar_rule",
+            "admission_evidence",
+        }
+        if set(d) != expected_fields:
+            raise ValueError("PendingTransitionRecord fields do not match schema v1")
+        if d.pop("$type") != "pending_transition":
+            raise ValueError("PendingTransitionRecord $type must be pending_transition")
         action_data = d["requested_action"]
+        if set(action_data) not in (
+            {"action_type", "resource_id", "quantity"},
+            {"action_type", "resource_id", "quantity", "parameters"},
+        ):
+            raise ValueError("Requested action fields do not match pending-transition schema v1")
         raw_qty = action_data["quantity"]
         if isinstance(raw_qty, bool):
             raise TypeError("quantity cannot be a boolean")
@@ -903,6 +932,8 @@ class SettlementOutcome:
     schema_version: str = "1.0.0"
 
     def __post_init__(self) -> None:
+        if self.schema_version != "1.0.0":
+            raise ValueError("SettlementOutcome schema_version must be 1.0.0")
         if not _SETTLEMENT_OUTCOME_ID_PATTERN.match(self.settlement_outcome_id):
             raise ValueError(f"Invalid settlement_outcome_id: {self.settlement_outcome_id}")
         if not _PENDING_TRANSITION_ID_PATTERN.match(self.pending_transition_id):
@@ -949,27 +980,71 @@ class SettlementOutcome:
                 raise ValueError("RejectionReason code must be non-empty string")
             if not r.message or not isinstance(r.message, str):
                 raise ValueError("RejectionReason message must be non-empty string")
+            if not re.fullmatch(r"[A-Z][A-Z0-9_]{0,127}", r.code):
+                raise ValueError("Settlement rejection code must be a bounded uppercase token")
+            if len(r.message) > 512:
+                raise ValueError("Settlement rejection message exceeds 512 characters")
+            if r.violating_field is not None and len(r.violating_field) > 256:
+                raise ValueError("Settlement violating_field exceeds 256 characters")
+        if len(self.rejection_reasons) > 16:
+            raise ValueError("Settlement outcome cannot contain more than 16 rejection reasons")
 
-        object.__setattr__(self, "settlement_evidence", freeze_json(self.settlement_evidence))
+        if not isinstance(self.settlement_evidence, dict):
+            raise TypeError("settlement_evidence must be a JSON object")
+        evidence = freeze_json(self.settlement_evidence)
+        object.__setattr__(self, "settlement_evidence", evidence)
+        allowed_evidence = {
+            "observation_id",
+            "selected_revision",
+            "execution_fill_time",
+            "observation_knowledge_time",
+            "execution_price",
+            "total_fee_deducted",
+            "cash_available",
+            "cash_required",
+        }
+        unknown_evidence = set(evidence) - allowed_evidence
+        if unknown_evidence:
+            raise ValueError(f"Unknown settlement evidence fields: {sorted(unknown_evidence)}")
 
-        if isinstance(self.settlement_evidence, dict) or hasattr(self.settlement_evidence, "get"):
-            fill_time = self.settlement_evidence.get("execution_fill_time")
-            if fill_time is not None:
-                fill_dt = parse_utc_timestamp(fill_time)
-                if fill_dt > settled_dt:
-                    raise ValueError(
-                        f"execution_fill_time ({fill_time}) cannot be after "
-                        f"settled_at ({self.settled_at})"
-                    )
-            exec_price = self.settlement_evidence.get("execution_price")
-            if exec_price is not None:
-                if isinstance(exec_price, bool):
-                    raise TypeError("execution_price cannot be a boolean")
-                price_dec = Decimal(str(exec_price))
-                if price_dec.is_nan() or price_dec.is_infinite() or price_dec <= Decimal("0"):
-                    raise ValueError(
-                        f"execution_price must be a positive finite number, got {exec_price}"
-                    )
+        required_execution_evidence = {
+            "observation_id",
+            "selected_revision",
+            "execution_fill_time",
+            "observation_knowledge_time",
+            "execution_price",
+        }
+        if self.status == SettlementStatus.SETTLED:
+            missing = required_execution_evidence - set(evidence)
+            if missing:
+                raise ValueError(f"SETTLED outcome missing execution evidence: {sorted(missing)}")
+
+        present_execution_evidence = required_execution_evidence & set(evidence)
+        if present_execution_evidence and present_execution_evidence != required_execution_evidence:
+            raise ValueError("Execution evidence must be complete when present")
+        if present_execution_evidence:
+            if not isinstance(evidence["observation_id"], str) or not evidence["observation_id"]:
+                raise ValueError("observation_id must be a non-empty string")
+            revision = evidence["selected_revision"]
+            if isinstance(revision, bool) or not isinstance(revision, int) or revision < 1:
+                raise ValueError("selected_revision must be a positive integer")
+            fill_time = evidence["execution_fill_time"]
+            knowledge_time = evidence["observation_knowledge_time"]
+            fill_dt = parse_utc_timestamp(fill_time)
+            knowledge_dt = parse_utc_timestamp(knowledge_time)
+            if not fill_dt < knowledge_dt <= settled_dt:
+                raise ValueError(
+                    "Execution evidence must satisfy execution_fill_time < "
+                    "observation_knowledge_time <= settled_at"
+                )
+            exec_price = evidence["execution_price"]
+            if isinstance(exec_price, bool):
+                raise TypeError("execution_price cannot be a boolean")
+            price_dec = Decimal(str(exec_price))
+            if price_dec.is_nan() or price_dec.is_infinite() or price_dec <= Decimal("0"):
+                raise ValueError(
+                    f"execution_price must be a positive finite number, got {exec_price}"
+                )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -993,7 +1068,24 @@ class SettlementOutcome:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SettlementOutcome:
         d = dict(data)
-        d.pop("$type", None)
+        expected_fields = {
+            "$type",
+            "schema_version",
+            "settlement_outcome_id",
+            "pending_transition_id",
+            "decision_id",
+            "round_id",
+            "policy_id",
+            "status",
+            "settled_at",
+            "applied_transition_id",
+            "rejection_reasons",
+            "settlement_evidence",
+        }
+        if set(d) != expected_fields:
+            raise ValueError("SettlementOutcome fields do not match schema v1")
+        if d.pop("$type") != "settlement_outcome":
+            raise ValueError("SettlementOutcome $type must be settlement_outcome")
         reasons = [
             RejectionReason(
                 code=r["code"],
@@ -1002,6 +1094,15 @@ class SettlementOutcome:
             )
             for r in d.get("rejection_reasons", [])
         ]
+        if any(
+            set(reason)
+            not in (
+                {"code", "message"},
+                {"code", "message", "violating_field"},
+            )
+            for reason in d.get("rejection_reasons", [])
+        ):
+            raise ValueError("Rejection reason fields do not match settlement schema v1")
         status_val = SettlementStatus(d["status"])
         return cls(
             settlement_outcome_id=d["settlement_outcome_id"],

@@ -36,6 +36,15 @@
           },
           "rejection_reasons": {
             "maxItems": 0
+          },
+          "settlement_evidence": {
+            "required": [
+              "observation_id",
+              "selected_revision",
+              "execution_fill_time",
+              "observation_knowledge_time",
+              "execution_price"
+            ]
           }
         }
       },
@@ -62,11 +71,11 @@
     },
     "settlement_outcome_id": {
       "type": "string",
-      "pattern": "^(set-out|dec-set)_[a-zA-Z0-9_-]+$"
+      "pattern": "^set-out_[a-zA-Z0-9_-]+$"
     },
     "pending_transition_id": {
       "type": "string",
-      "pattern": "^(trn-pend|pnd)_[a-zA-Z0-9_-]+$"
+      "pattern": "^pnd_[a-zA-Z0-9_-]+$"
     },
     "decision_id": {
       "type": "string",
@@ -100,6 +109,7 @@
     },
     "rejection_reasons": {
       "type": "array",
+      "maxItems": 16,
       "items": {
         "type": "object",
         "required": [
@@ -111,24 +121,60 @@
         "properties": {
           "code": {
             "type": "string",
-            "minLength": 1
+            "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
           },
           "message": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 512
           },
           "violating_field": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "maxLength": 256
           }
         }
       }
     },
     "settlement_evidence": {
       "type": "object",
-      "additionalProperties": true
+      "additionalProperties": false,
+      "properties": {
+        "observation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "selected_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "execution_fill_time": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+        },
+        "observation_knowledge_time": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+        },
+        "execution_price": {
+          "type": "string",
+          "pattern": "^\\d+(\\.\\d+)?$"
+        },
+        "total_fee_deducted": {
+          "type": "string",
+          "pattern": "^\\d+(\\.\\d+)?$"
+        },
+        "cash_available": {
+          "type": "string",
+          "pattern": "^\\d+(\\.\\d+)?$"
+        },
+        "cash_required": {
+          "type": "string",
+          "pattern": "^\\d+(\\.\\d+)?$"
+        }
+      }
     }
   }
 }

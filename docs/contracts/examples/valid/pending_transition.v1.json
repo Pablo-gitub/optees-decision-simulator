@@ -1,14 +1,14 @@
 {
   "$type": "pending_transition",
   "schema_version": "1.0.0",
-  "pending_transition_id": "trn-pend_round0_reactive_allocate",
+  "pending_transition_id": "pnd_round0_reactive_allocate",
   "decision_id": "dec-prop_round0_reactive_accept",
   "round_id": "rnd_round_0",
   "policy_id": "pol-def_reactive_baseline",
   "policy_version_id": "pol-ver_reactive_v1",
   "status": "ADMITTED_PENDING",
   "knowledge_cutoff": "2026-08-01T00:00:00Z",
-  "admitted_at": "2026-08-01T00:00:01Z",
+  "admitted_at": "2026-08-01T00:00:00Z",
   "predecessor_account_hash": "sha256:491a35d4c55cb03cc6fa0f9b04c6f4d32dbd44533ef52f50858314fcd162ef7b",
   "requested_action": {
     "action_type": "ALLOCATE",

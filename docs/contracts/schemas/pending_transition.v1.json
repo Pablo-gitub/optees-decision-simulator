@@ -32,7 +32,7 @@
     },
     "pending_transition_id": {
       "type": "string",
-      "pattern": "^(trn-pend|pnd)_[a-zA-Z0-9_-]+$"
+      "pattern": "^pnd_[a-zA-Z0-9_-]+$"
     },
     "decision_id": {
       "type": "string",
@@ -112,7 +112,7 @@
         },
         "selection_rule": {
           "type": "string",
-          "minLength": 1
+          "const": "FIRST_OPEN_GE_CUTOFF"
         },
         "expected_open_time": {
           "type": "string",
