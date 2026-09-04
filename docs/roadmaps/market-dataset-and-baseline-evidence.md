@@ -3,14 +3,14 @@
 ## Work Unit
 
 - **ID:** `DS-02`
-- **State:** gates through `DS-D3A` are satisfied; `DS-02D2B` admission and settlement application services is next
+- **State:** `DS-02D2A1` records/open-time implementation is complete; review found the v1 transition reverse-link incompatibility, so `DS-02D2A2` is next before `DS-D3A` can close
 - **Type:** backend data provenance, market interpretation and baseline evidence; no UI
 - **Parent roadmap:** `../ROADMAP.md`
 - **Prerequisite:** `DS-K` satisfied by `DS-01`
 - **Parallel Optees work:** `OPT-DS-03A` robust-scenario contract decision
 - **Implementation owner:** Gemini
 - **Review:** Codex after every micro-gate
-- **Completion gate:** `DS-D` (Current micro-gates: `DS-D0`, `DS-D1`, `DS-D2A`, `DS-D2B`, `DS-D2C`, `DS-D2`, `DS-D3T`, and `DS-D3A` Satisfied)
+- **Completion gate:** `DS-D` (gates through `DS-D3T` satisfied; `DS-D3A` reopened pending `DS-02D2A2`)
 
 ## Objective
 
@@ -739,9 +739,9 @@ Do not extend `decision_outcome.v1` or silently replace the dedicated two-record
 design. Stop if lossless round coverage requires a third record or a change to a
 frozen v1 schema and report the exact incompatibility.
 
-**Gate `DS-D3A` (Satisfied):** both new records (`pending_transition.v1` and
-`settlement_outcome.v1`) are schema-valid, immutable, canonically hashable and
-losslessly linked, and normalized observations retain exact open-time evidence
+**Gate `DS-D3A` (Reopened after integration-boundary review):** both new records (`pending_transition.v1` and
+`settlement_outcome.v1`) are schema-valid, immutable and canonically hashable;
+normalized observations retain exact open-time evidence
 without changing legacy artifacts. All contract validations, schema roundtrip,
 Ruff lint/formatting, and domain unit tests pass.
 The independent review correction reduced each record to one stable ID prefix,
@@ -749,9 +749,48 @@ enforced the fixed target-bar rule and exact admission cutoff, rejected schema
 version and nested-field drift, bounded rejection details, and made complete
 observation/revision/fill/knowledge/price evidence mandatory for `SETTLED`.
 
+Integration-boundary review found that `transition.v1` requires an `outcome_id`
+with the `dec-out_` identity family. It therefore cannot point back to the new
+terminal `settlement_outcome` (`set-out_`) without fabricating a second terminal
+outcome, misusing an identity family, or rewriting the frozen v1 schema. The
+one-way `settlement_outcome.applied_transition_id` reference is insufficient for
+the audit and replay invariant.
+
+##### D2A2 — Deferred Transition Version Bridge (`DS-02D2A2`)
+
+Before application services, add the smallest versioned transition contract for
+deferred settlement. Compare `TransitionRecord`, `transition.v1.json`, account
+hashing, cost/delta records, settlement outcome, schema inventory/examples and
+all persistence/replay consumers. Freeze the compatibility rule in the deferred
+settlement contract before production edits.
+
+Authorized implementation:
+
+- keep `transition.v1.json`, its examples, hashes and synchronous runtime behavior
+  byte-for-byte unchanged;
+- add `transition.v2.json` and an immutable domain representation preserving every
+  v1 accounting field but replacing the v1 decision-outcome link with required
+  `settlement_outcome_id` (`set-out_`) and adding `economic_fill_time` distinct
+  from settlement/effective time;
+- require exact links to round, policy, before/after account hashes and settlement
+  outcome; enforce `economic_fill_time <= effective_time` and one stable v2 ID family;
+- choose one non-ambiguous Python representation: a dedicated deferred-transition
+  type or a rigorously versioned existing type. Never permit hybrid v1/v2 fields;
+- register the schema, add canonical examples and strict round-trip, hash and
+  deep-immutability tests; prove v1 fixtures and behavior remain unchanged.
+
+Explicit exclusions: no admission/settlement service, no `ExecutionService`
+refactor or invocation, no account calculation, runner, persistence adapter,
+replay, API, database, baseline, Optees integration or UI. Stop if v2 cannot
+retain v1 accounting semantics exactly or requires changing a frozen v1 record.
+
+**Gate `DS-D3A`:** achieved only when pending admission, terminal settlement and
+the applied v2 transition form an unambiguous, bidirectionally linked, immutable
+and canonically hashable record chain while all v1 artifacts remain unchanged.
+
 #### D2B — Admission And Settlement Application Services (`DS-02D2B`)
 
-After `DS-D3A` review, implement pure application-owned admission and settlement
+After the corrected `DS-D3A` review, implement pure application-owned admission and settlement
 services over injected pricing/accounting dependencies. Verify the single-pending
 rule, zero mutation before settlement, terminal rejection paths and exactly-once
 accounting. Do not modify runner or replay in this unit. Its executable detail
@@ -783,6 +822,7 @@ or production Optees policies begin.
 
 ## Next implementation boundary
 
-`DS-02A`, `DS-02B`, `DS-02C1`, `DS-02C2` (`DS-02C2A` & `DS-02C2B`), `DS-02C3`, `DS-02D1`, and `DS-02D2A` are complete.
-`DS-02D2B` (Admission And Settlement Application Services / Gate `DS-D3B`) is the next and only authorized boundary.
+`DS-02D2A1` records and open-time evidence are implemented, but `DS-D3A` was
+reopened by review. `DS-02D2A2` (Deferred Transition Version Bridge) is the next
+and only authorized boundary. `DS-02D2B` remains blocked until its review.
 `DS-02E` remains blocked until `DS-D3` is satisfied.

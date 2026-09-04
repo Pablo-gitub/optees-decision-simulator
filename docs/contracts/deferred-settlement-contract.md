@@ -251,6 +251,12 @@ To maintain strict contract integrity:
      Whenever execution evidence exists it is complete and records observation identity,
      positive revision, fill time, observation knowledge time and positive execution price;
      it must prove `fill_time < knowledge_time <= settlement_time`.
+   - Add `transition.v2.json` for applied deferred settlements. It preserves the
+     v1 resource-delta, cost and account-hash semantics, replaces the v1
+     `decision_outcome` reverse link with `settlement_outcome_id`, and distinguishes
+     `economic_fill_time` from settlement `effective_time`. `transition.v1.json`
+     remains frozen for the synchronous lifecycle. A synthetic v1
+     `DecisionOutcome` must not be created merely to satisfy its `dec-out_` field.
    - Cancellation is represented as terminal `REJECTED` with reason
      `EPISODE_CANCELLED`; the contract does not introduce a third terminal status.
    This dedicated pair is the selected lossless design. `DS-02D2` must not replace it with
