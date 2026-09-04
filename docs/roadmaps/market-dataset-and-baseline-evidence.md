@@ -3,14 +3,14 @@
 ## Work Unit
 
 - **ID:** `DS-02`
-- **State:** `DS-02D2A1` records/open-time implementation is complete; review found the v1 transition reverse-link incompatibility, so `DS-02D2A2` is next before `DS-D3A` can close
+- **State:** `DS-02D2A2` versioned transition bridge is complete; Gate `DS-D3A` is satisfied; `DS-02D2B` admission and settlement application services is next
 - **Type:** backend data provenance, market interpretation and baseline evidence; no UI
 - **Parent roadmap:** `../ROADMAP.md`
 - **Prerequisite:** `DS-K` satisfied by `DS-01`
 - **Parallel Optees work:** `OPT-DS-03A` robust-scenario contract decision
 - **Implementation owner:** Gemini
 - **Review:** Codex after every micro-gate
-- **Completion gate:** `DS-D` (gates through `DS-D3T` satisfied; `DS-D3A` reopened pending `DS-02D2A2`)
+- **Completion gate:** `DS-D` (gates through `DS-D3A` satisfied; `DS-02D2B` next)
 
 ## Objective
 
@@ -784,9 +784,10 @@ refactor or invocation, no account calculation, runner, persistence adapter,
 replay, API, database, baseline, Optees integration or UI. Stop if v2 cannot
 retain v1 accounting semantics exactly or requires changing a frozen v1 record.
 
-**Gate `DS-D3A`:** achieved only when pending admission, terminal settlement and
-the applied v2 transition form an unambiguous, bidirectionally linked, immutable
-and canonically hashable record chain while all v1 artifacts remain unchanged.
+**Gate `DS-D3A` (Satisfied after transition bridge):** pending admission (`pending_transition.v1`),
+terminal settlement (`settlement_outcome.v1`) and applied deferred transition (`transition.v2`)
+form an unambiguous, bidirectionally linked, immutable and canonically hashable record chain.
+All v1 schemas, examples and hashes remain unchanged.
 
 #### D2B — Admission And Settlement Application Services (`DS-02D2B`)
 
@@ -822,7 +823,6 @@ or production Optees policies begin.
 
 ## Next implementation boundary
 
-`DS-02D2A1` records and open-time evidence are implemented, but `DS-D3A` was
-reopened by review. `DS-02D2A2` (Deferred Transition Version Bridge) is the next
-and only authorized boundary. `DS-02D2B` remains blocked until its review.
+`DS-02D2A1` and `DS-02D2A2` are complete, satisfying Gate `DS-D3A`.
+`DS-02D2B` (Admission And Settlement Application Services / Gate `DS-D3B`) is the next and only authorized boundary.
 `DS-02E` remains blocked until `DS-D3` is satisfied.

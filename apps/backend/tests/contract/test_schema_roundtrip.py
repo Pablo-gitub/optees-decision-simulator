@@ -10,6 +10,7 @@ from simulator.application.policies.static import StaticBaselinePolicy
 from simulator.application.services.runner import EpisodeRunner
 from simulator.domain.lifecycle import (
     ActionType,
+    CostType,
     DivergenceCategory,
     PendingStatus,
     PolicyType,
@@ -18,6 +19,8 @@ from simulator.domain.lifecycle import (
     SettlementStatus,
 )
 from simulator.domain.models import (
+    CostItem,
+    DeferredTransitionRecord,
     DivergenceReport,
     EpisodeDefinition,
     OpteesCallReceipt,
@@ -27,6 +30,7 @@ from simulator.domain.models import (
     RejectionReason,
     ReplayReport,
     RequestedAction,
+    ResourceDelta,
     SettlementOutcome,
     TargetBarRule,
     TimingSpec,
@@ -307,3 +311,45 @@ def test_all_18_entities_schema_conformance(synthetic_episode_def: EpisodeDefini
     )
     errs = validate_data(rej_outcome.to_dict(), schema_set)
     assert not errs, f"SettlementOutcome (REJECTED) errors: {errs}"
+
+    # 19. DeferredTransitionRecord (transition.v2.json)
+    schema_trans_v2 = _load_schema("transition.v2.json")
+    def_trans = DeferredTransitionRecord(
+        transition_id="trn_round2_reactive_transition",
+        round_id="rnd_round_2",
+        policy_id="pol-def_reactive_baseline",
+        settlement_outcome_id="set-out_round2_reactive_settled",
+        economic_fill_time="2026-08-01T00:00:00.000Z",
+        effective_time="2026-08-03T00:00:01Z",
+        resource_deltas=(
+            ResourceDelta(
+                resource_id="USDT",
+                delta_quantity=Decimal("-60060.00"),
+                valuation_price=Decimal("1.00"),
+            ),
+            ResourceDelta(
+                resource_id="BTC",
+                delta_quantity=Decimal("1.00000000"),
+                valuation_price=Decimal("60000.00"),
+            ),
+        ),
+        costs=(
+            CostItem(
+                cost_type=CostType.TRANSACTION_FEE,
+                resource_id="USDT",
+                amount=Decimal("60.00"),
+            ),
+        ),
+        total_cost_reference_unit=Decimal("60.00"),
+        account_state_before_hash=(
+            "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        ),
+        account_state_after_hash=(
+            "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        ),
+    )
+    errs = validate_data(def_trans.to_dict(), schema_trans_v2)
+    assert not errs, f"DeferredTransitionRecord errors: {errs}"
+    reconstituted_def = DeferredTransitionRecord.from_dict(def_trans.to_dict())
+    assert reconstituted_def == def_trans
+    assert reconstituted_def.compute_hash() == def_trans.compute_hash()

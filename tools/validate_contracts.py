@@ -33,6 +33,7 @@ DOCS_DIR = REPO_ROOT / "docs"
 # RFC 8785 JSON Canonicalization Scheme (JCS) Implementation
 # ---------------------------------------------------------------------------
 
+
 def canonicalize_json(obj: Any) -> str:
     """Serialize a Python object to an RFC 8785 compliant canonical JSON string."""
     if obj is None:
@@ -41,7 +42,9 @@ def canonicalize_json(obj: Any) -> str:
         return "true" if obj else "false"
     elif isinstance(obj, int):
         if abs(obj) > 9_007_199_254_740_992:
-            raise ValueError("JCS numbers must be exactly representable as IEEE 754 doubles")
+            raise ValueError(
+                "JCS numbers must be exactly representable as IEEE 754 doubles"
+            )
         return str(obj)
     elif isinstance(obj, float):
         if not math.isfinite(obj):
@@ -53,11 +56,13 @@ def canonicalize_json(obj: Any) -> str:
     elif isinstance(obj, list):
         return "[" + ",".join(canonicalize_json(item) for item in obj) + "]"
     elif isinstance(obj, dict):
+
         def utf16_key(k: str) -> bytes:
             if not isinstance(k, str):
                 raise TypeError("JCS object keys must be strings")
             _reject_lone_surrogates(k)
             return k.encode("utf-16-be")
+
         sorted_keys = sorted(obj.keys(), key=utf16_key)
         parts = []
         for k in sorted_keys:
@@ -123,6 +128,7 @@ def compute_record_hash(obj: Any) -> str:
 # Lightweight JSON Schema Validator (Draft 2020-12 Subset)
 # ---------------------------------------------------------------------------
 
+
 def validate_data(data: Any, schema: dict[str, Any], path: str = "root") -> list[str]:
     """Validate data against a JSON schema dictionary, returning a list of error messages."""
     errors: list[str] = []
@@ -139,9 +145,13 @@ def validate_data(data: Any, schema: dict[str, Any], path: str = "root") -> list
                 matched = True
             elif t == "boolean" and isinstance(data, bool):
                 matched = True
-            elif t == "integer" and isinstance(data, int) and not isinstance(data, bool):
+            elif (
+                t == "integer" and isinstance(data, int) and not isinstance(data, bool)
+            ):
                 matched = True
-            elif t == "number" and (isinstance(data, (int, float)) and not isinstance(data, bool)):
+            elif t == "number" and (
+                isinstance(data, (int, float)) and not isinstance(data, bool)
+            ):
                 matched = True
             elif t == "string" and isinstance(data, str):
                 matched = True
@@ -151,7 +161,9 @@ def validate_data(data: Any, schema: dict[str, Any], path: str = "root") -> list
                 matched = True
 
         if not matched:
-            errors.append(f"{path}: expected type {schema['type']}, got {type(data).__name__} (value: {data!r})")
+            errors.append(
+                f"{path}: expected type {schema['type']}, got {type(data).__name__} (value: {data!r})"
+            )
             return errors
 
     # Const check
@@ -168,11 +180,17 @@ def validate_data(data: Any, schema: dict[str, Any], path: str = "root") -> list
     if isinstance(data, str):
         if "pattern" in schema:
             if not re.search(schema["pattern"], data):
-                errors.append(f"{path}: string {data!r} does not match pattern {schema['pattern']}")
+                errors.append(
+                    f"{path}: string {data!r} does not match pattern {schema['pattern']}"
+                )
         if "minLength" in schema and len(data) < schema["minLength"]:
-            errors.append(f"{path}: string length {len(data)} < minLength {schema['minLength']}")
+            errors.append(
+                f"{path}: string length {len(data)} < minLength {schema['minLength']}"
+            )
         if "maxLength" in schema and len(data) > schema["maxLength"]:
-            errors.append(f"{path}: string length {len(data)} > maxLength {schema['maxLength']}")
+            errors.append(
+                f"{path}: string length {len(data)} > maxLength {schema['maxLength']}"
+            )
         if schema.get("format") == "uri":
             parsed = urlparse(data)
             if not parsed.scheme:
@@ -182,7 +200,9 @@ def validate_data(data: Any, schema: dict[str, Any], path: str = "root") -> list
             try:
                 datetime.fromisoformat(data[:-1] + "+00:00")
             except ValueError:
-                errors.append(f"{path}: timestamp {data!r} is not a valid UTC date-time")
+                errors.append(
+                    f"{path}: timestamp {data!r} is not a valid UTC date-time"
+                )
 
     # Number checks
     if isinstance(data, (int, float)) and not isinstance(data, bool):
@@ -196,13 +216,17 @@ def validate_data(data: Any, schema: dict[str, Any], path: str = "root") -> list
     # Array checks
     if isinstance(data, list):
         if "minItems" in schema and len(data) < schema["minItems"]:
-            errors.append(f"{path}: array length {len(data)} < minItems {schema['minItems']}")
+            errors.append(
+                f"{path}: array length {len(data)} < minItems {schema['minItems']}"
+            )
         if "uniqueItems" in schema and schema["uniqueItems"]:
             serialized_items = [json.dumps(x, sort_keys=True) for x in data]
             if len(serialized_items) != len(set(serialized_items)):
                 errors.append(f"{path}: array items are not unique")
         if "maxItems" in schema and len(data) > schema["maxItems"]:
-            errors.append(f"{path}: array length {len(data)} > maxItems {schema['maxItems']}")
+            errors.append(
+                f"{path}: array length {len(data)} > maxItems {schema['maxItems']}"
+            )
         if "items" in schema:
             item_schema = schema["items"]
             for idx, item in enumerate(data):
@@ -224,7 +248,9 @@ def validate_data(data: Any, schema: dict[str, Any], path: str = "root") -> list
             elif additional_properties is False:
                 errors.append(f"{path}: unexpected additional property {key!r}")
             elif isinstance(additional_properties, dict):
-                errors.extend(validate_data(value, additional_properties, f"{path}.{key}"))
+                errors.extend(
+                    validate_data(value, additional_properties, f"{path}.{key}")
+                )
 
     return errors
 
@@ -232,6 +258,7 @@ def validate_data(data: Any, schema: dict[str, Any], path: str = "root") -> list
 # ---------------------------------------------------------------------------
 # Test Suites
 # ---------------------------------------------------------------------------
+
 
 def test_schemas_and_inventory() -> tuple[bool, dict[str, dict[str, Any]]]:
     """Test that all schemas exist, parse as JSON, and match inventory."""
@@ -278,8 +305,13 @@ def test_schemas_and_inventory() -> tuple[bool, dict[str, dict[str, Any]]]:
         schema_ids.add(entry["schema_id"])
 
         type_disc = entry["type_discriminator"]
-        schemas[type_disc] = schema_json
-        print(f"  OK: {entry['type_discriminator']} ({entry['schema_version']}) -> {schema_path.name}")
+        version = entry["schema_version"]
+        schemas[(type_disc, version)] = schema_json
+        if type_disc not in schemas:
+            schemas[type_disc] = schema_json
+        print(
+            f"  OK: {entry['type_discriminator']} ({entry['schema_version']}) -> {schema_path.name}"
+        )
 
     discovered_paths = {
         path.resolve()
@@ -310,30 +342,60 @@ def test_valid_examples(schemas: dict[str, dict[str, Any]]) -> bool:
         # Check compound vs single record files
         if "$type" in data:
             disc = data["$type"]
-            if disc in schemas:
-                errors = validate_data(data, schemas[disc], path=vf.name)
+            ver = data.get("schema_version")
+            schema_to_use = schemas.get((disc, ver)) or schemas.get(disc)
+            if schema_to_use:
+                errors = validate_data(data, schema_to_use, path=vf.name)
             else:
                 errors = [f"Unknown $type: {disc}"]
         elif "observations" in data:
             # Multi-observation container
             for idx, obs in enumerate(data["observations"]):
                 obs_type = obs.get("$type", "")
-                if obs_type in schemas:
-                    errors.extend(validate_data(obs, schemas[obs_type], path=f"{vf.name}.observations[{idx}]"))
+                obs_ver = obs.get("schema_version")
+                obs_schema = schemas.get((obs_type, obs_ver)) or schemas.get(obs_type)
+                if obs_schema:
+                    errors.extend(
+                        validate_data(
+                            obs, obs_schema, path=f"{vf.name}.observations[{idx}]"
+                        )
+                    )
                 else:
                     errors.append(f"Observation {idx} missing valid $type")
         elif "proposed_decision" in data and "decision_outcome" in data:
             # Proposal + Outcome pair
             prop = data["proposed_decision"]
             out = data["decision_outcome"]
-            errors.extend(validate_data(prop, schemas["proposed_decision"], path=f"{vf.name}.proposed_decision"))
-            errors.extend(validate_data(out, schemas["decision_outcome"], path=f"{vf.name}.decision_outcome"))
+            prop_schema = (
+                schemas.get(("proposed_decision", prop.get("schema_version")))
+                or schemas["proposed_decision"]
+            )
+            out_schema = (
+                schemas.get(("decision_outcome", out.get("schema_version")))
+                or schemas["decision_outcome"]
+            )
+            errors.extend(
+                validate_data(prop, prop_schema, path=f"{vf.name}.proposed_decision")
+            )
+            errors.extend(
+                validate_data(out, out_schema, path=f"{vf.name}.decision_outcome")
+            )
         elif "transition" in data and "virtual_account_state" in data:
             # Transition + Account State pair
             trn = data["transition"]
             acc = data["virtual_account_state"]
-            errors.extend(validate_data(trn, schemas["transition"], path=f"{vf.name}.transition"))
-            errors.extend(validate_data(acc, schemas["virtual_account_state"], path=f"{vf.name}.virtual_account_state"))
+            trn_schema = (
+                schemas.get(("transition", trn.get("schema_version")))
+                or schemas["transition"]
+            )
+            acc_schema = (
+                schemas.get(("virtual_account_state", acc.get("schema_version")))
+                or schemas["virtual_account_state"]
+            )
+            errors.extend(validate_data(trn, trn_schema, path=f"{vf.name}.transition"))
+            errors.extend(
+                validate_data(acc, acc_schema, path=f"{vf.name}.virtual_account_state")
+            )
         else:
             errors.append(f"Unrecognized example container structure in {vf.name}")
 
@@ -367,7 +429,9 @@ def test_knowledge_cutoff_invariants() -> bool:
         exp = expected[obs_id]
 
         if is_eligible == exp:
-            print(f"  OK: {obs_id} (k_time: {k_time}, cutoff: {target_cutoff}) -> eligible={is_eligible}")
+            print(
+                f"  OK: {obs_id} (k_time: {k_time}, cutoff: {target_cutoff}) -> eligible={is_eligible}"
+            )
         else:
             print(f"  FAIL: {obs_id} expected eligible={exp}, got {is_eligible}")
             all_passed = False
@@ -384,13 +448,13 @@ def test_canonical_json_and_hashing() -> bool:
         "z": 100,
         "a": "hello",
         "m": {"sub_k2": "v2", "sub_k1": 1},
-        "arr": [1, 2, 3]
+        "arr": [1, 2, 3],
     }
     dict_b = {
         "arr": [1, 2, 3],
         "m": {"sub_k1": 1, "sub_k2": "v2"},
         "a": "hello",
-        "z": 100
+        "z": 100,
     }
 
     canon_a = canonicalize_json(dict_a)
@@ -401,7 +465,9 @@ def test_canonical_json_and_hashing() -> bool:
     if canon_a == canon_b and hash_a == hash_b:
         print(f"  OK: Key ordering invariance verified -> {hash_a}")
     else:
-        print(f"  FAIL: Canonical output differs across key orders: {canon_a} != {canon_b}")
+        print(
+            f"  FAIL: Canonical output differs across key orders: {canon_a} != {canon_b}"
+        )
         return False
 
     # Semantic mutation test (hash sensitivity)
@@ -455,7 +521,7 @@ def test_invalid_examples(schemas: dict[str, dict[str, Any]]) -> bool:
         "invalid_mutable_version.json": "MUTATION_OF_FROZEN_RECORD",
         "invalid_non_finite_number.json": "NON_FINITE_NUMBER_VALUE",
         "invalid_timezone_ambiguous.json": "AMBIGUOUS_TIMEZONE_FORMAT",
-        "invalid_cross_policy_account_reference.json": "CROSS_POLICY_ACCOUNT_CONTAMINATION"
+        "invalid_cross_policy_account_reference.json": "CROSS_POLICY_ACCOUNT_CONTAMINATION",
     }
 
     all_passed = True
@@ -474,7 +540,9 @@ def test_invalid_examples(schemas: dict[str, dict[str, Any]]) -> bool:
         if violation_found:
             print(f"  OK: {ivf.name} demonstrates {v_type}")
         else:
-            print(f"  FAIL: {ivf.name} merely declares {v_type}; no violation was proven")
+            print(
+                f"  FAIL: {ivf.name} merely declares {v_type}; no violation was proven"
+            )
             all_passed = False
 
     return all_passed
@@ -501,9 +569,9 @@ def _verify_invalid_fixture(
             return False
         if validate_data(decision, schemas["proposed_decision"]):
             return False
-        return _parse_utc_timestamp(observation["knowledge_time"]) > _parse_utc_timestamp(
-            data["round_knowledge_cutoff"]
-        )
+        return _parse_utc_timestamp(
+            observation["knowledge_time"]
+        ) > _parse_utc_timestamp(data["round_knowledge_cutoff"])
 
     if filename == "invalid_duplicate_identity.json":
         episode = data["invalid_episode_definition"]
@@ -517,10 +585,9 @@ def _verify_invalid_fixture(
             return False
         if validate_data(mutation, schemas["policy_version"]):
             return False
-        return (
-            original["policy_version_id"] == mutation["policy_version_id"]
-            and compute_record_hash(original) != compute_record_hash(mutation)
-        )
+        return original["policy_version_id"] == mutation[
+            "policy_version_id"
+        ] and compute_record_hash(original) != compute_record_hash(mutation)
 
     if filename == "invalid_non_finite_number.json":
         metric = data["invalid_metric_record_with_nan"]
@@ -530,7 +597,9 @@ def _verify_invalid_fixture(
         observation_errors = validate_data(
             data["invalid_observation_with_local_offset"], schemas["observation"]
         )
-        round_errors = validate_data(data["invalid_round_with_naive_timestamp"], schemas["round"])
+        round_errors = validate_data(
+            data["invalid_round_with_naive_timestamp"], schemas["round"]
+        )
         return bool(observation_errors and round_errors)
 
     if filename == "invalid_cross_policy_account_reference.json":
@@ -539,7 +608,8 @@ def _verify_invalid_fixture(
             return False
         policy_id = decision["policy_id"]
         return any(
-            action.get("parameters", {}).get("source_policy_id") not in (None, policy_id)
+            action.get("parameters", {}).get("source_policy_id")
+            not in (None, policy_id)
             for action in decision["requested_actions"]
         )
 
@@ -565,7 +635,9 @@ def test_secret_redaction() -> bool:
         for pat in suspicious_patterns:
             matches = pat.findall(content)
             if matches:
-                print(f"  FAIL: Found suspicious pattern in {file_path.name}: {matches}")
+                print(
+                    f"  FAIL: Found suspicious pattern in {file_path.name}: {matches}"
+                )
                 all_passed = False
 
     if all_passed:
@@ -595,7 +667,9 @@ def test_documentation_links() -> bool:
 
             target_path = (md_path.parent / target_clean).resolve()
             if not target_path.exists():
-                print(f"  FAIL: Broken link in {md_path.relative_to(REPO_ROOT)}: [{text}]({target}) -> {target_clean} not found")
+                print(
+                    f"  FAIL: Broken link in {md_path.relative_to(REPO_ROOT)}: [{text}]({target}) -> {target_clean} not found"
+                )
                 all_passed = False
 
     if all_passed:
@@ -606,6 +680,7 @@ def test_documentation_links() -> bool:
 # ---------------------------------------------------------------------------
 # Main Execution
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     print("=" * 70)

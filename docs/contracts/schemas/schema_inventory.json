@@ -145,6 +145,14 @@
       "title": "SettlementOutcome",
       "file_path": "docs/contracts/schemas/settlement_outcome.v1.json",
       "description": "Terminal outcome of a pending transition evaluated at settlement time against observed market evidence."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v2/transition.v2.json",
+      "type_discriminator": "transition",
+      "schema_version": "2.0.0",
+      "title": "DeferredTransitionRecord",
+      "file_path": "docs/contracts/schemas/transition.v2.json",
+      "description": "Immutable record of state changes, resource deltas, and incurred costs applied to a policy virtual account for deferred paper settlement."
     }
   ]
 }

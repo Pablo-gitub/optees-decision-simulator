@@ -1,0 +1,32 @@
+{
+  "$type": "transition",
+  "schema_version": "2.0.0",
+  "transition_id": "trn_round2_reactive_transition",
+  "round_id": "rnd_round_2",
+  "policy_id": "pol-def_reactive_baseline",
+  "settlement_outcome_id": "set-out_round2_reactive_settled",
+  "economic_fill_time": "2026-08-01T00:00:00.000Z",
+  "effective_time": "2026-08-03T00:00:01Z",
+  "resource_deltas": [
+    {
+      "resource_id": "USDT",
+      "delta_quantity": "-60060.00",
+      "valuation_price": "1.00"
+    },
+    {
+      "resource_id": "BTC",
+      "delta_quantity": "1.00000000",
+      "valuation_price": "60000.00"
+    }
+  ],
+  "costs": [
+    {
+      "cost_type": "TRANSACTION_FEE",
+      "resource_id": "USDT",
+      "amount": "60.00"
+    }
+  ],
+  "total_cost_reference_unit": "60.00",
+  "account_state_before_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "account_state_after_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+}

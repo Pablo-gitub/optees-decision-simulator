@@ -719,6 +719,217 @@ class TransitionRecord:
 
 
 @dataclass(frozen=True)
+class DeferredTransitionRecord:
+    transition_id: str
+    round_id: str
+    policy_id: str
+    settlement_outcome_id: str
+    economic_fill_time: str
+    effective_time: str
+    resource_deltas: tuple[ResourceDelta, ...]
+    costs: tuple[CostItem, ...]
+    total_cost_reference_unit: Decimal
+    account_state_before_hash: str
+    account_state_after_hash: str
+    schema_version: str = "2.0.0"
+
+    def __post_init__(self) -> None:
+        if self.schema_version != "2.0.0":
+            raise ValueError("DeferredTransitionRecord schema_version must be 2.0.0")
+
+        if not _TRANSITION_ID_PATTERN.match(self.transition_id):
+            raise ValueError(f"Invalid transition_id: {self.transition_id}")
+        if not _ROUND_ID_PATTERN.match(self.round_id):
+            raise ValueError(f"Invalid round_id: {self.round_id}")
+        if not _POLICY_ID_PATTERN.match(self.policy_id):
+            raise ValueError(f"Invalid policy_id: {self.policy_id}")
+        if not _SETTLEMENT_OUTCOME_ID_PATTERN.match(self.settlement_outcome_id):
+            raise ValueError(f"Invalid settlement_outcome_id: {self.settlement_outcome_id}")
+        if not _SHA256_HASH_PATTERN.match(self.account_state_before_hash):
+            raise ValueError(f"Invalid account_state_before_hash: {self.account_state_before_hash}")
+        if not _SHA256_HASH_PATTERN.match(self.account_state_after_hash):
+            raise ValueError(f"Invalid account_state_after_hash: {self.account_state_after_hash}")
+
+        fill_dt = parse_utc_timestamp(self.economic_fill_time)
+        effective_dt = parse_utc_timestamp(self.effective_time)
+        if fill_dt > effective_dt:
+            raise ValueError(
+                f"economic_fill_time ({self.economic_fill_time}) cannot be after "
+                f"effective_time ({self.effective_time})"
+            )
+
+        if not isinstance(self.resource_deltas, (tuple, list)):
+            raise TypeError("resource_deltas must be a tuple or list")
+        if len(self.resource_deltas) == 0:
+            raise ValueError("resource_deltas must contain at least one item")
+        for delta in self.resource_deltas:
+            if not isinstance(delta, ResourceDelta):
+                raise TypeError(f"resource_deltas item must be ResourceDelta, got {type(delta)}")
+            if not isinstance(delta.resource_id, str) or not delta.resource_id:
+                raise ValueError("ResourceDelta resource_id must be non-empty string")
+            if isinstance(delta.delta_quantity, bool) or not isinstance(
+                delta.delta_quantity, Decimal
+            ):
+                raise TypeError("ResourceDelta delta_quantity must be a Decimal")
+            if delta.delta_quantity.is_nan() or delta.delta_quantity.is_infinite():
+                raise ValueError("ResourceDelta delta_quantity must be finite")
+            if isinstance(delta.valuation_price, bool) or not isinstance(
+                delta.valuation_price, Decimal
+            ):
+                raise TypeError("ResourceDelta valuation_price must be a Decimal")
+            if (
+                delta.valuation_price.is_nan()
+                or delta.valuation_price.is_infinite()
+                or delta.valuation_price <= Decimal("0")
+            ):
+                raise ValueError("ResourceDelta valuation_price must be a positive finite Decimal")
+
+        if not isinstance(self.costs, (tuple, list)):
+            raise TypeError("costs must be a tuple or list")
+        for cost in self.costs:
+            if not isinstance(cost, CostItem):
+                raise TypeError(f"costs item must be CostItem, got {type(cost)}")
+            if not isinstance(cost.resource_id, str) or not cost.resource_id:
+                raise ValueError("CostItem resource_id must be non-empty string")
+            if isinstance(cost.amount, bool) or not isinstance(cost.amount, Decimal):
+                raise TypeError("CostItem amount must be a Decimal")
+            if cost.amount.is_nan() or cost.amount.is_infinite() or cost.amount < Decimal("0"):
+                raise ValueError("CostItem amount must be a non-negative finite Decimal")
+
+        if isinstance(self.total_cost_reference_unit, bool) or not isinstance(
+            self.total_cost_reference_unit, Decimal
+        ):
+            raise TypeError("total_cost_reference_unit must be a Decimal")
+        if (
+            self.total_cost_reference_unit.is_nan()
+            or self.total_cost_reference_unit.is_infinite()
+            or self.total_cost_reference_unit < Decimal("0")
+        ):
+            raise ValueError("total_cost_reference_unit must be a non-negative finite Decimal")
+
+        object.__setattr__(self, "resource_deltas", tuple(self.resource_deltas))
+        object.__setattr__(self, "costs", tuple(self.costs))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "$type": "transition",
+            "schema_version": self.schema_version,
+            "transition_id": self.transition_id,
+            "round_id": self.round_id,
+            "policy_id": self.policy_id,
+            "settlement_outcome_id": self.settlement_outcome_id,
+            "economic_fill_time": self.economic_fill_time,
+            "effective_time": self.effective_time,
+            "resource_deltas": [d.to_dict() for d in self.resource_deltas],
+            "costs": [c.to_dict() for c in self.costs],
+            "total_cost_reference_unit": format_decimal(self.total_cost_reference_unit),
+            "account_state_before_hash": self.account_state_before_hash,
+            "account_state_after_hash": self.account_state_after_hash,
+        }
+
+    def compute_hash(self) -> str:
+        return compute_record_hash(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> DeferredTransitionRecord:
+        if not isinstance(data, dict):
+            raise TypeError("data must be a dictionary")
+        if "outcome_id" in data:
+            raise ValueError("DeferredTransitionRecord forbids outcome_id")
+
+        expected_keys = {
+            "$type",
+            "schema_version",
+            "transition_id",
+            "round_id",
+            "policy_id",
+            "settlement_outcome_id",
+            "economic_fill_time",
+            "effective_time",
+            "resource_deltas",
+            "costs",
+            "total_cost_reference_unit",
+            "account_state_before_hash",
+            "account_state_after_hash",
+        }
+        actual_keys = set(data.keys())
+        if actual_keys != expected_keys:
+            unknown = sorted(actual_keys - expected_keys)
+            missing = sorted(expected_keys - actual_keys)
+            raise ValueError(
+                f"DeferredTransitionRecord fields do not match schema v2 "
+                f"(missing={missing}, unknown={unknown})"
+            )
+
+        if data["$type"] != "transition":
+            raise ValueError(
+                f"DeferredTransitionRecord $type must be transition, got {data['$type']}"
+            )
+        if data["schema_version"] != "2.0.0":
+            raise ValueError(
+                "DeferredTransitionRecord schema_version must be 2.0.0, "
+                f"got {data['schema_version']}"
+            )
+
+        raw_deltas = data["resource_deltas"]
+        if not isinstance(raw_deltas, list):
+            raise TypeError("resource_deltas must be a list")
+        deltas: list[ResourceDelta] = []
+        for d in raw_deltas:
+            if not isinstance(d, dict) or set(d.keys()) != {
+                "resource_id",
+                "delta_quantity",
+                "valuation_price",
+            }:
+                raise ValueError("Invalid ResourceDelta payload")
+            if isinstance(d["delta_quantity"], bool) or isinstance(d["valuation_price"], bool):
+                raise TypeError("Numeric fields in ResourceDelta cannot be boolean")
+            deltas.append(
+                ResourceDelta(
+                    resource_id=d["resource_id"],
+                    delta_quantity=Decimal(str(d["delta_quantity"])),
+                    valuation_price=Decimal(str(d["valuation_price"])),
+                )
+            )
+
+        raw_costs = data["costs"]
+        if not isinstance(raw_costs, list):
+            raise TypeError("costs must be a list")
+        costs: list[CostItem] = []
+        for c in raw_costs:
+            if not isinstance(c, dict) or set(c.keys()) != {"cost_type", "resource_id", "amount"}:
+                raise ValueError("Invalid CostItem payload")
+            if isinstance(c["amount"], bool):
+                raise TypeError("CostItem amount cannot be boolean")
+            costs.append(
+                CostItem(
+                    cost_type=CostType(c["cost_type"]),
+                    resource_id=c["resource_id"],
+                    amount=Decimal(str(c["amount"])),
+                )
+            )
+
+        if isinstance(data["total_cost_reference_unit"], bool):
+            raise TypeError("total_cost_reference_unit cannot be boolean")
+        tot_cost = Decimal(str(data["total_cost_reference_unit"]))
+
+        return cls(
+            transition_id=data["transition_id"],
+            round_id=data["round_id"],
+            policy_id=data["policy_id"],
+            settlement_outcome_id=data["settlement_outcome_id"],
+            economic_fill_time=data["economic_fill_time"],
+            effective_time=data["effective_time"],
+            resource_deltas=tuple(deltas),
+            costs=tuple(costs),
+            total_cost_reference_unit=tot_cost,
+            account_state_before_hash=data["account_state_before_hash"],
+            account_state_after_hash=data["account_state_after_hash"],
+            schema_version=data["schema_version"],
+        )
+
+
+@dataclass(frozen=True)
 class TargetBarRule:
     series_id: str
     selection_rule: str = "FIRST_OPEN_GE_CUTOFF"
