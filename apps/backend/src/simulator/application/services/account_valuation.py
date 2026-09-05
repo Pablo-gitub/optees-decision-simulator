@@ -32,7 +32,7 @@ class AccountValuationService:
         round_id: str,
         round_index: int,
         as_of_time: str,
-        valuation_marks: Mapping[str, PriceEvidence | Decimal],
+        valuation_marks: Mapping[str, PriceEvidence],
         account_state_id: str | None = None,
     ) -> VirtualAccountState:
         """Produce a mark-to-market VirtualAccountState from provided valuation marks.
@@ -42,7 +42,7 @@ class AccountValuationService:
             round_id: Authoritative round ID triggering revaluation.
             round_index: Round index of the revalued account state.
             as_of_time: UTC timestamp (round cutoff) of the valuation.
-            valuation_marks: Mapping of resource_id -> PriceEvidence | Decimal.
+            valuation_marks: Mapping of resource_id to provenance-bearing PriceEvidence.
             account_state_id: Optional ID for the new state. If omitted,
                 defaults to 'acc-state_{round_id}_{policy_id}'.
 
@@ -82,33 +82,27 @@ class AccountValuationService:
             if not isinstance(res_id, str) or not res_id.strip():
                 raise ValueError("valuation_marks resource_id must be a non-empty string")
 
-            if isinstance(mark, PriceEvidence):
-                if mark.resource_id != res_id:
-                    raise ValueError(
-                        f"Valuation mark key '{res_id}' does not match PriceEvidence "
-                        f"resource_id '{mark.resource_id}'"
-                    )
-                if mark.price.is_nan() or mark.price.is_infinite() or mark.price <= Decimal("0"):
-                    raise ValueError(
-                        f"PriceEvidence for '{res_id}' must be positive finite Decimal"
-                    )
-                if mark.knowledge_time is not None:
-                    kt = parse_utc_timestamp(mark.knowledge_time)
-                    if kt > cutoff_dt:
-                        raise TemporalLeakageError(
-                            f"PriceEvidence for '{res_id}' has future knowledge_time "
-                            f"({mark.knowledge_time}) relative to cutoff ({as_of_time})"
-                        )
-                clean_prices[res_id] = mark.price
-            elif isinstance(mark, Decimal):
-                if mark.is_nan() or mark.is_infinite() or mark <= Decimal("0"):
-                    raise ValueError(f"Decimal mark for '{res_id}' must be positive finite")
-                clean_prices[res_id] = mark
-            else:
+            if not isinstance(mark, PriceEvidence):
                 raise TypeError(
-                    f"Valuation mark for '{res_id}' must be PriceEvidence or Decimal, "
+                    f"Valuation mark for '{res_id}' must be PriceEvidence, "
                     f"got {type(mark).__name__}"
                 )
+            if mark.resource_id != res_id:
+                raise ValueError(
+                    f"Valuation mark key '{res_id}' does not match PriceEvidence "
+                    f"resource_id '{mark.resource_id}'"
+                )
+            if mark.price.is_nan() or mark.price.is_infinite() or mark.price <= Decimal("0"):
+                raise ValueError(f"PriceEvidence for '{res_id}' must be positive finite Decimal")
+            if mark.knowledge_time is None:
+                raise ValueError(f"PriceEvidence for '{res_id}' must include knowledge_time")
+            kt = parse_utc_timestamp(mark.knowledge_time)
+            if kt > cutoff_dt:
+                raise TemporalLeakageError(
+                    f"PriceEvidence for '{res_id}' has future knowledge_time "
+                    f"({mark.knowledge_time}) relative to cutoff ({as_of_time})"
+                )
+            clean_prices[res_id] = mark.price
 
         # Check required marks for held non-reference resources
         unallocated_cash = Decimal("0.00")

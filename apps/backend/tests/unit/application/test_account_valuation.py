@@ -15,6 +15,18 @@ from simulator.domain.models import (
 )
 
 
+def _mark(resource_id: str, price: str, knowledge_time="2026-08-02T00:00:00Z"):
+    return PriceEvidence(
+        resource_id=resource_id,
+        price=Decimal(price),
+        observation_id=f"obs_{resource_id}",
+        event_time=knowledge_time,
+        knowledge_time=knowledge_time,
+        revision=1,
+        staleness_seconds=Decimal("0.0"),
+    )
+
+
 @pytest.fixture
 def genesis_account():
     return VirtualAccountState(
@@ -120,7 +132,7 @@ def test_reference_only_account():
 def test_missing_mark_for_held_asset(genesis_account):
     # Missing res_eth
     marks = {
-        "res_btc": Decimal("65000.00"),
+        "res_btc": _mark("res_btc", "65000.00"),
     }
     with pytest.raises(
         ValueError,
@@ -146,7 +158,7 @@ def test_mark_mismatch(genesis_account):
             revision=None,
             staleness_seconds=Decimal("0.0"),
         ),
-        "res_eth": Decimal("3500.00"),
+        "res_eth": _mark("res_eth", "3500.00"),
     }
     with pytest.raises(ValueError, match="does not match PriceEvidence resource_id"):
         AccountValuationService.revalue_account(
@@ -169,7 +181,7 @@ def test_future_knowledge_rejected(genesis_account):
             revision=1,
             staleness_seconds=Decimal("0.0"),
         ),
-        "res_eth": Decimal("3500.00"),
+        "res_eth": _mark("res_eth", "3500.00"),
     }
     with pytest.raises(TemporalLeakageError, match="future knowledge_time"):
         AccountValuationService.revalue_account(
@@ -188,7 +200,10 @@ def test_non_positive_or_non_finite_mark(genesis_account):
             round_id="rnd_001",
             round_index=1,
             as_of_time="2026-08-02T00:00:00Z",
-            valuation_marks={"res_btc": Decimal("0.00"), "res_eth": Decimal("3500.00")},
+            valuation_marks={
+                "res_btc": _mark("res_btc", "0.00"),
+                "res_eth": _mark("res_eth", "3500.00"),
+            },
         )
 
     with pytest.raises(ValueError):
@@ -197,14 +212,31 @@ def test_non_positive_or_non_finite_mark(genesis_account):
             round_id="rnd_001",
             round_index=1,
             as_of_time="2026-08-02T00:00:00Z",
-            valuation_marks={"res_btc": Decimal("NaN"), "res_eth": Decimal("3500.00")},
+            valuation_marks={
+                "res_btc": _mark("res_btc", "NaN"),
+                "res_eth": _mark("res_eth", "3500.00"),
+            },
+        )
+
+
+def test_raw_decimal_mark_is_rejected_without_provenance(genesis_account):
+    with pytest.raises(TypeError, match="must be PriceEvidence"):
+        AccountValuationService.revalue_account(
+            current_account=genesis_account,
+            round_id="rnd_001",
+            round_index=1,
+            as_of_time="2026-08-02T00:00:00Z",
+            valuation_marks={
+                "res_btc": Decimal("65000.00"),  # type: ignore[dict-item]
+                "res_eth": _mark("res_eth", "3500.00"),
+            },
         )
 
 
 def test_deterministic_hash_production(genesis_account):
     marks = {
-        "res_btc": Decimal("65000.00"),
-        "res_eth": Decimal("3500.00"),
+        "res_btc": _mark("res_btc", "65000.00"),
+        "res_eth": _mark("res_eth", "3500.00"),
     }
     rev1 = AccountValuationService.revalue_account(
         current_account=genesis_account,

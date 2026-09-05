@@ -1,5 +1,6 @@
 """Unit tests for deferred atomic persistence in InMemoryStore (DS-02D2C1A)."""
 
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
@@ -40,6 +41,8 @@ from simulator.domain.models import (
     EpisodeRun,
     FailurePolicySpec,
     InitialAccountSpec,
+    MetricRecord,
+    MetricsData,
     PendingTransitionRecord,
     PolicyVersionRef,
     ProposedDecision,
@@ -147,6 +150,28 @@ def _make_proposal(
         desired_allocations=(),
         requested_actions=requested_actions,
         rationale=DecisionRationale(method="test"),
+    )
+
+
+def _make_metric(run_id: str, metric_id="metric_001") -> MetricRecord:
+    return MetricRecord(
+        metric_record_id=metric_id,
+        run_id=run_id,
+        policy_id="pol-def_alpha",
+        round_index=0,
+        calculated_at="2026-08-01T00:00:02Z",
+        metrics=MetricsData(
+            final_net_value=Decimal("10000.00"),
+            total_return=0.0,
+            max_drawdown=0.0,
+            volatility=0.0,
+            turnover=0.0,
+            total_transaction_costs=Decimal("0.00"),
+            rejected_decision_count=0,
+            solver_call_count=0,
+            validation_failure_count=0,
+            execution_wall_time_seconds=0.0,
+        ),
     )
 
 
@@ -423,7 +448,7 @@ def test_final_round_plus_terminal_commit(store_with_run):
         started_at=run.started_at,
         ended_at="2026-08-01T00:00:02Z",
         current_round_index=1,
-        total_rounds=1,
+        total_rounds=run.total_rounds,
         final_state_hash=terminal_rec.compute_hash(),
     )
 
@@ -702,8 +727,19 @@ def test_fault_injection_leaves_store_intact(store_with_run):
         policy_round_records=(pol_a, pol_b),
         state_merkle_hash=compute_deferred_state_merkle_hash(None, (pol_a, pol_b)),
     )
+    progressed_run = EpisodeRun(
+        run_id=run.run_id,
+        episode_id=run.episode_id,
+        episode_definition_hash=run.episode_definition_hash,
+        lifecycle_status=LifecycleStatus.RUNNING,
+        started_at=run.started_at,
+        ended_at=None,
+        current_round_index=1,
+        total_rounds=run.total_rounds,
+        final_state_hash=None,
+    )
     commit = RoundCommit(
-        run=run,
+        run=progressed_run,
         round_record=round_0,
         proposed_decisions=(prop1, prop2),
     )
@@ -771,6 +807,7 @@ def test_round_commit_exact_retry_idempotency_and_drift(store_with_run):
         policy_round_records=(),
         state_merkle_hash="sha256:" + "0" * 64,
     )
+    metric = _make_metric(run_id)
     commit = RoundCommit(
         run=EpisodeRun(
             run_id=run_id,
@@ -784,8 +821,13 @@ def test_round_commit_exact_retry_idempotency_and_drift(store_with_run):
             final_state_hash=None,
         ),
         round_record=v1_round,
+        metrics=(metric,),
     )
     store.commit_round(commit)
+
+    # A retry that silently omits part of the original batch is not exact.
+    with pytest.raises(FrozenRecordMutationError, match="payload is not identical"):
+        store.commit_round(replace(commit, metrics=()))
 
     # Identical retry must succeed idempotently
     store.commit_round(commit)

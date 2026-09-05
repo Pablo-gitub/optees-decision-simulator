@@ -71,6 +71,39 @@ class DeferredConfiguration:
                 f"Unsupported deadline_policy: expected 'inclusive', got {self.deadline_policy!r}"
             )
 
+        for name, value in (
+            ("resource_to_series_map", self.resource_to_series_map),
+            ("scheduled_openings", self.scheduled_openings),
+            ("scheduled_deadlines", self.scheduled_deadlines),
+        ):
+            if isinstance(value, bool) or not isinstance(value, Mapping) or not value:
+                raise DeferredConfigurationError(f"{name} must be a non-empty mapping")
+        resources = list(self.resource_to_series_map.items())
+        for resource_id, series_id in resources:
+            _validate_non_empty_str(resource_id, "resource_to_series_map resource key")
+            _validate_non_empty_str(series_id, f"series for resource {resource_id!r}")
+        series_ids = [series_id for _, series_id in resources]
+        if len(series_ids) != len(set(series_ids)):
+            raise DeferredConfigurationError("resource_to_series_map contains duplicate series_id")
+        if set(self.scheduled_openings) != set(self.scheduled_deadlines):
+            raise DeferredConfigurationError("scheduled opening and deadline keys must match")
+        for cutoff, opening in self.scheduled_openings.items():
+            _validate_non_empty_str(cutoff, "scheduled cutoff key")
+            _validate_non_empty_str(opening, f"opening for {cutoff}")
+            deadline = self.scheduled_deadlines[cutoff]
+            _validate_non_empty_str(deadline, f"deadline for {cutoff}")
+            cutoff_dt = parse_utc_timestamp(cutoff)
+            opening_dt = parse_utc_timestamp(opening)
+            deadline_dt = parse_utc_timestamp(deadline)
+            if opening_dt < cutoff_dt:
+                raise DeferredConfigurationError(
+                    f"Scheduled opening ({opening}) cannot precede cutoff ({cutoff})"
+                )
+            if deadline_dt < opening_dt:
+                raise DeferredConfigurationError(
+                    f"Scheduled deadline ({deadline}) cannot precede opening ({opening})"
+                )
+
         object.__setattr__(
             self, "resource_to_series_map", MappingProxyType(dict(self.resource_to_series_map))
         )
@@ -181,6 +214,8 @@ def parse_deferred_configuration(
     if not deadlines_raw:
         raise DeferredConfigurationError("scheduled_deadlines must not be empty")
 
+    for key in (*openings_raw.keys(), *deadlines_raw.keys()):
+        _validate_non_empty_str(key, "scheduled cutoff key")
     openings_keys = set(openings_raw.keys())
     deadlines_keys = set(deadlines_raw.keys())
     if openings_keys != deadlines_keys:
@@ -197,7 +232,14 @@ def parse_deferred_configuration(
 
     # Validate against declared cutoffs if provided
     if declared_cutoffs is not None:
+        if isinstance(declared_cutoffs, (str, bytes)):
+            raise DeferredConfigurationError("declared_cutoffs must be a sequence of timestamps")
+        for cutoff in declared_cutoffs:
+            _validate_non_empty_str(cutoff, "declared cutoff")
+            parse_utc_timestamp(cutoff)
         declared_set = set(declared_cutoffs)
+        if len(declared_set) != len(declared_cutoffs):
+            raise DeferredConfigurationError("declared_cutoffs must not contain duplicates")
         if openings_keys != declared_set:
             missing_cutoffs = sorted(declared_set - openings_keys)
             extra_cutoffs = sorted(openings_keys - declared_set)

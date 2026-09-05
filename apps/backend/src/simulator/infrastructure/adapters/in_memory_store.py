@@ -7,6 +7,7 @@ from simulator.application.ports.persistence import (
     RoundCommit,
     TerminalCommit,
 )
+from simulator.domain.canonical import compute_record_hash
 from simulator.domain.deferred_round import (
     DeferredRoundRecord,
     compute_deferred_state_merkle_hash,
@@ -70,6 +71,8 @@ class InMemoryStore(PersistencePort):
         self._deferred_transitions_by_run: dict[str, list[DeferredTransitionRecord]] = {}
         self._terminal_records: dict[str, DeferredRunTerminalRecord] = {}
         self._active_pending: dict[tuple[str, str], PendingStateReference | None] = {}
+        self._round_commit_fingerprints: dict[tuple[str, str], str] = {}
+        self._terminal_commit_fingerprints: dict[str, str] = {}
 
     def save_episode_definition(self, episode: EpisodeDefinition) -> None:
         if episode.episode_id in self._episode_definitions:
@@ -145,6 +148,11 @@ class InMemoryStore(PersistencePort):
             (r for r in existing_rounds if r.round_id == commit.round_record.round_id), None
         )
         if matching_round is not None:
+            expected_fingerprint = self._round_commit_fingerprints.get(
+                (run_id, commit.round_record.round_id)
+            )
+            if expected_fingerprint != self._round_commit_fingerprint(commit):
+                raise FrozenRecordMutationError("Round commit retry payload is not identical")
             if matching_round.compute_hash() != commit.round_record.compute_hash():
                 raise FrozenRecordMutationError(
                     f"Round {commit.round_record.round_id} already exists with different hash"
@@ -202,7 +210,7 @@ class InMemoryStore(PersistencePort):
                 ):
                     raise FrozenRecordMutationError("Terminal record mismatch on retry")
 
-            # Identical payload retry -> idempotent no-op
+            # Complete payload is identical -> idempotent no-op.
             return
 
         # --- 2. Lifecycle and Concurrency Pre-conditions ---
@@ -221,6 +229,27 @@ class InMemoryStore(PersistencePort):
         expected_parent_hash = existing_rounds[-1].compute_hash() if existing_rounds else None
         if commit.round_record.parent_round_hash != expected_parent_hash:
             raise FrozenRecordMutationError("Parent round hash mismatch: concurrency conflict")
+        self._validate_run_identity(existing_run, commit.run)
+        if commit.run.current_round_index != commit.round_record.round_index + 1:
+            raise FrozenRecordMutationError(
+                "EpisodeRun.current_round_index must follow the committed round"
+            )
+
+        for metric in commit.metrics:
+            if metric.run_id != run_id:
+                raise FrozenRecordMutationError("MetricRecord run_id does not match commit run")
+        for record in (
+            *commit.proposed_decisions,
+            *commit.decision_outcomes,
+            *commit.transitions,
+            *commit.pending_transitions,
+            *commit.settlement_outcomes,
+            *commit.deferred_transitions,
+        ):
+            if record.round_id != commit.round_record.round_id:
+                raise FrozenRecordMutationError(
+                    f"{type(record).__name__} round_id does not match committed round"
+                )
 
         # --- 3. Staged Duplicate and Collision Validations (Candidate Check) ---
         self._require_new_ids(
@@ -425,9 +454,61 @@ class InMemoryStore(PersistencePort):
                             f"pending_after transition belongs to {pt.policy_id}, expected {pol_id}"
                         )
 
+            policy_records = commit.round_record.policy_round_records
+            referenced_proposals = {
+                item.proposed_decision_hash
+                for item in policy_records
+                if item.proposed_decision_hash is not None
+            }
+            referenced_decisions = {
+                item.decision_outcome_hash
+                for item in policy_records
+                if item.decision_outcome_hash is not None
+            }
+            referenced_settlements = {
+                item.settlement_outcome_hash
+                for item in policy_records
+                if item.settlement_outcome_hash is not None
+            }
+            referenced_transitions = {
+                item.deferred_transition_hash
+                for item in policy_records
+                if item.deferred_transition_hash is not None
+            }
+            referenced_pending = {
+                item.pending_after.pending_transition_hash
+                for item in policy_records
+                if item.pending_after is not None
+            }
+            referenced_accounts = {item.account_state_after_hash for item in policy_records}
+            staged_reference_pairs = (
+                (set(staged_proposals_map), referenced_proposals, "proposed decision"),
+                (set(staged_dec_outcomes_map), referenced_decisions, "decision outcome"),
+                (set(staged_def_transitions_map), referenced_transitions, "deferred transition"),
+                (set(staged_pending_map), referenced_pending, "pending transition"),
+                (set(staged_accounts_map), referenced_accounts, "account state"),
+            )
+            for staged_hashes, referenced_hashes, label in staged_reference_pairs:
+                if not staged_hashes.issubset(referenced_hashes):
+                    raise FrozenRecordMutationError(
+                        f"Round commit contains an unreferenced {label}"
+                    )
+            # Settlement outcomes can additionally be referenced by a terminal
+            # record validated below.
+            if commit.terminal_record is None and not set(staged_settle_outcomes_map).issubset(
+                referenced_settlements
+            ):
+                raise FrozenRecordMutationError(
+                    "Round commit contains an unreferenced settlement outcome"
+                )
+
         # --- 5. Terminal Record Invariant Checks (if present in RoundCommit) ---
         if commit.terminal_record is not None:
             term = commit.terminal_record
+            if not isinstance(commit.round_record, DeferredRoundRecord):
+                raise FrozenRecordMutationError(
+                    "Deferred terminal record requires a DeferredRoundRecord"
+                )
             if term.run_id != run_id:
                 raise FrozenRecordMutationError(
                     "Terminal record run_id does not match commit run_id"
@@ -505,46 +586,106 @@ class InMemoryStore(PersistencePort):
                                 "in terminal record"
                             )
 
-            if term.terminal_record_id in self._terminal_records:
+            self._validate_terminal_policy_set(term, commit.run.episode_id)
+            referenced_terminal_outcomes = {
+                p.settlement_outcome_hash
+                for p in term.policy_terminal_records
+                if p.settlement_outcome_hash is not None
+            }
+            all_referenced_outcomes = referenced_settlements | referenced_terminal_outcomes
+            if all_referenced_outcomes != set(staged_term_so_map):
+                raise FrozenRecordMutationError(
+                    "Terminal settlement outcomes must exactly match terminal references"
+                )
+
+            if any(
+                stored.terminal_record_id == term.terminal_record_id
+                for stored in self._terminal_records.values()
+            ):
                 raise DuplicateIdentityError(
                     f"DeferredRunTerminalRecord {term.terminal_record_id} already exists"
                 )
 
-        # --- 6. Publish All Records Atomically ---
+        # --- 6. Build a complete candidate state, then swap it into visibility. ---
+        proposed_decisions = dict(self._proposed_decisions)
+        decision_outcomes = dict(self._decision_outcomes)
+        transitions = dict(self._transitions)
+        account_states = {key: list(value) for key, value in self._account_states.items()}
+        account_states_by_hash = dict(self._account_states_by_hash)
+        pending_transitions = dict(self._pending_transitions)
+        pending_by_run = {
+            key: list(value) for key, value in self._pending_transitions_by_run.items()
+        }
+        settlement_outcomes = dict(self._settlement_outcomes)
+        settlement_by_run = {
+            key: list(value) for key, value in self._settlement_outcomes_by_run.items()
+        }
+        deferred_transitions = dict(self._deferred_transitions)
+        deferred_by_run = {
+            key: list(value) for key, value in self._deferred_transitions_by_run.items()
+        }
+        rounds = {key: list(value) for key, value in self._rounds.items()}
+        metrics = {key: list(value) for key, value in self._metrics.items()}
+        active_pending = dict(self._active_pending)
+        terminal_records = dict(self._terminal_records)
+        episode_runs = dict(self._episode_runs)
+        fingerprints = dict(self._round_commit_fingerprints)
+
         for item in commit.proposed_decisions:
-            self._proposed_decisions[item.decision_id] = item
+            proposed_decisions[item.decision_id] = item
         for item in commit.decision_outcomes:
-            self._decision_outcomes[item.outcome_id] = item
+            decision_outcomes[item.outcome_id] = item
         for item in commit.transitions:
-            self._transitions[item.transition_id] = item
+            transitions[item.transition_id] = item
         for item in commit.account_states:
-            self._account_states.setdefault((run_id, item.policy_id), []).append(item)
-            self._account_states_by_hash[(run_id, item.compute_hash())] = item
+            account_states.setdefault((run_id, item.policy_id), []).append(item)
+            account_states_by_hash[(run_id, item.compute_hash())] = item
 
         for item in commit.pending_transitions:
-            self._pending_transitions[item.pending_transition_id] = item
-            self._pending_transitions_by_run.setdefault(run_id, []).append(item)
+            pending_transitions[item.pending_transition_id] = item
+            pending_by_run.setdefault(run_id, []).append(item)
         for item in commit.settlement_outcomes:
-            self._settlement_outcomes[item.settlement_outcome_id] = item
-            self._settlement_outcomes_by_run.setdefault(run_id, []).append(item)
+            settlement_outcomes[item.settlement_outcome_id] = item
+            settlement_by_run.setdefault(run_id, []).append(item)
         for item in commit.deferred_transitions:
-            self._deferred_transitions[item.transition_id] = item
-            self._deferred_transitions_by_run.setdefault(run_id, []).append(item)
+            deferred_transitions[item.transition_id] = item
+            deferred_by_run.setdefault(run_id, []).append(item)
 
-        self._rounds.setdefault(run_id, []).append(commit.round_record)
+        rounds.setdefault(run_id, []).append(commit.round_record)
         for item in commit.metrics:
-            self._metrics.setdefault(item.run_id, []).append(item)
+            metrics.setdefault(run_id, []).append(item)
 
         # Update active pending tracking
         if commit.terminal_record is not None:
             for p in commit.terminal_record.policy_terminal_records:
-                self._active_pending[(run_id, p.policy_id)] = None
-            self._terminal_records[run_id] = commit.terminal_record
+                active_pending[(run_id, p.policy_id)] = None
+            terminal_records[run_id] = commit.terminal_record
         elif isinstance(commit.round_record, DeferredRoundRecord):
             for p in commit.round_record.policy_round_records:
-                self._active_pending[(run_id, p.policy_id)] = p.pending_after
+                active_pending[(run_id, p.policy_id)] = p.pending_after
 
-        self._episode_runs[run_id] = commit.run
+        episode_runs[run_id] = commit.run
+        fingerprints[(run_id, commit.round_record.round_id)] = self._round_commit_fingerprint(
+            commit
+        )
+
+        self._proposed_decisions = proposed_decisions
+        self._decision_outcomes = decision_outcomes
+        self._transitions = transitions
+        self._account_states = account_states
+        self._account_states_by_hash = account_states_by_hash
+        self._pending_transitions = pending_transitions
+        self._pending_transitions_by_run = pending_by_run
+        self._settlement_outcomes = settlement_outcomes
+        self._settlement_outcomes_by_run = settlement_by_run
+        self._deferred_transitions = deferred_transitions
+        self._deferred_transitions_by_run = deferred_by_run
+        self._rounds = rounds
+        self._metrics = metrics
+        self._active_pending = active_pending
+        self._terminal_records = terminal_records
+        self._episode_runs = episode_runs
+        self._round_commit_fingerprints = fingerprints
 
     def commit_terminal(self, commit: TerminalCommit) -> None:
         """Publish mid-episode or genesis cancellation as one atomic unit."""
@@ -559,6 +700,10 @@ class InMemoryStore(PersistencePort):
 
         # Exact Retry Idempotency
         if run_id in self._terminal_records:
+            if self._terminal_commit_fingerprints.get(run_id) != self._terminal_commit_fingerprint(
+                commit
+            ):
+                raise FrozenRecordMutationError("Terminal commit retry payload is not identical")
             stored_term = self._terminal_records[run_id]
             if stored_term.compute_hash() != term.compute_hash():
                 raise FrozenRecordMutationError(
@@ -591,6 +736,13 @@ class InMemoryStore(PersistencePort):
             raise FrozenRecordMutationError(
                 "EpisodeRun.final_state_hash must equal the terminal record hash"
             )
+        self._validate_run_identity(existing_run, commit.run)
+        if term.episode_id != commit.run.episode_id:
+            raise FrozenRecordMutationError("Terminal record episode_id does not match commit run")
+        self._validate_terminal_policy_set(term, commit.run.episode_id)
+        for metric in commit.metrics:
+            if metric.run_id != run_id:
+                raise FrozenRecordMutationError("MetricRecord run_id does not match commit run")
 
         rounds = self._rounds.get(run_id, [])
         if not rounds:
@@ -608,6 +760,11 @@ class InMemoryStore(PersistencePort):
                     "Genesis cancellation cannot include settlement outcomes"
                 )
             for p in term.policy_terminal_records:
+                state = self.get_account_state_by_hash(run_id, p.account_state_hash)
+                if state is None or state.policy_id != p.policy_id:
+                    raise FrozenRecordMutationError(
+                        f"Terminal account state for policy {p.policy_id} is not persisted"
+                    )
                 if p.pending_transition_hash is not None or p.settlement_outcome_hash is not None:
                     raise FrozenRecordMutationError(
                         "Genesis policy terminal record cannot have pending or outcome"
@@ -659,6 +816,22 @@ class InMemoryStore(PersistencePort):
                             "Policy without active pending cannot have terminal outcome"
                         )
 
+                state = self.get_account_state_by_hash(run_id, p.account_state_hash)
+                if state is None or state.policy_id != p.policy_id:
+                    raise FrozenRecordMutationError(
+                        f"Terminal account state for policy {p.policy_id} is not persisted"
+                    )
+
+            referenced_outcomes = {
+                p.settlement_outcome_hash
+                for p in term.policy_terminal_records
+                if p.settlement_outcome_hash is not None
+            }
+            if referenced_outcomes != set(staged_so_map):
+                raise FrozenRecordMutationError(
+                    "Terminal settlement outcomes must exactly match terminal references"
+                )
+
         self._require_new_ids(
             (item.settlement_outcome_id for item in commit.settlement_outcomes),
             self._settlement_outcomes,
@@ -672,22 +845,101 @@ class InMemoryStore(PersistencePort):
             existing_metric_ids,
             "MetricRecord",
         )
-        if term.terminal_record_id in self._terminal_records:
+        if any(
+            stored.terminal_record_id == term.terminal_record_id
+            for stored in self._terminal_records.values()
+        ):
             raise DuplicateIdentityError(
                 f"DeferredRunTerminalRecord {term.terminal_record_id} already exists"
             )
 
-        # Atomic publish
+        # Build the complete candidate state before making it visible.
+        settlement_outcomes = dict(self._settlement_outcomes)
+        settlement_by_run = {
+            key: list(value) for key, value in self._settlement_outcomes_by_run.items()
+        }
+        metrics = {key: list(value) for key, value in self._metrics.items()}
+        active_pending = dict(self._active_pending)
+        terminal_records = dict(self._terminal_records)
+        episode_runs = dict(self._episode_runs)
+        fingerprints = dict(self._terminal_commit_fingerprints)
         for item in commit.settlement_outcomes:
-            self._settlement_outcomes[item.settlement_outcome_id] = item
-            self._settlement_outcomes_by_run.setdefault(run_id, []).append(item)
+            settlement_outcomes[item.settlement_outcome_id] = item
+            settlement_by_run.setdefault(run_id, []).append(item)
         for item in commit.metrics:
-            self._metrics.setdefault(item.run_id, []).append(item)
+            metrics.setdefault(run_id, []).append(item)
         for p in term.policy_terminal_records:
-            self._active_pending[(run_id, p.policy_id)] = None
+            active_pending[(run_id, p.policy_id)] = None
 
-        self._terminal_records[run_id] = term
-        self._episode_runs[run_id] = commit.run
+        terminal_records[run_id] = term
+        episode_runs[run_id] = commit.run
+        fingerprints[run_id] = self._terminal_commit_fingerprint(commit)
+
+        self._settlement_outcomes = settlement_outcomes
+        self._settlement_outcomes_by_run = settlement_by_run
+        self._metrics = metrics
+        self._active_pending = active_pending
+        self._terminal_records = terminal_records
+        self._episode_runs = episode_runs
+        self._terminal_commit_fingerprints = fingerprints
+
+    def _validate_terminal_policy_set(
+        self, terminal: DeferredRunTerminalRecord, episode_id: str
+    ) -> None:
+        episode = self._episode_definitions.get(episode_id)
+        if episode is None:
+            raise FrozenRecordMutationError(f"EpisodeDefinition {episode_id} not found")
+        expected = sorted(policy.policy_id for policy in episode.policy_versions)
+        actual = [record.policy_id for record in terminal.policy_terminal_records]
+        if actual != expected:
+            raise FrozenRecordMutationError(
+                f"Terminal policies {actual} do not match episode policies {expected}"
+            )
+
+    @staticmethod
+    def _validate_run_identity(existing: EpisodeRun, candidate: EpisodeRun) -> None:
+        if (
+            candidate.episode_id != existing.episode_id
+            or candidate.episode_definition_hash != existing.episode_definition_hash
+            or candidate.total_rounds != existing.total_rounds
+        ):
+            raise FrozenRecordMutationError("EpisodeRun immutable identity fields changed")
+
+    @staticmethod
+    def _round_commit_fingerprint(commit: RoundCommit) -> str:
+        return compute_record_hash(
+            {
+                "run": commit.run.compute_hash(),
+                "round": commit.round_record.compute_hash(),
+                "proposed_decisions": [item.compute_hash() for item in commit.proposed_decisions],
+                "decision_outcomes": [item.compute_hash() for item in commit.decision_outcomes],
+                "transitions": [item.compute_hash() for item in commit.transitions],
+                "account_states": [item.compute_hash() for item in commit.account_states],
+                "metrics": [item.compute_hash() for item in commit.metrics],
+                "pending_transitions": [item.compute_hash() for item in commit.pending_transitions],
+                "settlement_outcomes": [item.compute_hash() for item in commit.settlement_outcomes],
+                "deferred_transitions": [
+                    item.compute_hash() for item in commit.deferred_transitions
+                ],
+                "terminal_record": (
+                    commit.terminal_record.compute_hash()
+                    if commit.terminal_record is not None
+                    else None
+                ),
+            }
+        )
+
+    @staticmethod
+    def _terminal_commit_fingerprint(commit: TerminalCommit) -> str:
+        return compute_record_hash(
+            {
+                "expected_run_hash": commit.expected_run_hash,
+                "run": commit.run.compute_hash(),
+                "terminal_record": commit.terminal_record.compute_hash(),
+                "settlement_outcomes": [item.compute_hash() for item in commit.settlement_outcomes],
+                "metrics": [item.compute_hash() for item in commit.metrics],
+            }
+        )
 
     @staticmethod
     def _require_new_ids(ids, existing, record_type: str) -> None:

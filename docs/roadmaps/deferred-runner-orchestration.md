@@ -288,12 +288,16 @@ Report the incompatibility for a new reviewed planning unit.
 The foundations and persistence stage `DS-02D2C1A` is implemented and verified:
 typed deferred configuration, terminal record domain model and schema/examples,
 account valuation service, and atomic persistence with rollback and exact-retry
-idempotency.
+idempotency. Independent correction review additionally verifies complete-batch
+retry fingerprints, transaction-local candidate publication, terminal policy and
+account-state binding, run/round isolation, rejection of orphan staged records,
+and provenance-bearing valuation evidence.
 
 The next and only authorized step is implementation of `DS-02D2C1B`
 (EpisodeRunner deferred flow and evaluator integration). Completion of `DS-02D2C1`
 requires `DS-02D2C1B` implementation and separate independent review.
 
-`DS-02D2C1A` verification: 380 backend tests, the 21-schema/19-example contract
+`DS-02D2C1A` verification after correction: 381 backend tests, the
+21-schema/19-example contract
 validator, Ruff, formatting and diff checks pass. Existing synchronous and
 v1 behaviors remain completely untouched.

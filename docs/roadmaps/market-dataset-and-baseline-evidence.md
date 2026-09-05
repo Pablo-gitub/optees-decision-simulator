@@ -871,7 +871,9 @@ complete and reviewed. Gate `DS-D3B` is satisfied. `DS-02D2C0` implementation
 and review are complete.
 
 The foundations and atomic persistence work unit `DS-02D2C1A`
-([spec](deferred-runner-orchestration.md)) is implemented and verified.
+([spec](deferred-runner-orchestration.md)) is implemented and independently
+reviewed after exact-retry, atomic-publication, terminal-reference, isolation,
+and valuation-provenance corrections.
 The next and only authorized implementation step is `DS-02D2C1B`
 (EpisodeRunner deferred flow and evaluator integration). `DS-02D2C1` overall
 remains in progress until C1B is implemented and independently reviewed.
