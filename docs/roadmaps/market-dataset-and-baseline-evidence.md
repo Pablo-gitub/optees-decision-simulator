@@ -830,7 +830,8 @@ account invariants without episode orchestration.
 
 - [x] C0 record-bridge plan frozen: [deferred round v2](deferred-round-records.md).
 - [x] C0 record-bridge implemented and reviewed: [deferred round v2](deferred-round-records.md); 339 backend tests pass after identity, schema and execution-time corrections.
-- [ ] C1 detail and implementation: atomic persistence and runner orchestration.
+- [x] C1 plan frozen: [runner orchestration and atomic persistence](deferred-runner-orchestration.md).
+- [ ] C1 implementation and review (next executable block).
 - [ ] C2 detail and implementation: replay and end-to-end evidence.
 
 The v1 round requires an immediate outcome and cannot encode settlement of an
@@ -867,7 +868,7 @@ not runtime settlement enforcement, which remains in D2B/D2C.
 
 `DS-02D2A1`, `DS-02D2A2`, `DS-02D2B1`, and `DS-02D2B2` implementation are
 complete and reviewed. The corrected
-[DS-02D2B2 settlement service plan](deferred-settlement-services.md) closes B2.
-Gate `DS-D3B` is satisfied. `DS-02D2C0` implementation and independent review
-are complete. C1 and C2 still require detailed plans.
-`DS-02E` remains blocked until `DS-D3` is satisfied.
+Gate `DS-D3B` is satisfied. `DS-02D2C0` implementation and review are complete.
+The [DS-02D2C1 runner orchestration and persistence plan](deferred-runner-orchestration.md)
+is frozen; implementation is the next authorized work unit. C2 still requires
+detailed planning. `DS-02E` remains blocked until `DS-D3` is satisfied.
