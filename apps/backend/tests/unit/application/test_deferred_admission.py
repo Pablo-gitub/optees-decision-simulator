@@ -27,6 +27,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 
@@ -206,6 +207,46 @@ def _make_proposal(
 
 
 RESOURCE_MAP = {"BTC": "BTC_USDT_KLINE_1D", "ETH": "ETH_USDT_KLINE_1D"}
+
+
+@pytest.mark.parametrize("drift", ["hold", "episode", "expected_open_time", "pending_id"])
+def test_retry_rejects_identity_and_target_drift(drift):
+    episode = _make_episode_def()
+    account = _make_account_state()
+    proposal = _make_proposal()
+    before = account.compute_hash()
+
+    def admit(ep, prop, pending=None):
+        return DeferredAdmissionService.admit_decision(
+            ep, account, prop, "rnd_001", "2026-01-01T00:00:00Z", RESOURCE_MAP, pending
+        )
+
+    pending = admit(episode, proposal).pending_transition
+    assert admit(episode, proposal, pending).pending_transition is pending
+    if drift == "hold":
+        proposal = replace(
+            proposal, requested_actions=(RequestedAction(ActionType.HOLD, "USD", Decimal("0")),)
+        )
+    elif drift == "episode":
+        episode = replace(episode, episode_id="ep-def_other")
+    elif drift == "expected_open_time":
+        pending = replace(
+            pending,
+            target_bar_rule=replace(
+                pending.target_bar_rule, expected_open_time="2026-01-02T00:00:00Z"
+            ),
+        )
+    else:
+        pending = replace(pending, pending_transition_id="pnd_other")
+    result = admit(episode, proposal, pending)
+    assert result.pending_transition is pending
+    assert not result.is_newly_admitted and not result.is_reused_pending
+    assert result.decision_outcome.status == DecisionStatus.REJECTED
+    assert [r.code for r in result.decision_outcome.rejection_reasons] == [
+        REJECTION_DECISION_ID_CONFLICT
+    ]
+    assert validate_data(result.decision_outcome.to_dict(), DECISION_OUTCOME_SCHEMA) == []
+    assert account.compute_hash() == before
 
 
 # ==============================================================================

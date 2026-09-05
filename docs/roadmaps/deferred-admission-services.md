@@ -3,7 +3,7 @@
 ## Work unit
 
 - ID: `DS-02D2B1`, first coherent service block within `DS-02D2B`.
-- Status: implementation complete; independent review pending.
+- Status: implementation and independent review complete after retry corrections.
 - Owner: Gemini (backend). Independent review: Codex.
 - Prerequisite: reviewed `DS-D3A`, including commit `e9f425e`.
 - Parent: [market plan](market-dataset-and-baseline-evidence.md).
@@ -189,7 +189,15 @@ results, changed files, schema evidence, and any skipped/blocked checks.
 
 - [x] Planning: admission semantics, scope, exclusions and evidence frozen.
 - [x] Implementation and focused regressions complete.
-- [ ] Independent review accepted.
+- [x] Independent review accepted after retry corrections.
+
+Review correction evidence: 270 backend tests pass. Same-ID HOLD is rejected
+as content drift, while a new-ID HOLD still preserves the active pending.
+Retry checks recompute the pending identity from the authoritative episode,
+round, policy and decision and require the B1 target rule's absent expected
+open time. Changed episode, pending ID or expected open time cannot be reused.
+Regression tests validate rejection schemas and unchanged account hashes.
+No settlement, durable deduplication or runner behavior is added.
 
 Before a local atomic commit, update roadmap checkboxes honestly: implementation
 may become complete, independent review remains pending. No push or AI commit

@@ -22,10 +22,11 @@
 
 These corrections preserve the record-foundation gate. The
 [DS-02D2B1 admission plan](roadmaps/deferred-admission-services.md) has been
-implemented; independent review and subsequent settlement detailing are pending.
+implemented and reviewed after retry corrections; settlement detailing is next.
 
 - [x] Freeze B1 admission scope, action semantics, retry behavior and test gate.
-- [x] Implement B1 admission service; independent review pending before detailing B2 settlement.
+- [x] Implement and review B1, including HOLD identity, episode and target-rule retry regressions.
+- [ ] Detail B2 settlement; no B2 implementation is authorized yet.
 
 Build a local-first, reproducible case study showing how versioned Optees
 capabilities can be orchestrated into repeated decisions over time. The same

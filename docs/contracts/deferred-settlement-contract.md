@@ -158,6 +158,9 @@ series are injected configuration; market symbols are not hardcoded in the core.
 Trades in the reference resource are not supported. HOLD and immediate rejection
 use `DecisionOutcome.v1`; an admitted trade produces only a pending record.
 Active-pending retries compare full proposal evidence, not just decision IDs.
+The B1 retry implementation also verifies the derived episode-scoped pending
+identity and requires expected_open_time to remain absent. Replacing a pending
+trade with HOLD under the same decision ID is a conflict, not an accepted HOLD.
 This pure service does not provide persistent deduplication or settlement.
 
 This is a planned profile, not implemented behavior. The normative rules below

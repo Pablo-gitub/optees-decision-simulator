@@ -476,7 +476,9 @@ class DeferredAdmissionService:
 
         # 4. Handle admissible HOLD
         action = proposal.requested_actions[0]
-        if action.action_type == ActionType.HOLD:
+        if action.action_type == ActionType.HOLD and (
+            current_pending is None or proposal.decision_id != current_pending.decision_id
+        ):
             outcome_id = _compute_outcome_id(
                 episode_id=episode_def.episode_id,
                 round_id=authoritative_round_id,
@@ -510,6 +512,13 @@ class DeferredAdmissionService:
 
                 is_exact_retry = (
                     stored_proposal_hash is not None
+                    and current_pending.pending_transition_id
+                    == _compute_pending_transition_id(
+                        episode_id=episode_def.episode_id,
+                        round_id=authoritative_round_id,
+                        policy_id=proposal.policy_id,
+                        decision_id=proposal.decision_id,
+                    )
                     and stored_proposal_hash == proposal.compute_hash()
                     and current_pending.policy_id == proposal.policy_id
                     and current_pending.policy_version_id == proposal.policy_version_id
@@ -517,6 +526,7 @@ class DeferredAdmissionService:
                     and parse_utc_timestamp(current_pending.knowledge_cutoff) == cutoff_instant
                     and current_pending.requested_action == action
                     and current_pending.target_bar_rule.series_id == target_series_id
+                    and current_pending.target_bar_rule.expected_open_time is None
                     and current_pending.predecessor_account_hash == current_account.compute_hash()
                 )
 
