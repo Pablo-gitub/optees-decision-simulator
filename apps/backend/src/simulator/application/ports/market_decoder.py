@@ -6,6 +6,11 @@ from abc import ABC, abstractmethod
 
 from simulator.domain.models import DatasetSnapshotManifest, ObservationRecord
 
+# Frozen identity of the currently supported acquisition profile. Version 1.1
+# retains exact open_time; historical 1.0 receipts and bytes stay immutable.
+MARKET_NORMALIZER_ID = "binance_kline_spot_1d"
+MARKET_NORMALIZER_VERSION = "1.1.0"
+
 
 class MarketArchiveNormalizerPort(ABC):
     """Port for decoding raw market archives, normalizing observations, and building manifests."""

@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import hashlib
 
-from simulator.application.ports.market_decoder import MarketArchiveNormalizerPort
+from simulator.application.ports.market_decoder import (
+    MARKET_NORMALIZER_ID,
+    MARKET_NORMALIZER_VERSION,
+    MarketArchiveNormalizerPort,
+)
 from simulator.domain.canonical import canonicalize_json
 from simulator.domain.models import AcquisitionReceipt, DatasetSnapshotManifest, ObservationRecord
 from simulator.infrastructure.adapters.archive_decoder import decode_kline_archive
@@ -41,8 +45,8 @@ class BinanceKlineMarketDecoderAdapter(MarketArchiveNormalizerPort):
             publisher_sha256=raw_sha256,
             raw_artifact_sha256=raw_sha256,
             raw_byte_size=len(raw_zip_bytes),
-            normalizer_id="binance_kline_spot_1d",
-            normalizer_version="1.0.0",
+            normalizer_id=MARKET_NORMALIZER_ID,
+            normalizer_version=MARKET_NORMALIZER_VERSION,
             normalized_snapshot_sha256="sha256:0000000000000000000000000000000000000000000000000000000000000000",
             manifest_sha256="sha256:0000000000000000000000000000000000000000000000000000000000000000",
             verification_outcome="ACCEPTED",

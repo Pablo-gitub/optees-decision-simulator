@@ -80,9 +80,9 @@ Under a standard daily calendar where round cutoffs occur at `00:00:00Z`:
 
 ## 3. Preservation of `open_time` in Observations
 
-### 3.1 Normalizer Contract Update (`market_kline_v1.1` Planned)
+### 3.1 Normalizer Contract Update (Implemented in DS-02D2A)
 
-In the planned normalizer update (`DS-02D2`):
+The current normalizer profile is `binance_kline_spot_1d`, version `1.1.0`:
 1. `open_time` from the upstream Binance CSV must be formatted as an explicit ISO 8601 UTC string with uppercase `Z`.
 2. Sub-second precision must be retained exactly:
    - Millisecond precision (`.sssZ`) for pre-2025 records;
@@ -92,11 +92,25 @@ In the planned normalizer update (`DS-02D2`):
 
 ### 3.2 Backward Compatibility
 
-The existing v1 schema `observation.v1.json` specifies `"payload": {"type": "object", "additionalProperties": true}`. Therefore, adding `"open_time"` to `payload` is 100% valid under `observation.v1.json` without requiring a breaking schema change. However, because altering the payload affects canonical JSON and snapshot hashes, new market datasets containing `"open_time"` will use snapshot IDs denoting version `v1.1` (e.g. `ds-snap_binance_spot_1d_v1.1`). Existing v1 fixtures remain immutable.
+New acquisition receipts declare normalizer version `1.1.0`. If refetch finds
+the same raw artifact under a snapshot with a different normalizer identity or
+version, acquisition fails and requires a new snapshot ID. It neither returns
+legacy normalization as current nor overwrites historical evidence. Legacy
+packages remain readable through the offline adapter. Snapshot names are
+caller-provided; use a version suffix such as `_v1_1` (dots are not permitted).
+
+The existing v1 schema `observation.v1.json` specifies `"payload": {"type": "object", "additionalProperties": true}`. Therefore, adding `"open_time"` to `payload` is valid under `observation.v1.json` without requiring a breaking schema change. However, because altering the payload affects canonical JSON and snapshot hashes, new market datasets containing `"open_time"` should use snapshot IDs denoting version `v1.1` (e.g. `ds-snap_binance_spot_1d_v1_1`). Existing v1 fixtures remain immutable.
 
 ---
 
 ## 4. Pending Transition Lifecycle and Status Semantics
+
+Pending quantities are finite Decimals. `TRANSFER` is signed: positive adds
+units and negative removes units, matching the existing execution contract.
+Other action kinds retain the non-negative record constraint. This structural
+permission does not grant borrowing or short selling: holdings, cash, costs and
+supported action semantics must be checked by the planned settlement service.
+No deferred execution service is implemented by this contract correction.
 
 To avoid overloading `DecisionStatus.ACCEPTED` with ambiguous meanings, the deferred settlement contract defines a clear, closed state machine:
 

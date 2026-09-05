@@ -68,6 +68,8 @@
     },
     "requested_action": {
       "type": "object",
+      "if": {"properties": {"action_type": {"const": "TRANSFER"}}},
+      "else": {"properties": {"quantity": {"pattern": "^\\d+(\\.\\d+)?$"}}},
       "required": [
         "action_type",
         "resource_id",
@@ -90,7 +92,7 @@
         },
         "quantity": {
           "type": "string",
-          "pattern": "^\\d+(\\.\\d+)?$"
+          "pattern": "^-?\\d+(\\.\\d+)?$"
         },
         "parameters": {
           "type": "object",

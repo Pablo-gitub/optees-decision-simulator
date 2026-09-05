@@ -63,6 +63,45 @@ def _load_example(filename: str) -> dict:
         return json.load(f)
 
 
+@pytest.mark.parametrize("status", ["settled", "rejected"])
+def test_schema_enforces_terminal_conditions_without_domain_constructor(status):
+    data = _load_example(f"settlement_outcome_{status}.v1.json")
+    schema = _load_schema("settlement_outcome.v1.json")
+    assert validate_data(data, schema) == []
+    if status == "settled":
+        data["applied_transition_id"] = None
+        assert validate_data(data, schema)
+        data = _load_example("settlement_outcome_settled.v1.json")
+        data["settlement_evidence"] = {}
+    else:
+        data["rejection_reasons"] = []
+    assert validate_data(data, schema)
+
+
+def test_schema_rejects_unsupported_keywords_even_in_unvisited_branches():
+    with pytest.raises(ValueError, match="Unsupported schema keywords"):
+        validate_data({}, {"if": False, "then": {"oneOf": [{"type": "object"}]}})
+    assert validate_data(1, {"if": {"type": "string"}, "else": False})
+    assert validate_data("ok", {"if": {"type": "string"}, "then": True}) == []
+
+
+@pytest.mark.parametrize("action", ["TRANSFER", "ALLOCATE", "HOLD", "ADJUST"])
+def test_pending_negative_quantity_is_permitted_only_for_transfer(action):
+    data = _load_example("pending_transition.v1.json")
+    data["requested_action"]["action_type"] = action
+    data["requested_action"]["quantity"] = "-1"
+    errors = validate_data(data, _load_schema("pending_transition.v1.json"))
+    if action == "TRANSFER":
+        assert errors == []
+        record = PendingTransitionRecord.from_dict(data)
+        assert record.requested_action.quantity == Decimal("-1")
+        assert record.to_dict() == data
+    else:
+        assert errors
+        with pytest.raises(ValueError, match="non-negative"):
+            PendingTransitionRecord.from_dict(data)
+
+
 # ---------------------------------------------------------------------------
 # 1. Authoritative Schema Roundtrip & Canonical Examples
 # ---------------------------------------------------------------------------

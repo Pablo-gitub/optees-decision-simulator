@@ -129,9 +129,68 @@ def compute_record_hash(obj: Any) -> str:
 # ---------------------------------------------------------------------------
 
 
-def validate_data(data: Any, schema: dict[str, Any], path: str = "root") -> list[str]:
+SUPPORTED_KEYWORDS = {
+    "$schema",
+    "$id",
+    "title",
+    "description",
+    "type",
+    "const",
+    "enum",
+    "pattern",
+    "minLength",
+    "maxLength",
+    "format",
+    "minimum",
+    "maximum",
+    "minItems",
+    "maxItems",
+    "uniqueItems",
+    "items",
+    "required",
+    "properties",
+    "additionalProperties",
+    "allOf",
+    "if",
+    "then",
+    "else",
+}
+
+
+def validate_schema_vocabulary(schema: Any) -> None:
+    """Fail closed, including branches that the current example does not visit."""
+    if isinstance(schema, bool):
+        return
+    if not isinstance(schema, dict):
+        raise ValueError("Schema must be an object or boolean")
+    unknown = set(schema) - SUPPORTED_KEYWORDS
+    if unknown:
+        raise ValueError(f"Unsupported schema keywords: {sorted(unknown)}")
+    if "format" in schema and schema["format"] != "uri":
+        raise ValueError(f"Unsupported schema format: {schema['format']}")
+    for child in schema.get("properties", {}).values():
+        validate_schema_vocabulary(child)
+    for key in ("items", "additionalProperties", "if", "then", "else"):
+        if key in schema:
+            validate_schema_vocabulary(schema[key])
+    for child in schema.get("allOf", []):
+        validate_schema_vocabulary(child)
+
+
+def validate_data(
+    data: Any, schema: dict[str, Any] | bool, path: str = "root"
+) -> list[str]:
     """Validate data against a JSON schema dictionary, returning a list of error messages."""
+    validate_schema_vocabulary(schema)
+    if isinstance(schema, bool):
+        return [] if schema else [f"{path}: rejected by false schema"]
     errors: list[str] = []
+    for child in schema.get("allOf", []):
+        errors.extend(validate_data(data, child, path))
+    if "if" in schema:
+        branch = "else" if validate_data(data, schema["if"], path) else "then"
+        if branch in schema:
+            errors.extend(validate_data(data, schema[branch], path))
 
     # Type check
     if "type" in schema:
@@ -294,6 +353,12 @@ def test_schemas_and_inventory() -> tuple[bool, dict[str, dict[str, Any]]]:
 
         if schema_json.get("$id") != entry["schema_id"]:
             print(f"  FAIL: Schema ID mismatch in {schema_path.name}")
+            all_passed = False
+
+        try:
+            validate_schema_vocabulary(schema_json)
+        except ValueError as exc:
+            print(f"  FAIL: {schema_path.name}: {exc}")
             all_passed = False
 
         if schema_json.get("$schema") != "https://json-schema.org/draft/2020-12/schema":

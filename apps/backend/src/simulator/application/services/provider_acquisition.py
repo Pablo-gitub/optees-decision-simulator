@@ -10,7 +10,11 @@ from simulator.application.ports.acquisition_transport import (
     AcquisitionArtifactRequest,
     AcquisitionTransportPort,
 )
-from simulator.application.ports.market_decoder import MarketArchiveNormalizerPort
+from simulator.application.ports.market_decoder import (
+    MARKET_NORMALIZER_ID,
+    MARKET_NORMALIZER_VERSION,
+    MarketArchiveNormalizerPort,
+)
 from simulator.application.ports.snapshot_store import (
     SnapshotStorePort,
     StoredAcquisitionPackage,
@@ -121,6 +125,11 @@ class ProviderAcquisitionService:
             try:
                 existing = self._store.load(acquisition_id=acquisition_id, snapshot_id=snapshot_id)
                 if existing.raw_bytes == raw_bytes:
+                    if (
+                        existing.receipt.normalizer_id != MARKET_NORMALIZER_ID
+                        or existing.receipt.normalizer_version != MARKET_NORMALIZER_VERSION
+                    ):
+                        raise ValueError("Normalizer version changed; use a new snapshot_id")
                     return existing.receipt, acquisition_id
             except SnapshotStoreError:
                 pass
@@ -159,8 +168,8 @@ class ProviderAcquisitionService:
             provider_archive_filename=archive_filename,
             publisher_checksum_uri=checksum_uri,
             retrieval_time=retrieval_time,
-            normalizer_id="binance_kline_spot_1d",
-            normalizer_version="1.0.0",
+            normalizer_id=MARKET_NORMALIZER_ID,
+            normalizer_version=MARKET_NORMALIZER_VERSION,
             normalized_snapshot_bytes=normalized_bytes if normalized_bytes else None,
             acquisition_id=acquisition_id,
             receipt_snapshot_id=snapshot_id,

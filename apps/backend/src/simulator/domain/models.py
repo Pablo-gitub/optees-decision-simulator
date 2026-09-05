@@ -1034,9 +1034,12 @@ class PendingTransitionRecord:
         qty = self.requested_action.quantity
         if isinstance(qty, bool) or not isinstance(qty, Decimal):
             raise TypeError(f"requested_action quantity must be a Decimal, got {type(qty)}")
-        if qty.is_nan() or qty.is_infinite() or qty < Decimal("0"):
+        if not qty.is_finite() or (
+            qty < Decimal("0") and self.requested_action.action_type != ActionType.TRANSFER
+        ):
             raise ValueError(
-                f"requested_action quantity must be a finite non-negative Decimal, got {qty}"
+                f"requested_action quantity must be a finite non-negative Decimal "
+                f"except for signed TRANSFER quantities, got {qty}"
             )
 
         if not isinstance(self.target_bar_rule, TargetBarRule):

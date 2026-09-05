@@ -71,7 +71,7 @@ Timestamp units must be decoded without loss:
 Prices must be finite positive decimal strings. Volumes are finite
 non-negative decimal strings and trade count is a non-negative integer. Decimal
 text is preserved until explicit domain conversion; binary floats are not used
-as the canonical financial representation. In planned normalizer v1.1 (`DS-02D2`),
+as the canonical financial representation. In normalizer `1.1.0` (implemented in `DS-02D2A`),
 `open_time` is preserved in `payload["open_time"]` as an explicit UTC ISO 8601 string
 with sub-second precision (`.sssZ` pre-2025, `.ssssssZ` from 2025).
 

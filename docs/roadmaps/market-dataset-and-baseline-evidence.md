@@ -683,6 +683,22 @@ replay orchestration change.
 
 #### D2A — Runtime Records And Open-Time Evidence (`DS-02D2A`)
 
+Review correction completion:
+
+Verification: 225 backend tests passed, including architecture and legacy
+fixture checks; contract validation and Ruff lint/format gates passed.
+
+- [x] Schema-only negative tests enforce terminal settlement conditions;
+  the dependency-free validator checks `allOf`/`if`/`then`/`else` and rejects
+  unknown vocabulary even in unvisited branches (not a full JSON Schema engine).
+- [x] Signed `TRANSFER` quantities round-trip in domain and schema; other
+  action kinds continue rejecting negative quantities.
+- [x] Open-time receipts use normalizer `1.1.0`; mismatched legacy versions
+  require a new snapshot and cannot be silently reused or overwritten.
+
+No admission, settlement, runner or replay service was added. The next work
+unit remains refinement of `DS-02D2B`.
+
 Implement only the immutable record/schema foundation selected by `DS-D3T` and
 preserve exact upstream `open_time` in newly normalized market observations.
 There is no pending-settlement service or runner behavior in this unit.

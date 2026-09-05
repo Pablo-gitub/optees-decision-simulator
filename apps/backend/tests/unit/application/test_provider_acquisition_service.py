@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import io
 import zipfile
+from dataclasses import replace
 from pathlib import Path
 from typing import Final
 
@@ -116,6 +117,7 @@ def test_successful_acquisition_and_publication(tmp_path: Path) -> None:
     )
 
     assert receipt.verification_outcome == "ACCEPTED"
+    assert receipt.normalizer_version == "1.1.0"
     assert receipt.failure_reasons == ()
     assert receipt.raw_artifact_sha256 == raw_sha
     assert receipt.snapshot_id == snapshot_id
@@ -131,7 +133,10 @@ def test_successful_acquisition_and_publication(tmp_path: Path) -> None:
     assert adapter.get_manifest().snapshot_id == snapshot_id
 
 
-def test_refetch_idempotency_returns_first_receipt(tmp_path: Path) -> None:
+@pytest.mark.parametrize("legacy_version", [False, True])
+def test_refetch_idempotency_returns_first_receipt(
+    tmp_path: Path, monkeypatch, legacy_version
+) -> None:
     responses, _, _ = _build_fixture_responses()
     transport = ScriptedFakeTransport(responses)
     store = FileSystemSnapshotStore(tmp_path)
@@ -149,6 +154,25 @@ def test_refetch_idempotency_returns_first_receipt(tmp_path: Path) -> None:
         date_str="2024-01-01",
         retrieval_time="2026-08-30T00:00:00Z",
     )
+
+    if legacy_version:
+        original_load = store.load
+
+        def load_legacy(**kwargs):
+            package = original_load(**kwargs)
+            return replace(package, receipt=replace(package.receipt, normalizer_version="1.0.0"))
+
+        monkeypatch.setattr(store, "load", load_legacy)
+        with pytest.raises(ValueError, match="new snapshot_id"):
+            service.acquire_spot_kline_snapshot(
+                snapshot_id=snapshot_id,
+                symbol="BTCUSDT",
+                interval="1d",
+                date_str="2024-01-01",
+                retrieval_time="2026-08-30T12:00:00Z",
+            )
+        assert original_load(acquisition_id=acq_id1, snapshot_id=snapshot_id).receipt == receipt1
+        return
 
     # Second acquisition with DIFFERENT retrieval_time
     receipt2, acq_id2 = service.acquire_spot_kline_snapshot(

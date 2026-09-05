@@ -14,6 +14,15 @@
 
 ## Product Thesis
 
+### Completed cross-repository review corrections
+
+- [x] Enforce conditional schemas and reject unsupported validator vocabulary.
+- [x] Align pending signed `TRANSFER` quantities with existing accounting.
+- [x] Identify open-time normalization as `1.1.0` and prevent legacy receipt reuse.
+
+These corrections preserve the record-foundation gate. `DS-02D2B` remains the
+next planning boundary; deferred services and runner behavior are not implemented.
+
 Build a local-first, reproducible case study showing how versioned Optees
 capabilities can be orchestrated into repeated decisions over time. The same
 experiments must expose mathematical, contractual, and workflow limitations
