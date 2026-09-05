@@ -214,7 +214,11 @@ class DeferredPolicyRoundRecord:
 
         # Invariant 5: After settling/rejecting pending_before, it cannot remain pending_after.
         if self.pending_before is not None and self.settlement_outcome_hash is not None:
-            if self.pending_after == self.pending_before:
+            if (
+                self.pending_after is not None
+                and self.pending_after.pending_transition_hash
+                == self.pending_before.pending_transition_hash
+            ):
                 raise ValueError(
                     "Settled or rejected pending_before cannot remain as pending_after"
                 )
@@ -361,8 +365,10 @@ class DeferredRoundRecord:
             )
 
         parse_utc_timestamp(self.knowledge_cutoff)
-        parse_utc_timestamp(self.execution_start_time)
-        parse_utc_timestamp(self.execution_end_time)
+        start = parse_utc_timestamp(self.execution_start_time)
+        end = parse_utc_timestamp(self.execution_end_time)
+        if end < start:
+            raise ValueError("execution_end_time cannot precede execution_start_time")
         parse_utc_timestamp(self.effective_time)
 
         if not isinstance(self.eligible_observation_hashes, (tuple, list)):

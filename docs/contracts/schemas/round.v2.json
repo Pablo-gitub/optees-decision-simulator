@@ -76,6 +76,24 @@
       "minItems": 1,
       "items": {
         "type": "object",
+        "allOf": [
+          {
+            "if": {"properties": {"pending_before": {"type": "null"}}},
+            "then": {"properties": {"settlement_outcome_hash": {"type": "null"}, "deferred_transition_hash": {"type": "null"}}}
+          },
+          {
+            "if": {"properties": {"settlement_outcome_hash": {"type": "null"}}},
+            "then": {"properties": {"deferred_transition_hash": {"type": "null"}}}
+          },
+          {
+            "if": {"properties": {"proposed_decision_hash": {"type": "null"}}},
+            "then": {"properties": {"decision_outcome_hash": {"type": "null"}}}
+          },
+          {
+            "if": {"properties": {"proposed_decision_hash": {"type": "string"}, "decision_outcome_hash": {"type": "null"}}},
+            "then": {"properties": {"pending_after": {"type": "object"}}}
+          }
+        ],
         "required": [
           "policy_id",
           "account_state_before_hash",

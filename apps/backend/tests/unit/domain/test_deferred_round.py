@@ -104,6 +104,67 @@ def _assert_schema_and_codec(round_record: DeferredRoundRecord) -> None:
     assert restored.compute_hash() == round_record.compute_hash()
 
 
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("settlement_deadline", "2026-08-05T00:00:00Z"),
+        ("expected_open_time", "2026-07-31T00:00:00Z"),
+        ("admission_account_hash", "sha256:" + "9" * 64),
+    ],
+)
+def test_settled_pending_cannot_be_reintroduced_by_changing_metadata(field, value):
+    from dataclasses import replace
+
+    before = _make_pending_ref()
+    after = replace(before, **{field: value})
+    with pytest.raises(ValueError, match="cannot remain"):
+        DeferredPolicyRoundRecord(
+            "pol-def_alpha",
+            _dummy_hash("a"),
+            _dummy_hash("b"),
+            before,
+            after,
+            _dummy_hash("s"),
+            _dummy_hash("t"),
+            _dummy_hash("p"),
+            None,
+        )
+
+
+def test_execution_chronology_is_separate_from_simulation_time():
+    data = json.loads(
+        (REPO_ROOT / "docs/contracts/examples/valid/deferred_round.v2.json").read_text()
+    )
+    data["execution_start_time"] = "2026-09-01T00:00:00Z"
+    data["execution_end_time"] = "2026-08-31T00:00:00Z"
+    with pytest.raises(ValueError, match="cannot precede"):
+        DeferredRoundRecord.from_dict(data)
+    data["execution_end_time"] = "2026-09-01T00:00:00.000Z"
+    assert DeferredRoundRecord.from_dict(data).effective_time == data["effective_time"]
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"pending_before": None, "settlement_outcome_hash": "sha256:" + "1" * 64},
+        {"settlement_outcome_hash": None, "deferred_transition_hash": "sha256:" + "1" * 64},
+        {"proposed_decision_hash": None, "decision_outcome_hash": "sha256:" + "1" * 64},
+        {
+            "proposed_decision_hash": "sha256:" + "1" * 64,
+            "decision_outcome_hash": None,
+            "pending_after": None,
+        },
+    ],
+)
+def test_schema_rejects_impossible_phase_presence_without_constructor(changes):
+    data = json.loads(
+        (REPO_ROOT / "docs/contracts/examples/valid/deferred_round.v2.json").read_text()
+    )
+    assert validate_data(data, ROUND_V2_SCHEMA) == []
+    data["policy_round_records"][0].update(changes)
+    assert validate_data(data, ROUND_V2_SCHEMA)
+
+
 # ---------------------------------------------------------------------------
 # Test Suite 1: Lifecycle Variants (Schema/Codec & Invariant Compatibility)
 # ---------------------------------------------------------------------------

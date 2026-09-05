@@ -32,7 +32,7 @@ implemented and independently reviewed after causal-target, identity and account
 - [x] Implement B2 settlement with explicit scheduled target; absent bars never cause a later fill.
 - [x] Independently review B2: episode isolation, Decimal context, zero deducted fees on rejection, and account anchors.
 - [x] Freeze [C0 round-v2 bridge](roadmaps/deferred-round-records.md).
-- [x] Implement C0 round-v2 bridge (independent review pending).
+- [x] Implement and review C0 round-v2 bridge, including identity/schema/time corrections.
 - [ ] Detail atomic persistence and runner orchestration (C1) after C0 review.
 
 Build a local-first, reproducible case study showing how versioned Optees
@@ -241,7 +241,7 @@ causal execution evidence for every settled outcome.
       - [x] Freeze settlement service plan (`DS-02D2B2`, [spec](roadmaps/deferred-settlement-services.md)).
       - [x] Implement and review settlement service (`DS-02D2B2`).
     - [ ] Integrate runner, round hashing and replay (`DS-02D2C` / `DS-D3`).
-      - [x] Implement round-v2 record bridge (`DS-02D2C0`, review pending).
+      - [x] Implement and review round-v2 record bridge (`DS-02D2C0`).
       - [ ] Detail atomic persistence and runner orchestration (`DS-02D2C1`).
       - [ ] Detail replay and end-to-end evidence (`DS-02D2C2`).
   - [ ] Prove normalized D+2 observations execute end to end without temporal leakage (`DS-D3`).
@@ -257,7 +257,7 @@ causal execution evidence for every settled outcome.
   - [x] `DS-02D2B2`: freeze [settlement service plan](roadmaps/deferred-settlement-services.md).
   - [x] `DS-02D2B2`: implement and independently review settlement service.
 - [ ] `DS-02D2C`: integrate runner and replay; prove `DS-D3`.
-  - [x] `DS-02D2C0`: implement round-v2 record bridge (review pending).
+  - [x] `DS-02D2C0`: implement and review round-v2 record bridge.
   - [ ] `DS-02D2C1`: atomic persistence and runner orchestration.
   - [ ] `DS-02D2C2`: replay and end-to-end evidence.
 - [ ] Authorize `DS-02E` only after both correction gates pass review.

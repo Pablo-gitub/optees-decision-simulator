@@ -331,6 +331,12 @@ To maintain strict contract integrity:
       - `proposed_decision_hash`: hash of new B1 `ProposedDecision`.
       - `decision_outcome_hash`: hash of immediate outcome (rejection or `HOLD`) for that proposal.
       - `account_state_before_hash`, `account_state_after_hash`: initial and terminal account hashes.
+      - A settled pending cannot reappear under the same pending_transition_hash
+        by changing its schedule or admission anchor. Full-reference equality is
+        required for unchanged carry-over; pending identity is the transition hash.
+      - Schema conditionals enforce phase co-presence; constructors enforce
+        cross-field identities and execution_start_time <= execution_end_time.
+        Execution timestamps are not compared with simulated effective_time.
 3. **Round Merkle Chaining (`round.v2`):**
    - Pure helper `compute_deferred_state_merkle_hash(parent_round_hash, policy_round_records)`
      computes the Merkle hash over `compute_record_hash(policy_entry.to_dict())` for policies in
