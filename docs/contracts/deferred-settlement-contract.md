@@ -129,7 +129,7 @@ stateDiagram-v2
 
 - **`ADMITTED_PENDING`:**
   The proposal passed structural and admission checks at round cutoff $T_{\text{cutoff}}$.
-  - *Checked at Admission:* Policy ownership, resource identifiers in the allowed universe (`BTC`, `ETH`, `SOL`, `BNB`, `USDT`), valid action types, non-negative finite requested quantities, transition count limits, and single-pending policy invariant.
+  - *Checked at Admission:* Policy ownership, configured resource universe, supported action types, finite quantities with action-specific signs (signed `TRANSFER`), transition count limits, and single-pending policy invariant.
   - *Not Checked at Admission:* Cash sufficiency, borrowing limits, short-position constraints, and transaction fee deductions. These checks cannot be performed at admission because $P_{\text{open}}$ is not yet known.
   - *Account Impact:* Zero balance mutation. The account remains in its previous state with unchanged balances.
 - **`SETTLED`:**
@@ -146,6 +146,22 @@ stateDiagram-v2
 ---
 
 ## 5. Timing of Feasibility and Constraint Verification
+
+### First application service profile (planned DS-02D2B1)
+
+The [executable admission plan](../roadmaps/deferred-admission-services.md)
+freezes one explicit action per proposal: positive `ALLOCATE`, nonzero signed
+`TRANSFER`, or zero-quantity `HOLD`. `ADJUST`, desired allocations and action
+baskets are explicitly rejected rather than silently interpreted. The domain
+schema remains broader than this first service profile. Allowed resources and
+series are injected configuration; market symbols are not hardcoded in the core.
+Trades in the reference resource are not supported. HOLD and immediate rejection
+use `DecisionOutcome.v1`; an admitted trade produces only a pending record.
+Active-pending retries compare full proposal evidence, not just decision IDs.
+This pure service does not provide persistent deduplication or settlement.
+
+This is a planned profile, not implemented behavior. The normative rules below
+continue to govern the later settlement block.
 
 The contract strictly divides validation responsibilities between admission and settlement:
 

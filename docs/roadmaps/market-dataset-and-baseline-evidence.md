@@ -3,11 +3,11 @@
 ## Work Unit
 
 - **ID:** `DS-02`
-- **State:** `DS-02D2A2` versioned transition bridge is complete; Gate `DS-D3A` is satisfied; `DS-02D2B` admission and settlement application services is next
+- **State:** Gate `DS-D3A` satisfied; `DS-02D2B1` admission service plan ready, implementation not started
 - **Type:** backend data provenance, market interpretation and baseline evidence; no UI
 - **Parent roadmap:** `../ROADMAP.md`
 - **Prerequisite:** `DS-K` satisfied by `DS-01`
-- **Parallel Optees work:** `OPT-DS-03A` robust-scenario contract decision
+- **Parallel Optees work:** scenario capability and UI complete; forecasting awaits Simulator evidence
 - **Implementation owner:** Gemini
 - **Review:** Codex after every micro-gate
 - **Completion gate:** `DS-D` (gates through `DS-D3A` satisfied; `DS-02D2B` next)
@@ -810,8 +810,15 @@ All v1 schemas, examples and hashes remain unchanged.
 After the corrected `DS-D3A` review, implement pure application-owned admission and settlement
 services over injected pricing/accounting dependencies. Verify the single-pending
 rule, zero mutation before settlement, terminal rejection paths and exactly-once
-accounting. Do not modify runner or replay in this unit. Its executable detail
-will be refined after D2A review.
+accounting. Do not modify runner or replay in this unit.
+
+- [x] `DS-02D2B1` planning: [admission service specification](deferred-admission-services.md).
+- [ ] `DS-02D2B1` implementation and independent review.
+- [ ] `DS-02D2B2` settlement/accounting detail, to be frozen after B1 review.
+- [ ] `DS-02D2B2` implementation and independent review.
+
+B1 is a complete admission behavior block, not settlement or durable exactly-once
+publication. Only B1 is ready to execute; B2 must not be inferred from this outline.
 
 **Gate `DS-D3B`:** deterministic services reproduce the frozen lifecycle and
 account invariants without episode orchestration.
@@ -847,5 +854,6 @@ legacy v1 schema and example bytes are unchanged. This proves the record bridge,
 not runtime settlement enforcement, which remains in D2B/D2C.
 
 `DS-02D2A1` and `DS-02D2A2` are complete, satisfying Gate `DS-D3A`.
-`DS-02D2B` (Admission And Settlement Application Services / Gate `DS-D3B`) is the next and only authorized boundary.
+`DS-02D2B1` ([admission services](deferred-admission-services.md)) is the next and
+only authorized implementation boundary. Gate `DS-D3B` remains open until B2 review.
 `DS-02E` remains blocked until `DS-D3` is satisfied.

@@ -20,8 +20,12 @@
 - [x] Align pending signed `TRANSFER` quantities with existing accounting.
 - [x] Identify open-time normalization as `1.1.0` and prevent legacy receipt reuse.
 
-These corrections preserve the record-foundation gate. `DS-02D2B` remains the
-next planning boundary; deferred services and runner behavior are not implemented.
+These corrections preserve the record-foundation gate. The
+[DS-02D2B1 admission plan](roadmaps/deferred-admission-services.md) is ready for
+Gemini; deferred services and runner behavior are not implemented.
+
+- [x] Freeze B1 admission scope, action semantics, retry behavior and test gate.
+- [ ] Implement and independently review B1 before detailing B2 settlement.
 
 Build a local-first, reproducible case study showing how versioned Optees
 capabilities can be orchestrated into repeated decisions over time. The same
