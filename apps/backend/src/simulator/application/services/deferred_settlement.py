@@ -15,11 +15,21 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from decimal import ROUND_HALF_EVEN, Decimal, InvalidOperation
+from decimal import (
+    ROUND_HALF_EVEN,
+    Context,
+    Decimal,
+    DivisionByZero,
+    InvalidOperation,
+    Overflow,
+    localcontext,
+)
+from functools import wraps
 from typing import Final, Mapping
 
 from simulator.application.ports.pricing import PriceEvidence
-from simulator.domain.canonical import format_decimal
+from simulator.application.services.deferred_admission import _compute_pending_transition_id
+from simulator.domain.canonical import compute_record_hash, format_decimal
 from simulator.domain.errors import InvalidTimestampError
 from simulator.domain.lifecycle import ActionType, CostType, SettlementStatus
 from simulator.domain.models import (
@@ -39,6 +49,36 @@ from simulator.domain.models import (
     VirtualAccountState,
 )
 from simulator.domain.time import parse_utc_timestamp
+
+
+def _settlement_decimal_context(function):
+    """Isolate precision, rounding, exponent limits and traps from the caller."""
+
+    @wraps(function)
+    def wrapped(*args, **kwargs):
+        with localcontext(
+            Context(
+                prec=64,
+                rounding=ROUND_HALF_EVEN,
+                Emin=-999999,
+                Emax=999999,
+                capitals=1,
+                clamp=0,
+                flags=[],
+                traps=[InvalidOperation, DivisionByZero, Overflow],
+            )
+        ):
+            return function(*args, **kwargs)
+
+    return wrapped
+
+
+def _settlement_id(prefix, pending, round_id):
+    digest = compute_record_hash(
+        {"pending_transition_id": pending.pending_transition_id, "settlement_round_id": round_id}
+    )
+    return f"{prefix}_{digest[7:]}"
+
 
 # Application-owned rejection codes for deferred settlement
 REJECTION_INVALID_EXECUTION_PRICE: Final[str] = "INVALID_EXECUTION_PRICE"
@@ -114,6 +154,7 @@ def _validate_common_context(
     pending: PendingTransitionRecord,
     settlement_round_id: str,
     settlement_time: str,
+    admission_account: VirtualAccountState | None = None,
 ) -> tuple[datetime, datetime]:
     """Validate caller-supplied context shared by both entry points.
 
@@ -137,11 +178,32 @@ def _validate_common_context(
             f"current_account policy_id '{current_account.policy_id}'"
         )
 
-    if current_account.compute_hash() != pending.predecessor_account_hash:
+    anchor = admission_account if admission_account is not None else current_account
+    if not isinstance(anchor, VirtualAccountState):
+        raise TypeError("admission_account must be a VirtualAccountState")
+    if anchor.compute_hash() != pending.predecessor_account_hash:
         raise ValueError(
             "current_account hash does not match pending.predecessor_account_hash; "
-            "settlement requires the exact account captured at admission time"
+            "provide the exact admission_account when current account was revalued"
         )
+    if (
+        current_account.policy_id != anchor.policy_id
+        or current_account.balances != anchor.balances
+        or current_account.cumulative_costs != anchor.cumulative_costs
+        or current_account.reference_valuation.reference_resource_id
+        != anchor.reference_valuation.reference_resource_id
+    ):
+        raise ValueError("Account balances or costs changed while pending")
+
+    expected_id = _compute_pending_transition_id(
+        episode_def.episode_id, pending.round_id, pending.policy_id, pending.decision_id
+    )
+    pinned = {p.policy_id: p.policy_version_id for p in episode_def.policy_versions}
+    if (
+        pending.pending_transition_id != expected_id
+        or pinned.get(pending.policy_id) != pending.policy_version_id
+    ):
+        raise ValueError("Pending identity or pinned policy version does not belong to episode")
 
     if not isinstance(settlement_round_id, str) or not _ROUND_ID_PATTERN.match(settlement_round_id):
         raise ValueError(f"settlement_round_id is malformed: {settlement_round_id!r}")
@@ -155,6 +217,12 @@ def _validate_common_context(
             f"settlement_time ({settlement_time}) cannot precede "
             f"pending.knowledge_cutoff ({pending.knowledge_cutoff})"
         )
+    if (
+        not parse_utc_timestamp(anchor.as_of_time)
+        <= parse_utc_timestamp(current_account.as_of_time)
+        <= settlement_dt
+    ):
+        raise ValueError("Account time is outside admission/settlement chronology")
 
     if pending.requested_action.action_type not in (ActionType.ALLOCATE, ActionType.TRANSFER):
         raise TypeError(
@@ -162,6 +230,15 @@ def _validate_common_context(
             f"got {pending.requested_action.action_type!r}. A real pending transition "
             "produced by DeferredAdmissionService can never carry HOLD or ADJUST."
         )
+    qty = pending.requested_action.quantity
+    if pending.requested_action.resource_id == episode_def.reference_resource_id:
+        raise ValueError("Cannot trade the reference resource")
+    if (
+        not qty.is_finite()
+        or qty == 0
+        or (pending.requested_action.action_type == ActionType.ALLOCATE and qty < 0)
+    ):
+        raise ValueError("Pending trade quantity violates admission profile")
 
     return cutoff_dt, settlement_dt
 
@@ -169,19 +246,15 @@ def _validate_common_context(
 def _select_target_observation(
     all_observations: tuple[ObservationRecord, ...],
     series_id: str,
-    cutoff_dt: datetime,
     settlement_dt: datetime,
+    expected_open_dt: datetime,
 ) -> ObservationRecord | None:
-    """Deterministically select the first eligible target bar, without skipping.
+    """Select an eligible revision at exactly the frozen scheduled opening.
 
-    Selection is governed by the retained ``payload["open_time"]`` field only;
-    ``event_time`` (the bar's close time) never participates. The bar
-    chronologically first at or after ``cutoff_dt`` is chosen based on which
-    bars the dataset snapshot has ingested at all, independent of individual
-    knowledge-eligibility; a later, already-eligible bar is never substituted
-    for an earlier one that exists but is not yet knowledge-eligible.
+    Availability never defines the schedule: absent or invalid targets wait,
+    rather than falling through to another opening.
     """
-    candidates: list[tuple[datetime, ObservationRecord]] = []
+    candidates: list[ObservationRecord] = []
     for obs in all_observations:
         if obs.series_id != series_id:
             continue
@@ -192,22 +265,27 @@ def _select_target_observation(
             open_time_dt = parse_utc_timestamp(raw_open_time)
         except InvalidTimestampError:
             continue
-        if open_time_dt < cutoff_dt:
+        if open_time_dt != expected_open_dt:
             continue
         knowledge_dt = parse_utc_timestamp(obs.knowledge_time)
         if open_time_dt >= knowledge_dt:
             continue
-        candidates.append((open_time_dt, obs))
+        candidates.append(obs)
 
     if not candidates:
         return None
 
-    earliest_open_time = min(open_time_dt for open_time_dt, _ in candidates)
-    group = [obs for open_time_dt, obs in candidates if open_time_dt == earliest_open_time]
-
-    eligible = [obs for obs in group if parse_utc_timestamp(obs.knowledge_time) <= settlement_dt]
+    eligible = [
+        obs for obs in candidates if parse_utc_timestamp(obs.knowledge_time) <= settlement_dt
+    ]
     if not eligible:
         return None
+    identities = {}
+    for obs in eligible:
+        identity = (obs.revision, obs.observation_id)
+        if identity in identities and identities[identity] != obs.to_dict():
+            raise ValueError("Conflicting observations share the same revision and identity")
+        identities[identity] = obs.to_dict()
 
     eligible.sort(key=lambda o: (o.revision, o.observation_id))
     return eligible[-1]
@@ -232,7 +310,7 @@ def _compute_action_economics(
         linear_fee = (notional * cost_model.linear_transaction_fee_rate).quantize(
             _CENTS, rounding=ROUND_HALF_EVEN
         )
-        fixed_fee = cost_model.fixed_transaction_fee
+        fixed_fee = cost_model.fixed_transaction_fee.quantize(_CENTS, rounding=ROUND_HALF_EVEN)
         action_cost = linear_fee + fixed_fee
         cash_delta = -(notional + action_cost)
         asset_delta = qty
@@ -241,7 +319,7 @@ def _compute_action_economics(
         linear_fee = (notional * cost_model.linear_transaction_fee_rate).quantize(
             _CENTS, rounding=ROUND_HALF_EVEN
         )
-        fixed_fee = cost_model.fixed_transaction_fee
+        fixed_fee = cost_model.fixed_transaction_fee.quantize(_CENTS, rounding=ROUND_HALF_EVEN)
         action_cost = linear_fee + fixed_fee
         asset_delta = qty
         if qty >= Decimal("0"):
@@ -274,6 +352,7 @@ class DeferredSettlementService:
     """Pure, stateless settlement service for pending transitions awaiting execution."""
 
     @staticmethod
+    @_settlement_decimal_context
     def attempt_settlement(
         episode_def: EpisodeDefinition,
         current_account: VirtualAccountState,
@@ -283,6 +362,9 @@ class DeferredSettlementService:
         settlement_time: str,
         all_observations: tuple[ObservationRecord, ...],
         valuation_marks: Mapping[str, Decimal | PriceEvidence],
+        *,
+        expected_open_time: str,
+        admission_account: VirtualAccountState | None = None,
     ) -> DeferredSettlementResult:
         """Attempt causal, observation-driven settlement of an ADMITTED_PENDING transition.
 
@@ -290,8 +372,19 @@ class DeferredSettlementService:
         cancellation; see `terminate_unsettled` for those exogenous outcomes.
         """
         cutoff_dt, settlement_dt = _validate_common_context(
-            episode_def, current_account, pending, settlement_round_id, settlement_time
+            episode_def,
+            current_account,
+            pending,
+            settlement_round_id,
+            settlement_time,
+            admission_account,
         )
+        expected_open_dt = parse_utc_timestamp(expected_open_time)
+        if expected_open_dt < cutoff_dt:
+            raise ValueError("Expected opening cannot precede admission cutoff")
+        retained_open = pending.target_bar_rule.expected_open_time
+        if retained_open is not None and parse_utc_timestamp(retained_open) != expected_open_dt:
+            raise ValueError("Expected opening conflicts with pending target rule")
 
         if not isinstance(all_observations, tuple) or not all(
             isinstance(o, ObservationRecord) for o in all_observations
@@ -313,6 +406,13 @@ class DeferredSettlementService:
             if not isinstance(res_id, str) or not res_id:
                 raise ValueError("valuation_marks keys must be non-empty strings")
             if isinstance(ev, PriceEvidence):
+                if ev.resource_id != res_id or (
+                    ev.knowledge_time is not None
+                    and parse_utc_timestamp(ev.knowledge_time) > settlement_dt
+                ):
+                    raise ValueError(
+                        "Valuation evidence has wrong resource or future knowledge time"
+                    )
                 marks[res_id] = ev.price
             elif isinstance(ev, Decimal) and not isinstance(ev, bool):
                 marks[res_id] = ev
@@ -320,10 +420,17 @@ class DeferredSettlementService:
                 raise TypeError(f"valuation_marks[{res_id!r}] must be a Decimal or PriceEvidence")
 
         action = pending.requested_action
-        outcome_id = f"set-out_{settlement_round_id}_{pending.policy_id}"
+        outcome_id = _settlement_id("set-out", pending, settlement_round_id)
 
         target_observation = _select_target_observation(
-            all_observations, pending.target_bar_rule.series_id, cutoff_dt, settlement_dt
+            tuple(
+                o
+                for o in all_observations
+                if o.snapshot_id == episode_def.dataset_snapshot.snapshot_id
+            ),
+            pending.target_bar_rule.series_id,
+            settlement_dt,
+            expected_open_dt,
         )
         if target_observation is None:
             return DeferredSettlementResult(
@@ -445,7 +552,7 @@ class DeferredSettlementService:
         if rejection_reasons:
             rejection_reasons.sort(key=lambda r: (r.code, r.violating_field or "", r.message))
             evidence: dict[str, object] = dict(full_evidence_base)
-            evidence["total_fee_deducted"] = format_decimal(action_cost)
+            evidence["total_fee_deducted"] = "0.00"
             if any(r.code == REJECTION_INSUFFICIENT_FUNDS_AT_SETTLEMENT for r in rejection_reasons):
                 evidence["cash_available"] = format_decimal(available_cash)
                 evidence["cash_required"] = format_decimal(max(Decimal("0.00"), -cash_delta))
@@ -505,7 +612,7 @@ class DeferredSettlementService:
             new_cum_costs.append(CumulativeCostItem(cost_type=c_type, amount=c_amt))
 
         account_before_hash = current_account.compute_hash()
-        account_state_id = f"acc-state_{settlement_round_id}_{pending.policy_id}"
+        account_state_id = _settlement_id("acc-state", pending, settlement_round_id)
         provisional_account = VirtualAccountState(
             account_state_id=account_state_id,
             policy_id=current_account.policy_id,
@@ -523,7 +630,7 @@ class DeferredSettlementService:
         )
         account_after_hash = provisional_account.compute_hash()
 
-        transition_id = f"trn_{settlement_round_id}_{pending.policy_id}"
+        transition_id = _settlement_id("trn", pending, settlement_round_id)
         resource_deltas = (
             ResourceDelta(
                 resource_id=action.resource_id,
@@ -575,6 +682,7 @@ class DeferredSettlementService:
         )
 
     @staticmethod
+    @_settlement_decimal_context
     def terminate_unsettled(
         episode_def: EpisodeDefinition,
         current_account: VirtualAccountState,
@@ -583,6 +691,8 @@ class DeferredSettlementService:
         settlement_time: str,
         reason_code: str,
         reason_message: str | None = None,
+        *,
+        admission_account: VirtualAccountState | None = None,
     ) -> DeferredSettlementResult:
         """Record an exogenous terminal rejection the caller has already decided.
 
@@ -591,7 +701,12 @@ class DeferredSettlementService:
         calls this entry point only to record the terminal outcome correctly.
         """
         _validate_common_context(
-            episode_def, current_account, pending, settlement_round_id, settlement_time
+            episode_def,
+            current_account,
+            pending,
+            settlement_round_id,
+            settlement_time,
+            admission_account,
         )
 
         if reason_code not in _TERMINATE_REASON_CODES:
@@ -610,7 +725,7 @@ class DeferredSettlementService:
         )
 
         outcome = SettlementOutcome(
-            settlement_outcome_id=f"set-out_{settlement_round_id}_{pending.policy_id}",
+            settlement_outcome_id=_settlement_id("set-out", pending, settlement_round_id),
             pending_transition_id=pending.pending_transition_id,
             decision_id=pending.decision_id,
             round_id=settlement_round_id,

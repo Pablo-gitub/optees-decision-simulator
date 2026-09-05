@@ -126,6 +126,13 @@ complete graph. The backend does not adopt frontend MVVM terminology.
 
 ## 3. Backend Responsibilities
 
+Reviewed B2 provides pure deferred admission/settlement services, not runner
+integration. Settlement takes an explicit scheduled opening, validates episode
+and account anchors, and produces immutable accounting records with isolated
+Decimal arithmetic. Calendar selection, durable deduplication, atomic publication
+and replay remain integration responsibilities; see the
+[B2 service contract](roadmaps/deferred-settlement-services.md).
+
 - Episode and policy lifecycle management;
 - Deterministic time progression and knowledge cutoff enforcement;
 - Isolated virtual accounting and transition cost application;

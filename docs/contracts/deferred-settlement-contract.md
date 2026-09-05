@@ -166,7 +166,7 @@ This pure service does not provide persistent deduplication or settlement.
 This is a planned profile, not implemented behavior. The normative rules below
 continue to govern the later settlement block.
 
-### Second application service profile (planned `DS-02D2B2`)
+### Second application service profile (implemented and reviewed `DS-02D2B2`)
 
 The [executable settlement plan](../roadmaps/deferred-settlement-services.md)
 freezes deterministic, non-skipping target-bar selection over the retained
@@ -180,8 +180,18 @@ timeout for `MISSING_EXECUTION_BAR`, and the exogenous
 `UNSETTLED_EPISODE_TERMINATION`/`EPISODE_CANCELLED` triggers, are scheduling
 decisions the plan explicitly leaves to the future runner (`DS-02D2C`); the
 settlement service only knows how to record each of those terminal outcomes
-correctly once instructed. This is a planned profile, not implemented
-behavior.
+correctly once instructed.
+
+Reviewed refinements: attempt_settlement requires an explicit expected_open_time
+from frozen calendar configuration, never inferred from the available bars.
+Only that opening in the episode snapshot can fill. The entire calculation runs
+in an isolated 64-digit Decimal context with explicit HALF_EVEN rounding and fixed
+traps. On rejection total_fee_deducted is zero, not a hypothetical charge.
+Episode-scoped pending identity is checked; terminal IDs derive from pending and
+round identities. An optional admission_account proves the original anchor when
+the current account was revalued; balances/costs must match, while the successful
+transition before-hash uses the current account. The linked service plan specifies
+these interfaces and the remaining caller obligations. Runner/replay is still planned.
 
 The contract strictly divides validation responsibilities between admission and settlement:
 

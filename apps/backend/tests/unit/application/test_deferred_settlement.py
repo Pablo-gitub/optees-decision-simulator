@@ -36,7 +36,11 @@ from pathlib import Path
 
 import pytest
 
-from simulator.application.services.deferred_admission import DeferredAdmissionService
+from simulator.application.ports.pricing import PriceEvidence
+from simulator.application.services.deferred_admission import (
+    DeferredAdmissionService,
+    _compute_pending_transition_id,
+)
 from simulator.application.services.deferred_settlement import (
     REJECTION_EPISODE_CANCELLED,
     REJECTION_INSUFFICIENT_FUNDS_AT_SETTLEMENT,
@@ -48,6 +52,7 @@ from simulator.application.services.deferred_settlement import (
     DeferredSettlementResult,
     DeferredSettlementService,
 )
+from simulator.domain.errors import InvalidTimestampError
 from simulator.domain.lifecycle import ActionType, PendingStatus, SettlementStatus
 from simulator.domain.models import (
     AccountBalanceSpec,
@@ -82,9 +87,211 @@ spec.loader.exec_module(validate_contracts)  # type: ignore[union-attr]
 validate_data = validate_contracts.validate_data
 
 
+def _review_case():
+    episode = _make_episode_def()
+    account = _make_account_state()
+    pending = _admit_pending(
+        episode, account, action=RequestedAction(ActionType.ALLOCATE, "BTC", Decimal("1.5"))
+    )
+    bar = _make_observation(
+        open_time="2026-08-01T00:00:00Z",
+        event_time="2026-08-01T23:59:59Z",
+        knowledge_time="2026-08-03T00:00:00Z",
+        open_price="62000.00",
+    )
+    return dict(
+        episode_def=episode,
+        current_account=account,
+        pending=pending,
+        settlement_round_id="rnd_003",
+        settlement_round_index=3,
+        settlement_time="2026-08-03T00:00:00Z",
+        all_observations=(bar,),
+        valuation_marks={"BTC": Decimal("63000")},
+        expected_open_time="2026-08-01T00:00:00Z",
+    )
+
+
+@pytest.mark.parametrize("precision", [6, 28, 80])
+def test_settlement_is_independent_of_ambient_decimal_context(precision):
+    from decimal import ROUND_UP, Inexact, localcontext
+
+    kwargs = _review_case()
+    expected = DeferredSettlementService.attempt_settlement(**kwargs)
+    with localcontext() as ctx:
+        ctx.prec = precision
+        ctx.rounding = ROUND_UP
+        ctx.traps[Inexact] = True
+        actual = DeferredSettlementService.attempt_settlement(**kwargs)
+        assert actual == expected
+        assert ctx.prec == precision and ctx.traps[Inexact]
+
+
+@pytest.mark.parametrize("terminal", [False, True])
+def test_settlement_rejects_foreign_episode(terminal):
+    from dataclasses import replace
+
+    kwargs = _review_case()
+    kwargs["episode_def"] = replace(kwargs["episode_def"], episode_id="ep-def_foreign")
+    with pytest.raises(ValueError, match="identity"):
+        if terminal:
+            DeferredSettlementService.terminate_unsettled(
+                kwargs["episode_def"],
+                kwargs["current_account"],
+                kwargs["pending"],
+                "rnd_003",
+                kwargs["settlement_time"],
+                "EPISODE_CANCELLED",
+            )
+        else:
+            DeferredSettlementService.attempt_settlement(**kwargs)
+
+
+def test_rejected_settlement_records_zero_deducted_fees():
+    from dataclasses import replace
+
+    kwargs = _review_case()
+    ep = kwargs["episode_def"]
+    kwargs["episode_def"] = replace(
+        ep,
+        rules=replace(
+            ep.rules,
+            cost_model=replace(ep.rules.cost_model, fixed_transaction_fee=Decimal("200000")),
+        ),
+    )
+    result = DeferredSettlementService.attempt_settlement(**kwargs)
+    assert result.settlement_outcome.status == SettlementStatus.REJECTED
+    assert Decimal(result.settlement_outcome.settlement_evidence["total_fee_deducted"]) == 0
+    assert result.next_account is kwargs["current_account"]
+
+
+def test_foreign_snapshot_cannot_supply_fill():
+    from dataclasses import replace
+
+    kwargs = _review_case()
+    kwargs["all_observations"] = (
+        replace(kwargs["all_observations"][0], snapshot_id="ds-snap_foreign"),
+    )
+    assert DeferredSettlementService.attempt_settlement(**kwargs).is_still_pending
+
+
+def test_revaluation_uses_current_hash_without_allowing_balance_changes():
+    from dataclasses import replace
+
+    kwargs = _review_case()
+    anchor = kwargs["current_account"]
+    current = replace(
+        anchor,
+        account_state_id="acc-state_revalued",
+        round_index=2,
+        as_of_time="2026-08-02T00:00:00Z",
+        parent_state_hash=anchor.compute_hash(),
+    )
+    kwargs.update(current_account=current, admission_account=anchor)
+    result = DeferredSettlementService.attempt_settlement(**kwargs)
+    assert result.is_settled
+    assert result.deferred_transition.account_state_before_hash == current.compute_hash()
+    assert result.next_account.parent_state_hash == current.compute_hash()
+    assert result.pending_transition.predecessor_account_hash == anchor.compute_hash()
+    kwargs["current_account"] = replace(
+        current,
+        balances=(replace(current.balances[0], quantity=current.balances[0].quantity + 1),)
+        + current.balances[1:],
+    )
+    with pytest.raises(ValueError, match="balances or costs"):
+        DeferredSettlementService.attempt_settlement(**kwargs)
+
+
+def test_conflicting_duplicate_revision_is_not_input_order_dependent():
+    from dataclasses import replace
+
+    kwargs = _review_case()
+    bar = kwargs["all_observations"][0]
+    conflict = replace(bar, payload={**bar.to_dict()["payload"], "open": "1.00"})
+    for observations in ((bar, conflict), (conflict, bar)):
+        with pytest.raises(ValueError, match="Conflicting observations"):
+            DeferredSettlementService.attempt_settlement(
+                **{**kwargs, "all_observations": observations}
+            )
+
+
 def _load_schema(filename: str) -> dict:
     with open(SCHEMAS_DIR / filename, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+@pytest.mark.parametrize("bad_target", ["2026-07-31T00:00:00Z", "2026-08-01T00:00:00+00:00"])
+def test_expected_opening_must_be_utc_and_after_cutoff(bad_target):
+    with pytest.raises((ValueError, InvalidTimestampError)):
+        DeferredSettlementService.attempt_settlement(
+            **{**_review_case(), "expected_open_time": bad_target}
+        )
+
+
+def test_expected_target_cannot_override_retained_target():
+    from dataclasses import replace
+
+    kwargs = _review_case()
+    pending = kwargs["pending"]
+    kwargs["pending"] = replace(
+        pending,
+        target_bar_rule=replace(pending.target_bar_rule, expected_open_time="2026-08-02T00:00:00Z"),
+    )
+    with pytest.raises(ValueError, match="conflicts"):
+        DeferredSettlementService.attempt_settlement(**kwargs)
+
+
+def test_outcome_id_distinguishes_episodes():
+    from dataclasses import replace
+
+    kwargs = _review_case()
+    first = DeferredSettlementService.attempt_settlement(**kwargs)
+    ep = replace(kwargs["episode_def"], episode_id="ep-def_other")
+    kwargs["episode_def"] = ep
+    kwargs["pending"] = _admit_pending(
+        ep, kwargs["current_account"], action=kwargs["pending"].requested_action
+    )
+    second = DeferredSettlementService.attempt_settlement(**kwargs)
+    assert (
+        first.settlement_outcome.settlement_outcome_id
+        != second.settlement_outcome.settlement_outcome_id
+    )
+    assert first.deferred_transition.transition_id != second.deferred_transition.transition_id
+
+
+def test_subcent_fixed_fee_uses_currency_rounding_consistently():
+    from dataclasses import replace
+
+    kwargs = _review_case()
+    ep = kwargs["episode_def"]
+    kwargs["episode_def"] = replace(
+        ep,
+        rules=replace(
+            ep.rules,
+            cost_model=replace(ep.rules.cost_model, fixed_transaction_fee=Decimal("1.005")),
+        ),
+    )
+    result = DeferredSettlementService.attempt_settlement(**kwargs)
+    assert result.deferred_transition.total_cost_reference_unit == Decimal("94.00")
+    assert result.next_account.reference_valuation.unallocated_cash == Decimal("6906.00")
+
+
+@pytest.mark.parametrize("foreign", [False, True])
+def test_valuation_evidence_rejects_future_or_foreign_resource(foreign):
+    kwargs = _review_case()
+    kwargs["valuation_marks"] = {
+        "BTC": PriceEvidence(
+            resource_id="ETH" if foreign else "BTC",
+            price=Decimal("63000"),
+            observation_id="obs_mark",
+            event_time="2026-08-01T00:00:00Z",
+            knowledge_time="2026-08-04T00:00:00Z",
+            revision=1,
+            staleness_seconds=Decimal("0"),
+        )
+    }
+    with pytest.raises(ValueError, match="Valuation evidence"):
+        DeferredSettlementService.attempt_settlement(**kwargs)
 
 
 SETTLEMENT_OUTCOME_SCHEMA = _load_schema("settlement_outcome.v1.json")
@@ -246,7 +453,9 @@ def _make_pending_directly(
     series_id: str = SERIES_ID,
 ) -> PendingTransitionRecord:
     return PendingTransitionRecord(
-        pending_transition_id=f"pnd_{decision_id}",
+        pending_transition_id=_compute_pending_transition_id(
+            "ep_settlement_test", round_id, policy_id, decision_id
+        ),
         decision_id=decision_id,
         round_id=round_id,
         policy_id=policy_id,
@@ -295,6 +504,7 @@ def test_full_lifecycle_settles_allocate_buy():
         settlement_round_id="rnd_003",
         settlement_round_index=3,
         settlement_time="2026-08-03T00:00:00Z",
+        expected_open_time="2026-08-01T00:00:00Z",
         all_observations=all_obs,
         valuation_marks={"BTC": Decimal("63000.00")},
     )
@@ -334,6 +544,7 @@ def test_full_lifecycle_settles_allocate_buy():
         settlement_round_id="rnd_003",
         settlement_round_index=3,
         settlement_time="2026-08-03T00:00:00Z",
+        expected_open_time="2026-08-01T00:00:00Z",
         all_observations=all_obs,
         valuation_marks={"BTC": Decimal("63000.00")},
     )
@@ -367,6 +578,7 @@ def test_still_pending_when_bar_not_yet_eligible():
         settlement_round_id="rnd_003",
         settlement_round_index=3,
         settlement_time="2026-08-03T00:00:00Z",
+        expected_open_time="2026-08-01T00:00:00Z",
         all_observations=(target_not_yet_eligible,),
         valuation_marks={},
     )
@@ -392,6 +604,7 @@ def test_still_pending_when_no_bar_ingested_at_all():
         settlement_round_id="rnd_003",
         settlement_round_index=3,
         settlement_time="2026-08-03T00:00:00Z",
+        expected_open_time="2026-08-01T00:00:00Z",
         all_observations=(),
         valuation_marks={},
     )
@@ -431,6 +644,7 @@ def test_no_skip_when_earlier_bar_present_but_ineligible():
         settlement_round_id="rnd_003",
         settlement_round_index=3,
         settlement_time="2026-08-03T00:00:00Z",
+        expected_open_time="2026-08-01T00:00:00Z",
         all_observations=(earlier_not_yet_eligible, later_already_eligible),
         valuation_marks={"BTC": Decimal("99999.00")},
     )
@@ -440,15 +654,8 @@ def test_no_skip_when_earlier_bar_present_but_ineligible():
     )
 
 
-def test_accepted_limitation_absent_earlier_bar_settles_against_later_one():
-    """Documents the accepted limitation from the frozen plan: when the true
-    first bar was never ingested at all (e.g. an exchange halt), this pure
-    service has no local signal to detect the gap and settles against the
-    next available bar instead. Closing this requires the round-cutoff-aware
-    runner (DS-02D2C), which is out of scope for DS-02D2B2. This test exists
-    to make the limitation visible and regression-tested, not to endorse it
-    as correct settlement economics.
-    """
+def test_absent_target_bar_never_falls_through_to_later_bar():
+    """An explicit schedule target cannot be replaced by available observations."""
     episode = _make_episode_def()
     account = _make_account_state()
     action = RequestedAction(ActionType.ALLOCATE, "BTC", Decimal("1.5"))
@@ -469,12 +676,14 @@ def test_accepted_limitation_absent_earlier_bar_settles_against_later_one():
         settlement_round_id="rnd_003",
         settlement_round_index=3,
         settlement_time="2026-08-03T00:00:00Z",
+        expected_open_time="2026-08-01T00:00:00Z",
         all_observations=(later_already_eligible,),
         valuation_marks={"BTC": Decimal("30000.00")},
     )
 
-    assert result.is_settled
-    assert result.settlement_outcome.settlement_evidence["execution_price"] == "30000.00"
+    assert result.is_still_pending
+    assert result.settlement_outcome is None
+    assert result.next_account is account
 
 
 def test_open_time_governs_not_event_time():
@@ -507,6 +716,7 @@ def test_open_time_governs_not_event_time():
         settlement_round_id="rnd_003",
         settlement_round_index=3,
         settlement_time="2026-08-03T00:00:00Z",
+        expected_open_time="2026-08-01T00:00:00Z",
         all_observations=(stale_bar_with_late_close, correct_bar),
         valuation_marks={"BTC": Decimal("62000.00")},
     )
@@ -621,6 +831,7 @@ def test_revision_resolution_uses_highest_eligible():
         settlement_round_id="rnd_003",
         settlement_round_index=3,
         settlement_time="2026-08-03T00:00:00Z",
+        expected_open_time="2026-08-01T00:00:00Z",
         all_observations=(revision_1, revision_2_not_yet_eligible),
         valuation_marks={"BTC": Decimal("62000.00")},
     )
@@ -639,6 +850,7 @@ def test_revision_resolution_uses_highest_eligible():
         settlement_round_id="rnd_003",
         settlement_round_index=3,
         settlement_time="2026-08-03T00:00:00Z",
+        expected_open_time="2026-08-01T00:00:00Z",
         all_observations=(revision_1, revision_2_eligible),
         valuation_marks={"BTC": Decimal("62500.00")},
     )
@@ -672,6 +884,7 @@ def test_insufficient_funds_at_settlement():
         settlement_round_id="rnd_003",
         settlement_round_index=3,
         settlement_time="2026-08-03T00:00:00Z",
+        expected_open_time="2026-08-01T00:00:00Z",
         all_observations=(target,),
         valuation_marks={"BTC": Decimal("70000.00")},
     )
@@ -709,6 +922,7 @@ def test_short_positions_forbidden():
         settlement_round_id="rnd_003",
         settlement_round_index=3,
         settlement_time="2026-08-03T00:00:00Z",
+        expected_open_time="2026-08-01T00:00:00Z",
         all_observations=(target,),
         valuation_marks={"BTC": Decimal("62000.00")},
     )
@@ -755,6 +969,7 @@ def test_invalid_execution_price_has_empty_evidence(open_payload):
         settlement_round_id="rnd_003",
         settlement_round_index=3,
         settlement_time="2026-08-03T00:00:00Z",
+        expected_open_time="2026-08-01T00:00:00Z",
         all_observations=(target,),
         valuation_marks={},
     )
@@ -810,6 +1025,7 @@ def test_missing_valuation_mark_blocks_settlement():
         settlement_round_id="rnd_003",
         settlement_round_index=3,
         settlement_time="2026-08-03T00:00:00Z",
+        expected_open_time="2026-08-01T00:00:00Z",
         all_observations=(target,),
         valuation_marks={"BTC": Decimal("62000.00")},  # ETH mark missing
     )
@@ -845,6 +1061,7 @@ def test_signed_transfer_credit_direction_settles():
         settlement_round_id="rnd_003",
         settlement_round_index=3,
         settlement_time="2026-08-03T00:00:00Z",
+        expected_open_time="2026-08-01T00:00:00Z",
         all_observations=(target,),
         valuation_marks={"BTC": Decimal("50000.00")},
     )
@@ -874,6 +1091,7 @@ def test_signed_transfer_debit_direction_settles():
         settlement_round_id="rnd_003",
         settlement_round_index=3,
         settlement_time="2026-08-03T00:00:00Z",
+        expected_open_time="2026-08-01T00:00:00Z",
         all_observations=(target,),
         valuation_marks={"BTC": Decimal("50000.00")},
     )
@@ -904,6 +1122,7 @@ def test_foreign_pending_raises():
             settlement_round_id="rnd_003",
             settlement_round_index=3,
             settlement_time="2026-08-03T00:00:00Z",
+            expected_open_time="2026-08-01T00:00:00Z",
             all_observations=(),
             valuation_marks={},
         )
@@ -925,6 +1144,7 @@ def test_predecessor_hash_mismatch_raises():
             settlement_round_id="rnd_003",
             settlement_round_index=3,
             settlement_time="2026-08-03T00:00:00Z",
+            expected_open_time="2026-08-01T00:00:00Z",
             all_observations=(),
             valuation_marks={},
         )
@@ -944,6 +1164,7 @@ def test_malformed_round_id_raises():
             settlement_round_id="not-a-round-id",
             settlement_round_index=3,
             settlement_time="2026-08-03T00:00:00Z",
+            expected_open_time="2026-08-01T00:00:00Z",
             all_observations=(),
             valuation_marks={},
         )
@@ -963,6 +1184,7 @@ def test_non_utc_settlement_time_raises():
             settlement_round_id="rnd_003",
             settlement_round_index=3,
             settlement_time="2026-08-03T00:00:00+02:00",
+            expected_open_time="2026-08-01T00:00:00Z",
             all_observations=(),
             valuation_marks={},
         )
@@ -982,6 +1204,7 @@ def test_settlement_time_before_cutoff_raises():
             settlement_round_id="rnd_000",
             settlement_round_index=0,
             settlement_time="2026-07-31T00:00:00Z",
+            expected_open_time="2026-08-01T00:00:00Z",
             all_observations=(),
             valuation_marks={},
         )
@@ -1002,6 +1225,7 @@ def test_hold_pending_is_structurally_impossible():
             settlement_round_id="rnd_003",
             settlement_round_index=3,
             settlement_time="2026-08-03T00:00:00Z",
+            expected_open_time="2026-08-01T00:00:00Z",
             all_observations=(),
             valuation_marks={},
         )
@@ -1036,6 +1260,7 @@ def test_input_and_output_immutability_preserved():
         settlement_round_id="rnd_003",
         settlement_round_index=3,
         settlement_time="2026-08-03T00:00:00Z",
+        expected_open_time="2026-08-01T00:00:00Z",
         all_observations=all_obs,
         valuation_marks=marks,
     )
