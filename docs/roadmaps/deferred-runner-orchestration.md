@@ -1,408 +1,292 @@
 # Deferred Runner Orchestration and Atomic Persistence
 
-## Work unit and review status
+## Work unit
 
-- ID: `DS-02D2C1`; status: plan frozen, ready for independent review.
-- Prerequisite: reviewed C0 (`d2243bb`) and B1/B2 (`d365cd8`); Gate `DS-D3B` satisfied.
-- Parent: [market plan](market-dataset-and-baseline-evidence.md).
-- Authority: [deferred settlement contract](../contracts/deferred-settlement-contract.md) and [deferred run terminal contract](../contracts/deferred-run-terminal-contract.md).
-- Next authorized work: independent review of this specification; implementation begins only upon review acceptance.
-- C2 replay and DS-02E market episodes remain blocked; `DS-D3` is not satisfied.
+- ID: `DS-02D2C1`.
+- State: corrected plan independently reviewed; implementation is the next
+  authorized work unit.
+- Prerequisites: reviewed B1/B2 (`d365cd8`) and C0 (`d2243bb`);
+  `DS-D3B` satisfied.
+- Contracts: [deferred settlement](../contracts/deferred-settlement-contract.md)
+  and [terminal record](../contracts/deferred-run-terminal-contract.md).
+- C2 replay and DS-02E evidence remain blocked until C1 is implemented and
+  reviewed.
 
----
+C1 integrates the existing admission, settlement and round-v2 components.
+It preserves the synchronous v1 execution path and does not implement replay,
+REST, SQLite, UI, live acquisition or Optees policies.
 
-## 1. Frozen Architecture and Boundaries
+## Implementation surface
 
-### 1.1 Permitted production files for future C1 implementation
+Permitted production changes:
 
-The future implementation of `DS-02D2C1` may modify or create ONLY the following files:
+- add `application/contracts/deferred_configuration.py` for strict parsing of
+  the versioned episode metadata profile;
+- add `domain/deferred_terminal.py` and its exports;
+- add terminal schema, inventory entry, codec/examples and validation tests;
+- extend `application/ports/persistence.py`;
+- extend `infrastructure/adapters/in_memory_store.py`;
+- add `application/services/account_valuation.py`;
+- extend `application/services/runner.py`;
+- extend `application/services/evaluator.py`;
+- add focused runner, persistence, configuration, valuation and terminal tests;
+- update authoritative documentation and roadmap state.
 
-1. `apps/backend/src/simulator/domain/deferred_terminal.py`: [NEW] Domain dataclass and codec for `DeferredRunTerminalRecord`.
-2. `apps/backend/src/simulator/domain/models.py`: [MODIFY] Export `DeferredRunTerminalRecord` and `PolicyTerminalRecord`.
-3. `apps/backend/src/simulator/application/ports/persistence.py`: [MODIFY] Add deferred persistence signatures, `TerminalCommit`, and additive `RoundCommit` fields.
-4. `apps/backend/src/simulator/infrastructure/adapters/in_memory_store.py`: [MODIFY] Implement run-scoped deferred storage, index lookups, exact-retry idempotency, and atomic candidate validation for `RoundCommit` and `TerminalCommit`.
-5. `apps/backend/src/simulator/application/services/runner.py`: [MODIFY] Implement `_execute_next_round_deferred`, terminal execution on episode completion/cancellation, and deterministic schedule resolution.
-6. `apps/backend/src/simulator/application/services/evaluator.py`: [MODIFY] Add `DeferredEvaluationContext` and `calculate_deferred_metrics`.
-7. `apps/backend/tests/unit/application/test_deferred_runner.py`: [NEW] Unit and integration tests for deferred runner orchestration.
-8. `apps/backend/tests/unit/infrastructure/test_deferred_persistence.py`: [NEW] Persistence, atomic commit, fault-injection, and retry tests.
+Frozen behavior:
 
-### 1.2 Explicitly forbidden files
+- B1 admission and B2 settlement arithmetic;
+- C0 `deferred_round.py` and `round.v2.json`;
+- v1 domain records and schemas;
+- replay service;
+- synchronous runner results and byte behavior.
 
-- `apps/backend/src/simulator/domain/deferred_round.py`: FROZEN in `DS-02D2C0` (commit `d2243bb`).
-- `apps/backend/src/simulator/application/services/deferred_admission.py`: FROZEN in `DS-02D2B1` (commit `40308b4`).
-- `apps/backend/src/simulator/application/services/deferred_settlement.py`: FROZEN in `DS-02D2B2` (commit `d365cd8`).
-- `apps/backend/src/simulator/application/services/replay.py`: Reserved exclusively for `DS-02D2C2`.
-- `apps/backend/src/simulator/domain/models.py` (v1 classes): `RoundRecord`, `TransitionRecord`, `DecisionOutcome` definitions must NOT be modified.
-- `docs/contracts/schemas/*.v1.json`: All v1 JSON schemas remain strictly frozen.
-- `docs/contracts/schemas/round.v2.json`: Frozen in `DS-02D2C0`.
-- Presentation layer, SQLite/database ports, live REST/Binance API connectors, or Optees solver integration.
+If implementation proves a frozen component cannot satisfy this plan, stop and
+report the exact incompatibility rather than widening C1 silently.
 
----
+## Deferred configuration
 
-## 2. Decision 1: Deferred Configuration and Schedule Provenance
+A deferred episode has exactly one strict object at
+`EpisodeDefinition.metadata["deferred_settlement"]`:
 
-### 2.1 Explicit Versioned Configuration in `EpisodeDefinition.metadata`
-
-To ensure deterministic recovery across runner restarts, execution mode and schedule are NOT passed via mutable constructor arguments.
-Instead, an episode requiring deferred settlement MUST define an explicit, typed dictionary under `episode_def.metadata["deferred_settlement"]`:
-
-```python
+```json
 {
-    "schema_version": "1.0.0",
-    "settlement_mode": "deferred",
-    "calendar_identity": "cal_binance_daily_utc",
-    "calendar_frequency": "1d",
-    "resource_to_series_map": {
-        "BTC": "BTC_USDT_PRICE_1D",
-        "ETH": "ETH_USDT_PRICE_1D",
-        "SOL": "SOL_USDT_PRICE_1D",
-        "BNB": "BNB_USDT_PRICE_1D",
-    },
-    "scheduled_openings": {
-        "2026-08-01T00:00:00Z": "2026-08-02T00:00:00Z",
-        "2026-08-02T00:00:00Z": "2026-08-03T00:00:00Z",
-        "2026-08-03T00:00:00Z": "2026-08-04T00:00:00Z",
-    },
-    "scheduled_deadlines": {
-        "2026-08-01T00:00:00Z": "2026-08-05T00:00:00Z",
-        "2026-08-02T00:00:00Z": "2026-08-06T00:00:00Z",
-        "2026-08-03T00:00:00Z": "2026-08-07T00:00:00Z",
-    },
-    "deadline_policy": "INCLUSIVE",
+  "schema_version": "1.0.0",
+  "settlement_mode": "deferred",
+  "calendar_identity": "cal_binance_spot_1d_utc_v1",
+  "calendar_sha256": "sha256:<64 lowercase hex>",
+  "resource_to_series_map": {"res_btc": "series_btc_usdt_1d"},
+  "scheduled_openings": {
+    "2026-08-01T00:00:00Z": "2026-08-01T00:00:00Z"
+  },
+  "scheduled_deadlines": {
+    "2026-08-01T00:00:00Z": "2026-08-03T00:00:00Z"
+  },
+  "deadline_policy": "inclusive"
 }
 ```
 
-### 2.2 Schedule Invariants and Retrieval
+Absence selects the existing synchronous path. Presence requires exact fields,
+no unknown keys, version `1.0.0`, canonical UTC values, an exact key for every
+cutoff at which an actionable proposal may be admitted, openings not before
+their cutoff, deadlines not before openings, and a mapping for every tradable
+resource. The parser returns an immutable typed value; the runner does not
+interpret an arbitrary dictionary repeatedly.
 
-1. **Recovery from Store:**
-   Any `EpisodeRunner` instance (whether initial or reconstructed after process restart) retrieves `episode_def = self._persistence.get_episode_definition(run.episode_id)`.
-   If `episode_def.metadata.get("deferred_settlement")` is absent, the runner executes legacy synchronous logic (`execute_next_round` calling existing synchronous flow).
-   If present, it validates `schema_version == "1.0.0"` and enforces all required schedule keys.
-2. **Deterministic `expected_open_time`:**
-   When admitting a proposal at cutoff $T_r$, the runner obtains `expected_open_time = scheduled_openings[T_r]`.
-   It is NEVER inferred from available observations, bar arrival times, or round interval math. If $T_r$ is missing from `scheduled_openings`, admission fails immediately with `InvalidDecisionContextError`.
-3. **Deterministic `settlement_deadline` and INCLUSIVE Policy:**
-   `settlement_deadline = scheduled_deadlines[T_r]`.
-   - **Inclusive Deadline Rule:** An observation is eligible for settlement if and only if:
-     $$t_{\text{knowledge}}(\text{obs}) \le \text{settlement\_deadline}$$
-   - **Late Discovery Rule:** If a target bar was published with $t_{\text{knowledge}} \le \text{settlement\_deadline}$, but the runner first inspects it at a round cutoff $T_{\text{eval}} > \text{settlement\_deadline}$ (e.g. skipped or delayed round evaluation), the trade **MUST STILL SETTLE**.
-   - **Exogenous Timeout (`MISSING_EXECUTION_BAR`):** Only if at cutoff $T_{\text{eval}}$ NO eligible bar exists with $t_{\text{knowledge}} \le \text{settlement\_deadline}$ AND $T_{\text{eval}} > \text{settlement\_deadline}$, the pending order is terminated as `REJECTED` with reason `MISSING_EXECUTION_BAR`.
+The complete metadata is already covered by the immutable episode-definition
+hash. `calendar_sha256` additionally binds the externally prepared schedule
+artifact; `calendar_identity` alone is descriptive.
 
----
+B1 continues to create a pending record whose target rule has no expected open.
+The runner creates the C0 `PendingStateReference` from the frozen schedule and
+passes that exact `expected_open_time` to B2. A new runner reconstructs the
+profile from the stored episode and the pending reference from committed
+history; it never relies on process-local schedule state.
 
-## 3. Decision 2: Persistence Boundary, Run-Scoped Indexing, and Atomic Retry
+Deadline is inclusive. At simulated cutoff `T`:
 
-### 3.1 PersistencePort Additive Signatures
+- attempt settlement against observations eligible at `T`;
+- if the exact target observation has `knowledge_time <= deadline`, it remains
+  eligible for settlement even when first inspected after the deadline;
+- otherwise, when `T > deadline`, terminate as `MISSING_EXECUTION_BAR`;
+- at `T == deadline`, absence remains WAITING.
+
+The runner must filter the B2 candidate observations so an exact target first
+known after the deadline cannot settle.
+
+## Valuation before settlement and policy delivery
+
+Each deferred round resolves one authoritative valuation mark per held
+non-reference resource from observations eligible at the cutoff, using the
+existing pricing port and frozen staleness rules. A new pure
+`AccountValuationService` mints a round account snapshot with:
+
+- identical policy, balances, cumulative costs and reference resource;
+- unchanged reservations;
+- the current round index and cutoff;
+- reference valuation recomputed with Decimal `ROUND_HALF_EVEN` conventions;
+- provenance-bearing `PriceEvidence` supplied by the pricing boundary.
+
+Missing/invalid required marks fail the round before policy invocation and
+before persistence. The runner must not contain duplicate valuation arithmetic.
+
+The revalued account becomes B2's `current_account`; the original
+hash-addressed admission account is supplied as `admission_account`.
+B2 already verifies that balances and costs did not change while pending.
+A successful settlement returns its own newly valued account. WAITING,
+settlement rejection, or no pending retains the revalued account.
+That account—not a stale admission valuation—is delivered to the policy and
+recorded as the policy entry's account-after state.
+
+No duplicate account is appended when its canonical hash already exists; an
+exact reference is sufficient. Tests must prove mark-to-market changes affect
+equity without creating trade volume or fees.
+
+## Causal round flow
+
+For policies in strict lexicographic order:
+
+1. Resolve the stored account, active `pending_after`, pending record and
+   admission account. Validate run/policy/hash ownership.
+2. Resolve eligible observations and marks, then revalue the account.
+3. If pending exists, attempt B2 settlement before policy invocation. Interpret
+   `is_settled=True` as settled, `is_still_pending=True` as waiting, and both
+   false as rejected. Clear pending only for terminal outcomes.
+4. Construct `PolicyContext` with the resulting account and eligible
+   observations, then obtain exactly one proposal.
+5. Invoke B1 with the still-active pending, if any:
+   - new admission: stage pending and scheduled reference, no immediate outcome;
+   - admissible HOLD with active pending: stage ACCEPTED HOLD and carry the exact
+     reference;
+   - different actionable proposal with active pending: stage rejection and
+     carry the exact reference;
+   - exact retry applies only to idempotent re-evaluation of the same admission
+     context; it is not a normal cross-round state.
+6. Construct the C0 policy entry. A settled/rejected old pending may coexist
+   with one newly admitted pending; a waiting pending cannot be replaced.
+7. Build the sorted v2 round and Merkle root.
+
+All records remain staged until complete cross-record validation succeeds.
+
+## Persistence boundaries
+
+`RoundCommit` remains backward compatible and accepts either round version plus
+additive deferred collections. It also has optional
+`terminal_record: DeferredRunTerminalRecord | None`.
+Its existing `settlement_outcomes` collection may contain both the settlement
+of `pending_before` and, on the final round only, the terminal rejection of
+`pending_after`; references make the distinction explicit.
+
+`TerminalCommit` is used only for cancellation between rounds/genesis:
 
 ```python
-class PersistencePort(ABC):
-    # Existing methods remain unchanged ...
-
-    @abstractmethod
-    def save_pending_transition(self, pending: PendingTransitionRecord) -> None: ...
-
-    @abstractmethod
-    def get_pending_transition(
-        self, pending_id: str
-    ) -> PendingTransitionRecord | None: ...
-
-    @abstractmethod
-    def get_pending_transitions(
-        self, run_id: str, policy_id: str | None = None
-    ) -> list[PendingTransitionRecord]: ...
-
-    @abstractmethod
-    def save_settlement_outcome(self, outcome: SettlementOutcome) -> None: ...
-
-    @abstractmethod
-    def get_settlement_outcome(
-        self, outcome_id: str
-    ) -> SettlementOutcome | None: ...
-
-    @abstractmethod
-    def get_settlement_outcomes(
-        self, run_id: str, policy_id: str | None = None
-    ) -> list[SettlementOutcome]: ...
-
-    @abstractmethod
-    def save_deferred_transition(
-        self, transition: DeferredTransitionRecord
-    ) -> None: ...
-
-    @abstractmethod
-    def get_deferred_transition(
-        self, transition_id: str
-    ) -> DeferredTransitionRecord | None: ...
-
-    @abstractmethod
-    def get_deferred_transitions(
-        self, run_id: str, policy_id: str | None = None
-    ) -> list[DeferredTransitionRecord]: ...
-
-    @abstractmethod
-    def get_active_pending_reference(
-        self, run_id: str, policy_id: str
-    ) -> PendingStateReference | None: ...
-
-    @abstractmethod
-    def get_account_state_by_hash(
-        self, run_id: str, state_hash: str
-    ) -> VirtualAccountState | None: ...
-
-    @abstractmethod
-    def commit_terminal(self, commit: TerminalCommit) -> None: ...
-
-    @abstractmethod
-    def get_terminal_record(
-        self, run_id: str
-    ) -> DeferredRunTerminalRecord | None: ...
-```
-
-### 3.2 Additive Atomic Commit Shapes
-
-```python
-@dataclass(frozen=True)
-class RoundCommit:
-    run: EpisodeRun
-    round_record: RoundRecord | DeferredRoundRecord
-    proposed_decisions: tuple[ProposedDecision, ...] = ()
-    decision_outcomes: tuple[DecisionOutcome, ...] = ()
-    transitions: tuple[TransitionRecord, ...] = ()
-    account_states: tuple[VirtualAccountState, ...] = ()
-    metrics: tuple[MetricRecord, ...] = ()
-    # Additive deferred fields:
-    pending_transitions: tuple[PendingTransitionRecord, ...] = ()
-    settlement_outcomes: tuple[SettlementOutcome, ...] = ()
-    deferred_transitions: tuple[DeferredTransitionRecord, ...] = ()
-
-
 @dataclass(frozen=True)
 class TerminalCommit:
+    expected_run_hash: str
     run: EpisodeRun
     terminal_record: DeferredRunTerminalRecord
     settlement_outcomes: tuple[SettlementOutcome, ...] = ()
     metrics: tuple[MetricRecord, ...] = ()
 ```
 
-### 3.3 InMemoryStore Validation and Invariants
+The port exposes run-scoped getters for pending records, settlement outcomes,
+deferred transitions, account state by hash, active pending reference and
+terminal record. Round-produced records have no public individual-save path;
+they become visible only through an atomic commit.
 
-1. **Pre-commit Fail-Closed Candidate Validation:**
-   Before updating ANY internal map, `commit_round` and `commit_terminal` perform complete structural validation:
-   - Run identifier matches across all staged items.
-   - For `RoundCommit`: `round_record.round_index` strictly equals `existing_rounds[-1].round_index + 1` (or `0` if empty).
-   - `round_record.parent_round_hash` strictly equals `existing_rounds[-1].compute_hash()` (or `None` if empty).
-   - Candidate record IDs checked against existing records.
-   - For `DeferredRoundRecord`: validates that `state_merkle_hash` matches `compute_deferred_state_merkle_hash(parent_round_hash, policy_round_records)`.
-2. **Exact Retry Idempotency (Lost ACK handling):**
-   If `commit.round_record.round_id` already exists in `self._rounds[run_id]`:
-   - The store compares `commit.round_record.compute_hash()` with the existing round's hash.
-   - If identical, and all staged items match existing records bit-for-bit, `commit_round` returns cleanly as an **idempotent no-op**.
-   - If IDs match but hashes/payloads differ, the store raises `FrozenRecordMutationError` or `DuplicateIdentityError`.
-3. **Concurrency Conflict Prevention:**
-   If `commit.round_record.parent_round_hash != current_parent_hash`, the commit is rejected with `FrozenRecordMutationError("Parent round hash mismatch: concurrency conflict")`.
-4. **Run-Scoped State and Recovery:**
-   `_account_states_by_hash: dict[tuple[str, str], VirtualAccountState]` indexes states by `(run_id, state_hash)`.
-   `_active_pending: dict[tuple[str, str], PendingStateReference | None]` tracks the active pending reference for each `(run_id, policy_id)`.
-   On restart, a new `EpisodeRunner` reads `latest_round = store.get_rounds(run_id)[-1]`.
-   For each policy, it restores `active_ref = policy_entry.pending_after`. If present, it resolves the underlying `PendingTransitionRecord` and `admission_account` from store indices.
+Before changing any map/index, the in-memory adapter validates:
 
----
+- expected prior run hash/status and exact next round index;
+- parent hash, run/episode/policy ownership and strict policy ordering;
+- every hash reference and typed payload, including staged references;
+- schedule values against pending references;
+- before/after account and transition/outcome links;
+- Merkle roots and terminal final-state binding;
+- no orphan pending, duplicate terminal outcome or dangling record;
+- all IDs against both existing and staged records.
 
-## 4. Decision 3: Deferred Run Terminal Record
+Validation builds complete candidate copies (or an equivalent transaction-local
+state) and publishes only after every check passes. Fault injection at each
+stage must leave all maps, derived indices, metrics and run progress unchanged.
 
-See [`docs/contracts/deferred-run-terminal-contract.md`](../contracts/deferred-run-terminal-contract.md) for full authoritative schema and field patterns.
+An exact retry compares the complete commit, including updated run, metrics and
+terminal data. Identical content is a no-op; any same-ID drift fails as immutable
+mutation. A stale `expected_run_hash`, status, index or parent rejects a
+concurrent commit. Derived active-pending indices are never authoritative and
+must agree with the latest committed round/terminal record.
 
-### 4.1 Specification of `DeferredRunTerminalRecord`
+## Atomic completion and cancellation
 
-```python
-@dataclass(frozen=True)
-class PolicyTerminalRecord:
-    policy_id: str
-    account_state_hash: str
-    pending_transition_hash: str | None
-    settlement_outcome_hash: str | None
+For the final round, one `RoundCommit` contains:
 
+- the final v2 round and all ordinary round records;
+- any new pending record;
+- terminal rejection outcomes for pending remaining after the policy phase;
+- the terminal record linked to the staged final round;
+- final deferred metrics;
+- the COMPLETED run whose `final_state_hash` is the terminal record hash.
 
-@dataclass(frozen=True)
-class DeferredRunTerminalRecord:
-    terminal_record_id: str
-    run_id: str
-    episode_id: str
-    terminal_status: str  # "COMPLETED" or "CANCELLED"
-    reason_code: str  # "CLEAN_COMPLETION", "UNSETTLED_EPISODE_TERMINATION", "EPISODE_CANCELLED"
-    reason_message: str
-    simulated_effective_time: str
-    execution_timestamp: str
-    parent_round_hash: str | None
-    policy_terminal_records: tuple[PolicyTerminalRecord, ...]
-    terminal_state_merkle_hash: str
-    schema_version: str = "1.0.0"
-```
+There is no intermediate visible COMPLETED run or final round with an active
+unclosed pending. A failed commit exposes neither round nor termination.
 
-### 4.2 Handling the 7 Terminal Scenarios
+Cancellation uses `TerminalCommit` with the latest committed run/round as its
+expected parent. With pending, call B2 `terminate_unsettled` using the latest
+committed round ID and simulation frontier cutoff, plus the admission anchor.
+At genesis no pending/outcome exists and frontier/parent are null.
+Repeated identical cancellation returns existing terminal state; changed retry
+content fails. Cancelling a completed run is an invalid lifecycle transition.
 
-1. **Pending order active at final round completion:**
-   - In Round $K-1$, `pending_after` retains the pending reference. Round $K-1$ commits.
-   - The runner detects `current_round_index >= total_rounds`.
-   - For policies with active pending, it calls:
-     `DeferredSettlementService.terminate_unsettled(..., reason_code=REJECTION_UNSETTLED_EPISODE_TERMINATION, settlement_time=final_cutoff)`.
-   - The terminal `SettlementOutcome` is staged into `TerminalCommit`.
-   - `PolicyTerminalRecord` records `pending_transition_hash` and `settlement_outcome_hash`.
-   - Atomic commit via `store.commit_terminal(TerminalCommit)`.
-2. **Old pending settled, new proposal admitted in final round:**
-   - Round $K-1$ settles old pending (`settlement_outcome_hash` in Round $K-1$) and admits new trade (`pending_after`). Round $K-1$ commits cleanly.
-   - In terminal transition, the newly admitted pending is terminated via `UNSETTLED_EPISODE_TERMINATION` in `DeferredRunTerminalRecord`.
-   - No conflict: each outcome occupies its own unique, lossless record.
-3. **New admission in final round (without prior pending):**
-   - Round $K-1$ records admission in `pending_after`.
-   - Terminal record terminates it with `UNSETTLED_EPISODE_TERMINATION`.
-4. **Cancellation between rounds:**
-   - Runner calls `cancel_run(run_id, reason="User cancelled")`.
-   - Active pending orders terminated with `EPISODE_CANCELLED`.
-   - `DeferredRunTerminalRecord` has `terminal_status = "CANCELLED"`, `parent_round_hash = latest_round.compute_hash()`.
-   - Committed atomically via `commit_terminal`.
-5. **Zero-round run (cancellation at genesis):**
-   - `parent_round_hash = None`.
-   - All `policy_terminal_records` have `pending_transition_hash = None`, `settlement_outcome_hash = None`.
-   - Run transitions to `CANCELLED`.
-6. **Repeated cancellation:**
-   - Calling `cancel_run` on a run already `CANCELLED` is an idempotent no-op returning the existing `EpisodeRun`.
-7. **Cancellation of already completed run:**
-   - Calling `cancel_run` on a run with `lifecycle_status == COMPLETED` raises `InvalidLifecycleTransitionError`.
+The terminal record's [contract](../contracts/deferred-run-terminal-contract.md)
+defines reason/status/time and hashing invariants.
 
----
+## Deferred evaluation
 
-## 5. Decision 4: Causal Step-by-Step Round Execution Flow
+Add a typed `DeferredEvaluationContext` rather than fabricating v1 transitions.
+It contains run/policy identity, initial and chronological account snapshots,
+proposal outcomes, settlement outcomes, deferred transitions, terminal policy
+entry, elapsed wall seconds and calculation timestamp.
 
-For each round $r$ at cutoff $T_r$:
+Metrics obey:
 
-```text
-Step 1: Time & Eligibility
-  - Simulated cutoff = T_r. Execution timestamps recorded via clock.
-  - Eligible observations = { obs | obs.knowledge_time <= T_r }.
+- costs and traded volume come only from SETTLED deferred transitions;
+- admission and terminal rejection contribute no cost/volume;
+- rejected proposal and rejected settlement counts remain separately derivable;
+- the public v1 metric total may aggregate them only with a documented mapping;
+- the equity curve uses the revalued snapshots in chronological order;
+- one snapshot per round is selected deterministically even if settlement also
+  minted an intermediate account;
+- final metrics are computed from existing plus staged records before the atomic
+  completion/termination commit.
 
-Step 2: Settlement Phase (Strictly precedes policy invocation)
-  For each policy (in lexicographical policy_id order):
-    - Retrieve current VirtualAccountState and active PendingStateReference.
-    - If active pending exists:
-        - Check deadline: If NO eligible target bar exists with knowledge_time <= deadline
-          AND T_r > deadline:
-            Call DeferredSettlementService.terminate_unsettled(reason_code=MISSING_EXECUTION_BAR).
-            Outcome staged. next_account = current_account. Active pending cleared.
-        - Else:
-            Call DeferredSettlementService.attempt_settlement(...).
-            If is_settled:
-                Outcome & DeferredTransition staged. next_account minted. Active pending cleared.
-            Elif is_still_pending:
-                No outcome/transition. next_account = current_account. Active pending retained.
-            Else (both False -> REJECTED):
-                Outcome staged. No transition. next_account = current_account. Active pending cleared.
-    - If no active pending:
-        next_account = current_account.
+Do not claim Sharpe, drawdown or trading-specific measures in C1; those belong
+to the later evidence protocol.
 
-Step 3: Policy Delivery Phase
-  - Construct PolicyContext with account_state = next_account (reflecting settled funds!)
-    and eligible observations.
+## Terminal schema delivery
 
-Step 4: Policy Proposal Phase
-  - proposal = policy.propose_decision(context).
-  - Call DeferredAdmissionService.admit_decision(..., current_pending=active_pending).
-  - If is_newly_admitted:
-      Create PendingStateReference(expected_open_time, settlement_deadline from schedule).
-      Stage PendingTransitionRecord. pending_after = new_ref. decision_outcome = None.
-  - Elif is_reused_pending (same-round exact retry):
-      pending_after = pending_before. decision_outcome = None.
-  - Else (HOLD or rejection):
-      Stage DecisionOutcome.
-      If active pending exists: pending_after = pending_before (HOLD carries order forward).
-      Else: pending_after = None.
+C1 implements, rather than merely documents:
 
-Step 5: Assemble Policy Entries & Merkle Root
-  - Construct DeferredPolicyRoundRecord for each policy.
-  - Compute state_merkle_hash = compute_deferred_state_merkle_hash(parent_round_hash, sorted_entries).
-  - Construct DeferredRoundRecord.
+- `deferred_run_terminal_record.v1.json`;
+- schema inventory entry;
+- valid clean/completed/cancelled examples;
+- invalid status/reason, time/parent, ordering, co-presence and hash-reference
+  cases;
+- strict domain model/codec round trips;
+- documentation-link and secret scanning.
 
-Step 6: Atomic Commit
-  - Publish RoundCommit via self._persistence.commit_round(commit).
-```
+JSON Schema validates expressible structure and conditionals. Domain/persistence
+validation owns hashes and cross-record references.
 
----
+## Required tests and stop conditions
 
-## 6. Decision 5: Typed Evaluator Integration
+Focused evidence must cover:
 
-### 6.1 `DeferredEvaluationContext`
+- normal admit → wait → settle → new proposal;
+- exact deadline, late inspection of timely evidence, late target publication
+  and missing-bar expiry;
+- insufficient funds, short prohibition, missing marks and settlement rejection;
+- HOLD/actionable proposal behavior while pending;
+- periodic revaluation without false trade/cost;
+- final clean completion, final admission, old settlement plus new final
+  admission, and carried pending;
+- mid-run cancellation, genesis cancellation, repeated cancellation and
+  completed-run cancellation;
+- new runner recovery, multi-run/policy isolation and admission-account lookup;
+- exact retry, mutated retry, stale parent and fault injection;
+- schema/codec invalid corpus and hash tampering;
+- unchanged synchronous reference behavior.
 
-`EvaluatorService` MUST NOT accept fabricated v1 `TransitionRecord`s. An explicit adapter `calculate_deferred_metrics` accepts:
+Run the backend suite, contract validator, Ruff and format checks, and
+`git diff --check`. Update general and detailed roadmap checkboxes before the
+atomic implementation commit. Do not detail or begin C2.
 
-```python
-@dataclass(frozen=True)
-class DeferredEvaluationContext:
-    run_id: str
-    policy_id: str
-    initial_account: VirtualAccountState
-    account_states: tuple[VirtualAccountState, ...]
-    proposal_outcomes: tuple[DecisionOutcome, ...]
-    settlement_outcomes: tuple[SettlementOutcome, ...]
-    deferred_transitions: tuple[DeferredTransitionRecord, ...]
-    wall_time_seconds: float = 0.0
-    calculated_at: str = "2026-08-01T00:00:00Z"
-```
+Stop if C1 would require changing B1/B2/C0 semantics, a v1 schema, or replay.
+Report the incompatibility for a new reviewed planning unit.
 
-### 6.2 Metric Accounting Rules
+## Gate
 
-1. **Turnover & Transaction Costs:**
-   Calculated strictly and exclusively from `deferred_transitions` (which exist only for `SETTLED` trades).
-   Admitted pending transitions and rejected settlements contribute ZERO to volume or costs.
-2. **Equity Curve:**
-   Constructed from `initial_account` and subsequent `account_states`. Intermediate rounds without trades preserve net value based on valuation marks.
-3. **Rejected Decision Count:**
-   $$\text{rejected\_decision\_count} = \sum [\text{status} == \text{REJECTED} \text{ in } \text{proposal\_outcomes}] + \sum [\text{status} == \text{REJECTED} \text{ in } \text{settlement\_outcomes}]$$
-   Separately tracked in explanatory breakdown without violating `metric_record.v1.json`.
+The plan and terminal design are independently reviewed. The next and only
+authorized step is implementation of `DS-02D2C1` within this boundary.
+Completion requires all evidence above and a separate independent review.
 
----
-
-## 7. Decision 6: Simulated Time vs Injected Wall Clock
-
-1. **Simulated Time (Domain Invariants):**
-   - Round cutoffs, `admitted_at`, `settled_at`, `as_of_time`, and `simulated_effective_time` derive strictly from `episode_def.calendar.round_cutoffs`.
-   - They NEVER advance or query wall clock time.
-2. **Wall Clock (Execution Tracking):**
-   - `execution_start_time`, `execution_end_time`, and `execution_timestamp` are obtained exclusively through `self._clock.now_utc()`.
-3. **Byte-Identical Reproducibility:**
-   - In deterministic tests and benchmarks, an `InMemoryClock` with pinned or step-advanced time is injected.
-   - Under an identical injected clock and dataset, execution reproduces 100% byte-identical records, SHA-256 hashes, and Merkle roots.
-
----
-
-## 8. Edge-Case Matrix and Fault-Injection Verification
-
-| Test Scenario | Trigger Condition | Expected Behavior |
-|---|---|---|
-| **Exact Deadline Fill** | $t_{\text{knowledge}} == \text{settlement\_deadline}$ | SETTLED (Inclusive rule). |
-| **Late Discovery** | Target bar $t_{\text{knowledge}} \le \text{deadline}$, inspected at $T > \text{deadline}$ | SETTLED (Eligible evidence respected). |
-| **Missing Bar Expiry** | Target bar not published and $T > \text{deadline}$ | REJECTED (`MISSING_EXECUTION_BAR`), zero fee debit. |
-| **Mid-Episode Cancellation** | `cancel_run` with active pending | Terminated with `EPISODE_CANCELLED`, `TerminalCommit` published. |
-| **Genesis Cancellation** | `cancel_run` before round 0 | `DeferredRunTerminalRecord` with `parent_round_hash=None`. |
-| **Completed Run Cancellation** | `cancel_run` on completed episode | Raises `InvalidLifecycleTransitionError`. |
-| **Duplicate Commit Retry** | Identical `RoundCommit` re-submitted | Idempotent no-op success. |
-| **Mutated Commit Collision** | Same `round_id` with drifted payload | Fails closed with `FrozenRecordMutationError`. |
-| **Stale Parent Race** | Commit parent hash != store's last round hash | Fails closed with concurrency error. |
-| **Store Fault Injection** | Exception during candidate validation | Store maps and indices completely unmutated. |
-| **Restart Recovery** | New runner initialized on existing store | Resumes run from committed state without drift. |
-
----
-
-## 9. Gate DS-D3C1 Completion Standard
-
-A future implementation work unit is complete only when:
-
-1. `DeferredRunTerminalRecord` and `TerminalCommit` implemented and exported.
-2. `PersistencePort` and `InMemoryStore` support all deferred records and atomic commits.
-3. `EpisodeRunner` orchestrates multi-round deferred episodes and clean/cancelled termination.
-4. `EvaluatorService` computes metrics via `DeferredEvaluationContext`.
-5. All 11 edge cases above pass regression testing.
-6. All baseline backend tests (339 tests) pass with zero regressions.
-7. Contract validation (`validate_contracts.py`), Ruff check, format, and git diff checks pass cleanly.
-8. Implementation independently reviewed.
-
-**Next Authorized Step:** Independent review of this frozen plan. Runtime implementation is not authorized until review acceptance.
+Planning-review verification: 339 backend tests, the 20-schema/15-example
+contract validator, Ruff, formatting and diff checks pass. These protect the
+existing implementation; they are not C1 runtime evidence.

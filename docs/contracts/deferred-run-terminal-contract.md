@@ -1,177 +1,143 @@
 # Deferred Run Terminal Contract
 
-- Status: Frozen design specification; implementation scheduled for `DS-02D2C1`.
-- Authority: [Deferred Settlement Contract](deferred-settlement-contract.md).
-- Companion: [Deferred Runner Orchestration Roadmap](../roadmaps/deferred-runner-orchestration.md).
+## Status
 
----
+- Work unit: `DS-02D2C1`.
+- State: design reviewed; implementation and registered JSON Schema pending.
+- Authority: [deferred settlement contract](deferred-settlement-contract.md).
+- Companion: [runner orchestration plan](../roadmaps/deferred-runner-orchestration.md).
+- Version proposed for implementation: `1.0.0`.
 
-## 1. Problem and Purpose
+## Purpose
 
-The round v2 contract ([`round.v2.json`](schemas/round.v2.json), `DeferredPolicyRoundRecord`) was frozen in `DS-02D2C0`.
-Its invariants establish:
-1. `policy_round_records[i].settlement_outcome_hash` refers strictly to the settlement of `pending_before`.
-2. A single round entry contains at most one `settlement_outcome_hash` and at most one `decision_outcome_hash`.
-3. An admitted pending trade produces a `pending_after` reference and explicitly forbids an immediate decision outcome.
+A `DeferredPolicyRoundRecord` can describe settlement of `pending_before`
+and admission of `pending_after`, but cannot attach a second settlement
+outcome to the newly admitted order. Cancellation may also occur between
+declared rounds. The simulator therefore needs an additive immutable terminal
+event without rewriting a committed round or inventing an extra calendar round.
 
-Consequently, when an episode reaches its final calendar round (or is cancelled between rounds or before round execution):
-- A policy may have an active pending order remaining in `pending_after` (either newly admitted in the final round, or carried over from an unsettled trade).
-- Under Section 8.5 of `deferred-settlement-contract.md`, such orders must reach terminal `REJECTED` status with reason `UNSETTLED_EPISODE_TERMINATION` (or `EPISODE_CANCELLED`).
-- This terminal settlement outcome cannot be recorded inside the final round's `DeferredPolicyRoundRecord` without violating C0 invariants (an entry cannot host two settlement outcomes, nor attach an outcome to `pending_after`).
-- The final round cannot be rewritten or backdated after commit, and undeclared rounds cannot be appended to the frozen episode calendar.
+Every deferred run ends with exactly one `DeferredRunTerminalRecord`, including
+clean completion. Synchronous v1 runs retain their current final-round binding.
 
-To resolve this without modifying frozen v1 or v2 round schemas, the simulator introduces an immutable, additive terminal event record: **`DeferredRunTerminalRecord`**.
+## Proposed records
 
----
+```python
+@dataclass(frozen=True)
+class PolicyTerminalRecord:
+    policy_id: str
+    account_state_hash: str
+    pending_transition_hash: str | None
+    settlement_outcome_hash: str | None
 
-## 2. Record Specification
 
-### 2.1 JSON Schema Specification (Draft 2020-12)
-
-```json
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://optees.org/schemas/simulator/v1/deferred_run_terminal_record.v1.json",
-  "title": "DeferredRunTerminalRecord",
-  "description": "Immutable record capturing final episode termination, cancellation, and terminal clearance of pending transitions under deferred settlement.",
-  "type": "object",
-  "required": [
-    "$type",
-    "schema_version",
-    "terminal_record_id",
-    "run_id",
-    "episode_id",
-    "terminal_status",
-    "reason_code",
-    "reason_message",
-    "simulated_effective_time",
-    "execution_timestamp",
-    "parent_round_hash",
-    "policy_terminal_records",
-    "terminal_state_merkle_hash"
-  ],
-  "additionalProperties": false,
-  "properties": {
-    "$type": {
-      "type": "string",
-      "const": "deferred_run_terminal_record"
-    },
-    "schema_version": {
-      "type": "string",
-      "const": "1.0.0"
-    },
-    "terminal_record_id": {
-      "type": "string",
-      "pattern": "^term_[a-zA-Z0-9_-]+$"
-    },
-    "run_id": {
-      "type": "string",
-      "pattern": "^ep-run_[a-zA-Z0-9_-]+$"
-    },
-    "episode_id": {
-      "type": "string",
-      "pattern": "^ep-def_[a-zA-Z0-9_-]+$"
-    },
-    "terminal_status": {
-      "type": "string",
-      "enum": ["COMPLETED", "CANCELLED"]
-    },
-    "reason_code": {
-      "type": "string",
-      "enum": [
-        "CLEAN_COMPLETION",
-        "UNSETTLED_EPISODE_TERMINATION",
-        "EPISODE_CANCELLED"
-      ]
-    },
-    "reason_message": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1000
-    },
-    "simulated_effective_time": {
-      "type": "string",
-      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
-    },
-    "execution_timestamp": {
-      "type": "string",
-      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
-    },
-    "parent_round_hash": {
-      "type": ["string", "null"],
-      "pattern": "^sha256:[a-f0-9]{64}$"
-    },
-    "policy_terminal_records": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "required": [
-          "policy_id",
-          "account_state_hash",
-          "pending_transition_hash",
-          "settlement_outcome_hash"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "policy_id": {
-            "type": "string",
-            "pattern": "^pol-def_[a-zA-Z0-9_-]+$"
-          },
-          "account_state_hash": {
-            "type": "string",
-            "pattern": "^sha256:[a-f0-9]{64}$"
-          },
-          "pending_transition_hash": {
-            "type": ["string", "null"],
-            "pattern": "^sha256:[a-f0-9]{64}$"
-          },
-          "settlement_outcome_hash": {
-            "type": ["string", "null"],
-            "pattern": "^sha256:[a-f0-9]{64}$"
-          }
-        }
-      }
-    },
-    "terminal_state_merkle_hash": {
-      "type": "string",
-      "pattern": "^sha256:[a-f0-9]{64}$"
-    }
-  }
-}
+@dataclass(frozen=True)
+class DeferredRunTerminalRecord:
+    terminal_record_id: str
+    run_id: str
+    episode_id: str
+    terminal_status: str
+    reason_code: str
+    reason_message: str
+    simulation_frontier_time: str | None
+    execution_timestamp: str
+    parent_round_hash: str | None
+    policy_terminal_records: tuple[PolicyTerminalRecord, ...]
+    terminal_state_merkle_hash: str
+    schema_version: str = "1.0.0"
 ```
 
----
+The implementation must add a Draft 2020-12 schema, inventory entry, strict
+codec and invalid examples. This document is not itself a registered schema.
 
-## 3. Structural Invariants
+## Identity, time and links
 
-1. **Policy Ordering and Uniqueness:**
-   `policy_terminal_records` must be sorted in strict lexicographic order of `policy_id`.
-   Duplicate `policy_id` entries are strictly forbidden.
-2. **Terminal Pending Co-Presence:**
-   For each policy entry:
-   - If `pending_transition_hash is None`, then `settlement_outcome_hash` must be `None` (clean termination with no outstanding order).
-   - If `pending_transition_hash is not None`, then `settlement_outcome_hash` must be a valid SHA-256 hash of a `SettlementOutcome` whose status is `REJECTED` with reason `UNSETTLED_EPISODE_TERMINATION` or `EPISODE_CANCELLED`.
-3. **Parent Round Linkage:**
-   - If the episode executed $\ge 1$ rounds, `parent_round_hash` must equal `latest_round.compute_hash()`.
-   - If the episode executed $0$ rounds (cancellation before round 0), `parent_round_hash` must be `None`.
-4. **State Merkle Hashing:**
-   The `terminal_state_merkle_hash` is computed using the canonical `compute_state_merkle_hash` primitive:
-   ```python
-   leaf_hashes = [compute_record_hash(p.to_dict()) for p in sorted_policy_records]
-   terminal_state_merkle_hash = compute_state_merkle_hash(parent_round_hash, leaf_hashes)
-   ```
-5. **Run Final State Binding:**
-   The terminal record's hash (`compute_record_hash(terminal_record.to_dict())`) is stored as `EpisodeRun.final_state_hash`.
+- `terminal_record_id` is `term_` plus the full SHA-256 of canonical identity
+  fields `run_id`, `terminal_status` and `parent_round_hash`. An exact retry
+  reproduces the ID; different terminal content under that ID fails closed.
+- `terminal_status` is `COMPLETED` or `CANCELLED`.
+- `reason_code` is:
+  - `CLEAN_COMPLETION` only for completed runs with no pending orders;
+  - `UNSETTLED_EPISODE_TERMINATION` for completed runs with at least one pending;
+  - `EPISODE_CANCELLED` only for cancelled runs.
+- `simulation_frontier_time` is the latest committed/staged round cutoff.
+  It is null only for a genesis cancellation with no committed round.
+  It is not the wall-clock time at which cancellation was requested.
+- `execution_timestamp` and the terminal `EpisodeRun.ended_at` use the same
+  value from the injected `ClockPort`.
+- `parent_round_hash` is the latest round hash. During final-round atomic
+  publication it is the hash of the round staged in that same commit. It is null
+  only at genesis.
+- `EpisodeRun.final_state_hash` is the terminal record hash.
 
----
+For a terminal rejection, the existing `SettlementOutcome.round_id` remains
+the latest causal round ID: the staged final round on completion, or the latest
+committed round on cancellation. It does not identify the terminal event.
+The terminal record provides the actual event identity and wall timestamp.
+A pending cancellation cannot occur at genesis because no proposal has run.
 
-## 4. Lifecycle Scenarios
+## Policy entry invariants
 
-| Scenario | Rounds Run | Pending Before Term | Reason Code | Parent Round Hash | Terminal Settlement Outcome? |
-|---|---|---|---|---|---|
-| **Clean Completion** | $K$ rounds | None | `CLEAN_COMPLETION` | Hash of Round $K-1$ | None |
-| **Unsettled Final Admission** | $K$ rounds | Yes (admitted round $K-1$) | `UNSETTLED_EPISODE_TERMINATION` | Hash of Round $K-1$ | Yes (`UNSETTLED_EPISODE_TERMINATION`) |
-| **Old Pending Still Unsettled** | $K$ rounds | Yes (unsettled from $K-2$) | `UNSETTLED_EPISODE_TERMINATION` | Hash of Round $K-1$ | Yes (`UNSETTLED_EPISODE_TERMINATION`) |
-| **Cancellation Between Rounds** | $r$ rounds ($0 < r < K$) | Yes or None | `EPISODE_CANCELLED` | Hash of Round $r-1$ | Yes if pending, else None |
-| **Cancellation at Genesis** | $0$ rounds | None | `EPISODE_CANCELLED` | `None` | None |
+- Entries are sorted strictly by `policy_id`, contain every policy exactly
+  once, and match the episode/run ownership.
+- `account_state_hash` resolves within the same run and policy.
+- With no active pending, both pending/outcome hashes are null.
+- With active pending, both hashes are non-null. The pending hash resolves to
+  the latest `pending_after`; the outcome resolves to exactly one REJECTED
+  `SettlementOutcome` for that pending and policy.
+- Completed terminal outcomes use `UNSETTLED_EPISODE_TERMINATION`; cancelled
+  outcomes use `EPISODE_CANCELLED`. They apply no transition and no fee debit.
+- The account hash remains unchanged by terminal rejection. No new account
+  state is fabricated merely to terminate an order.
+
+## Hashing
+
+Policy leaves are canonical record hashes in declared lexicographic order:
+
+```python
+leaves = [compute_record_hash(entry.to_dict()) for entry in policy_entries]
+terminal_state_merkle_hash = compute_state_merkle_hash(parent_round_hash, leaves)
+```
+
+The terminal record hash covers its Merkle root and all other serialized fields.
+Domain validation recomputes the root and enforces all cross-field constraints;
+JSON Schema supplies structural checks but cannot replace referenced-record
+validation.
+
+## Atomic publication
+
+Final-round completion is one transaction:
+
+```text
+final DeferredRoundRecord
++ round proposals/outcomes/transitions/accounts
++ terminal settlement outcomes
++ DeferredRunTerminalRecord
++ final metrics
++ COMPLETED EpisodeRun bound to terminal hash
+```
+
+All items are validated before any map or index changes. A crash or validation
+failure exposes none of them. The final round must never be committed first and
+“cleaned up” with a later terminal commit.
+
+Cancellation between rounds or at genesis uses a separate `TerminalCommit`
+because there is no round to publish. It atomically publishes terminal outcomes,
+the terminal record, final metrics if defined, and the CANCELLED run.
+It rejects a race if the expected parent/run state changed.
+
+## Lifecycle cases
+
+| Case | Publication | Result |
+| --- | --- | --- |
+| Clean final round | final `RoundCommit` | terminal record, no terminal outcome |
+| Final round admits pending | final `RoundCommit` | pending and terminal rejection visible together |
+| Old pending settles then new pending admitted | final `RoundCommit` | old settlement plus distinct terminal rejection |
+| Old pending still waiting | final `RoundCommit` | terminal rejection of carried pending |
+| Cancellation between rounds | `TerminalCommit` | optional pending rejection and CANCELLED run |
+| Genesis cancellation | `TerminalCommit` | null frontier/parent, no pending outcome |
+| Exact repeated termination | same commit payload | idempotent no-op |
+| Changed repeated termination | same identity, changed payload | immutable collision |
+| Cancellation after completion | none | invalid lifecycle transition |
+
+Independent implementation tests must cover each case, cross-policy isolation,
+reference tampering, atomic fault injection and a stale-parent race.

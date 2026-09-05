@@ -348,9 +348,16 @@ To maintain strict contract integrity:
      `settlement_outcome_hash = null`, `deferred_transition_hash = null`.
    - In the round where settlement occurs (Round $r+2$):
      `pending_before = ref(pending_old)`, `settlement_outcome_hash = hash(settle_out)`,
+     `deferred_transition_hash = hash(def_trans)`, and `pending_after` is either
+     null or a newly admitted pending reference.
 4. **Run Termination (`DeferredRunTerminalRecord`):**
    - Terminal clearance of pending transitions at episode completion (`UNSETTLED_EPISODE_TERMINATION`) or cancellation (`EPISODE_CANCELLED`) is recorded in an immutable, additive `DeferredRunTerminalRecord` (see [Deferred Run Terminal Contract](deferred-run-terminal-contract.md)).
    - Terminal outcomes are not retroactively forced into the final round's `DeferredPolicyRoundRecord`.
+   - Final-round data, terminal outcomes, the terminal record, metrics, and the
+     completed run are published by one atomic commit. Cancellation between
+     rounds uses a separate atomic terminal commit.
+   - A terminal `SettlementOutcome.round_id` identifies the latest causal
+     round boundary; the terminal record identifies the later terminal event.
    - `EpisodeRun.final_state_hash` binds to the hash of the `DeferredRunTerminalRecord`.
 5. **Replay Invariants:**
    - **`RECORD_REPLAY`:** Replays transitions in strictly non-decreasing order of $t_{\text{settle}}$. Asserts that applying transitions reproduces the exact identical sequence of `VirtualAccountState` hashes.
