@@ -166,6 +166,23 @@ This pure service does not provide persistent deduplication or settlement.
 This is a planned profile, not implemented behavior. The normative rules below
 continue to govern the later settlement block.
 
+### Second application service profile (planned `DS-02D2B2`)
+
+The [executable settlement plan](../roadmaps/deferred-settlement-services.md)
+freezes deterministic, non-skipping target-bar selection over the retained
+`payload["open_time"]` field (never `event_time`), explicit `ROUND_HALF_EVEN`
+Decimal rounding on every quantization, and a closed
+still-pending/`SETTLED`/`REJECTED` trichotomy. Financial feasibility
+(execution price validity, cash sufficiency, short-position prohibition,
+missing valuation marks) is checked only at settlement, never at admission,
+exactly as this contract's timing table requires. The settlement-window
+timeout for `MISSING_EXECUTION_BAR`, and the exogenous
+`UNSETTLED_EPISODE_TERMINATION`/`EPISODE_CANCELLED` triggers, are scheduling
+decisions the plan explicitly leaves to the future runner (`DS-02D2C`); the
+settlement service only knows how to record each of those terminal outcomes
+correctly once instructed. This is a planned profile, not implemented
+behavior.
+
 The contract strictly divides validation responsibilities between admission and settlement:
 
 | Constraint / Check | Verification Stage | Price Used | Action on Failure |
