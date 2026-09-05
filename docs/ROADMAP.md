@@ -32,6 +32,8 @@ implemented and independently reviewed after causal-target, identity and account
 - [x] Implement B2 settlement with explicit scheduled target; absent bars never cause a later fill.
 - [x] Independently review B2: episode isolation, Decimal context, zero deducted fees on rejection, and account anchors.
 - [ ] Detail D2C runner/replay integration; no implementation authorized yet.
+- [x] Freeze [C0 round-v2 bridge](roadmaps/deferred-round-records.md).
+- [ ] Implement and review C0 before detailing atomic runner integration.
 
 Build a local-first, reproducible case study showing how versioned Optees
 capabilities can be orchestrated into repeated decisions over time. The same

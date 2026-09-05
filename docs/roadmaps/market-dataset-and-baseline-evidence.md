@@ -828,6 +828,15 @@ account invariants without episode orchestration.
 
 #### D2C — Runner, Round Hashing And Replay Integration (`DS-02D2C`)
 
+- [x] C0 record-bridge plan frozen: [deferred round v2](deferred-round-records.md).
+- [ ] C0 implementation and review (next executable block).
+- [ ] C1 detail and implementation: atomic persistence and runner orchestration.
+- [ ] C2 detail and implementation: replay and end-to-end evidence.
+
+The v1 round requires an immediate outcome and cannot encode settlement of an
+old pending followed by a new admission. C0 is therefore a required record
+prerequisite, not authorization to change runner/replay in the same commit.
+
 After `DS-D3B` review, integrate settlement-before-proposal ordering into the
 production runner, persistence boundary and both replay modes. Add normalized
 synthetic D+2 episodes covering settlement and every terminal rejection. Its
@@ -859,5 +868,6 @@ not runtime settlement enforcement, which remains in D2B/D2C.
 `DS-02D2A1`, `DS-02D2A2`, `DS-02D2B1`, and `DS-02D2B2` implementation are
 complete and reviewed. The corrected
 [DS-02D2B2 settlement service plan](deferred-settlement-services.md) closes B2.
-Gate `DS-D3B` is satisfied. Next is D2C planning, not automatic implementation.
+Gate `DS-D3B` is satisfied. Next executable unit is
+[DS-02D2C0](deferred-round-records.md); C1/C2 still require detailed plans.
 `DS-02E` remains blocked until `DS-D3` is satisfied.
