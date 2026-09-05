@@ -1,114 +1,153 @@
 # Deferred Runner Orchestration and Atomic Persistence
 
-## Work unit
+## Work unit and review status
 
-- ID: `DS-02D2C1`; status: planned, ready for implementation, not implemented.
-- Owner: Gemini; independent review afterwards.
+- ID: `DS-02D2C1`; planning reviewed, NOT ready for runtime implementation.
+- Prerequisite: reviewed C0 (`d2243bb`) and B1/B2 (`d365cd8`); `DS-D3B` satisfied.
 - Parent: [market plan](market-dataset-and-baseline-evidence.md).
-- Prerequisite: reviewed C0 (`d2243bb`), reviewed B1/B2 (`d365cd8`), Gate DS-D3B.
-- Contract: [deferred settlement](../contracts/deferred-settlement-contract.md).
-- Next: `DS-02D2C2` (replay and end-to-end evidence); Gate `DS-D3`.
+- Authority: [deferred settlement contract](../contracts/deferred-settlement-contract.md).
+- Next authorized work: close the C1 planning decisions below, then independent review.
+- C2 replay and DS-02E market episodes remain blocked; `DS-D3` is not satisfied.
 
-## Purpose and boundaries
+Review of `07daad0` found missing schedule provenance, incompatible terminal
+record assembly, and unsupported readiness claims. No runner or persistence
+implementation was delivered by that commit. The 339 existing tests establish
+the prior baseline, not the proposed orchestration.
 
-`DS-02D2C0` froze the immutable `DeferredRoundRecord` (round v2) record shape and state Merkle sequencing. Pure services `DS-02D2B1` (admission) and `DS-02D2B2` (settlement) are tested and reviewed.
+## Scope and architecture
 
-`DS-02D2C1` orchestrates these pure components into `EpisodeRunner` and the persistence boundary (`RoundCommit`, `PersistencePort`, `InMemoryStore`).
+Integrate the existing pure admission and settlement services into
+`application/services/runner.py` and the persistence boundary.
+Do not implement new financial arithmetic in the runner. Preserve v1 records,
+schemas and synchronous behavior; the current synchronous implementation is
+`execute_next_round`, not an existing `_execute_next_round_synchronous` helper.
 
-### What this work unit includes
+No replay implementation, REST, database, UI, live dataset acquisition or Optees
+integration belongs in C1. Any necessary additive terminal-record contract must
+be decided and independently reviewed before implementation, not improvised in
+a persistence adapter.
 
-1. **Persistence Boundary (`RoundCommit`, `PersistencePort`, `InMemoryStore`):**
-   - Extend `RoundCommit` to support `DeferredRoundRecord` and deferred settlement entities:
-     `pending_transitions: tuple[PendingTransitionRecord, ...]`,
-     `settlement_outcomes: tuple[SettlementOutcome, ...]`,
-     `deferred_transitions: tuple[DeferredTransitionRecord, ...]`.
-   - Extend `PersistencePort` with abstract lookup and retrieval methods for deferred records:
-     `save_pending_transition`, `get_pending_transition`, `get_pending_transitions`, `get_active_pending_transition`,
-     `save_settlement_outcome`, `get_settlement_outcome`, `get_settlement_outcomes`,
-     `save_deferred_transition`, `get_deferred_transition`, `get_deferred_transitions`.
-   - Implement storage and atomic validation in `InMemoryStore`:
-     - Verify uniqueness of pending, settlement outcome, and deferred transition identifiers before persisting.
-     - Validate that round index is strictly monotonic and run ID matches.
-     - Implement `get_active_pending_transition(run_id, policy_id)` by resolving admitted pending transitions that lack a terminal `SettlementOutcome`.
-     - Ensure all records in a `RoundCommit` become visible atomically.
+## Corrections binding on the next plan
 
-2. **Runner Orchestration (`EpisodeRunner`):**
-   - Support deferred settlement mode without disturbing the synchronous path:
-     - Inspect `episode_def.metadata.get("settlement_mode") == "deferred"` (or optional constructor injection).
-     - Retain `_execute_next_round_synchronous` completely unchanged for v1 backward compatibility.
-     - Implement `_execute_next_round_deferred` following the strict 6-step causal ordering:
-       - **Step 1: Clock Advance:** Advance clock to round cutoff $T_{\text{cutoff}}$.
-       - **Step 2: Eligibility Filtering:** Extract observations where $t_{\text{knowledge}} \le T_{\text{cutoff}}$.
-       - **Step 3: Settlement Phase:**
-         For each policy in lexicographic order:
-         - Inspect active pending transition via `pending_before`.
-         - If pending exists:
-           - If $T_{\text{cutoff}} > \text{settlement\_deadline}$, terminate via `DeferredSettlementService.terminate_unsettled(..., reason_code=REJECTION_MISSING_EXECUTION_BAR)`.
-           - Else attempt settlement via `DeferredSettlementService.attempt_settlement(...)`.
-           - On `is_settled`: mint updated `VirtualAccountState`, record `SettlementOutcome` and `DeferredTransitionRecord`, clear active pending.
-           - On `is_still_pending`: carry over `PendingStateReference` unchanged; balance remains unmutated.
-         - If no pending exists: continue.
-       - **Step 4: Policy Delivery Phase:**
-         Deliver latest account state (`VirtualAccountState`) and eligible observations to `PolicyContext`.
-       - **Step 5: Policy Proposal Phase:**
-         - Policy invokes `propose_decision(context)`.
-         - Pass proposal and active pending order to `DeferredAdmissionService.admit_decision(...)`.
-         - On `is_newly_admitted`: stage `PendingTransitionRecord`, construct `pending_after` reference.
-         - On `is_reused_pending`: carry over existing `pending_before` reference.
-         - On rejection or `HOLD`: stage immediate `DecisionOutcome`.
-       - **Step 6: Round Assembly & State Merkle Hashing:**
-         - Construct `DeferredPolicyRoundRecord` for each policy in strict lexicographic order.
-         - Compute `state_merkle_hash` via `compute_deferred_state_merkle_hash(parent_round_hash, policy_round_records)`.
-         - Construct `DeferredRoundRecord` (`round.v2.json`).
-       - **Step 7: Atomic Commit:**
-         - Stage all produced records into `RoundCommit`.
-         - Execute `self._persistence.commit_round(commit)`.
-       - **Step 8: Terminal & Completion Handling:**
-         - On final round completion (`current_round_index >= total_rounds`), terminate any remaining unsettled orders via `DeferredSettlementService.terminate_unsettled(..., reason_code=REJECTION_UNSETTLED_EPISODE_TERMINATION)`.
-         - Compute final `MetricRecord`s using `EvaluatorService.calculate_metrics`.
-         - On `cancel_run`, terminate active pending orders via `DeferredSettlementService.terminate_unsettled(..., reason_code=REJECTION_EPISODE_CANCELLED)`.
+### 1. Mode, schedule and recovery
 
-3. **Evaluator Compatibility:**
-   - Verify `EvaluatorService.calculate_metrics` correctly aggregates costs and volume from `DeferredTransitionRecord` and counts terminal rejections.
+Choose one explicit, validated configuration mechanism, not
+"metadata or constructor injection". Pin its version and identity with the
+episode/run so a fresh runner cannot silently change mode, resource-to-series
+mapping, calendar, target opening or timeout rules.
 
-### What this work unit EXCLUDES
+Supply B2's required `expected_open_time` from an authoritative frozen schedule.
+Never infer it from the first available observation or round-cutoff spacing.
+Persist the complete `PendingStateReference` (including deadline and admission
+account hash), the pending record and the hash-addressable admission account.
+Restore all of them from committed history, not process-local caches or merely
+a search for pending IDs without outcomes. Pass `admission_account` where the
+current account has since been revalued; preserve B2 balance invariants.
 
-- No modifications to `ReplayService` or divergence reporting (that is `DS-02D2C2`).
-- No modifications to frozen public v1 schemas or v1 domain models.
-- No historical market dataset runs or Optees solver integrations (that is `DS-02E`).
-- No REST API, database, or UI implementations.
+Freeze deadline inclusivity and late-discovery policy. Test before, exactly at,
+and after deadline, including a target bar known by deadline but first inspected
+at a later round. Do not reject solely because the next round skipped past the
+deadline without defining which evidence remains eligible.
 
-## Invariants and failure modes
+### 2. Ordinary round ordering
 
-1. **Causal Separation Theorem:**
-   Settlement of an existing pending order strictly precedes the delivery of account state to the policy and policy proposal generation. Settled cash/assets are immediately available in the proposal phase of the same round.
-2. **Single-Pending Invariant:**
-   A policy with an active pending order can submit only `HOLD` or an empty proposal. Submitting an actionable proposal while an order is pending causes immediate rejection (`POLICY_HAS_PENDING_SETTLEMENT`).
-3. **Lossless Round Tracking:**
-   `DeferredPolicyRoundRecord` stores explicit references to both `pending_before` and `pending_after`. No fabricated `ACCEPTED` outcome is minted for pending trades.
-4. **All-or-Nothing Persistence:**
-   `commit_round` publishes run progress, round record, proposals, outcomes, transitions, pending records, and account states as a single atomic unit. Any failure aborts the commit with zero partial state mutation.
-5. **Deterministic Re-Execution:**
-   Re-running an identical deferred episode configuration with identical inputs reproduces the exact sequence of records, hashes, and Merkle roots bit-for-bit.
+1. Select the simulated cutoff and eligible snapshot observations; wall-clock
+   execution timestamps remain separate (no real clock advancement to historical time).
+2. For each policy, resolve its committed account, pending reference and anchor.
+3. Settle the old pending before invoking that policy. Handle all B2 results:
+   WAITING carries the exact reference, SETTLED stages outcome/transition/account,
+   REJECTED stages the terminal outcome without a trade or fee debit.
+4. Deliver the resulting account and eligible observations to the policy.
+5. Invoke admission using the actual result DTO. An actionable admitted trade
+   has no immediate ACCEPTED outcome. HOLD/rejection produce immediate outcomes.
+   Exact pending retries are not automatically a new admission: preserve B1
+   identity semantics and prove representability in the C0 policy entry.
+6. Assemble immutable v2 entries, sorted by policy ID, and Merkle evidence.
+7. Validate and publish the entire batch, metrics when applicable, and run progress
+   in one atomic operation. Nothing is written after that commit as a "cleanup".
 
-## Required evidence
+Use the existing settlement flags `is_settled` and `is_still_pending`;
+both false denotes rejection, not waiting. Inspect the actual admission result
+fields too, and preserve the distinction between new and reused pending records.
 
-- [ ] Unit tests for `PersistencePort` and `InMemoryStore` covering deferred record CRUD and atomic round commits.
-- [ ] End-to-end multi-round execution tests in `EpisodeRunner` covering:
-  - Normal D+2 delayed settlement (Round 0 admit -> Round 1 wait with HOLD -> Round 2 settle + new proposal).
-  - Missing execution bar deadline timeout (`MISSING_EXECUTION_BAR`).
-  - Price movement causing insufficient funds (`INSUFFICIENT_FUNDS_AT_SETTLEMENT`).
-  - Short position rejection (`SHORT_POSITIONS_FORBIDDEN`).
-  - Episode cancellation with pending order (`EPISODE_CANCELLED`).
-  - Episode completion with unsettled order (`UNSETTLED_EPISODE_TERMINATION`).
-  - Multi-policy execution with cross-policy isolation.
-- [ ] Backward compatibility: all 339 existing tests pass without modification.
-- [ ] Code formatting, linting, and contract validation pass cleanly.
+### 3. Terminal events: unresolved representation must be decided first
 
-## Completion and next boundary
+The original post-commit termination step is invalid. Completion/cancellation
+outcomes and pending clearance must be committed atomically with their causal
+history and terminal run state.
 
-- [x] Execution flow, persistence boundary, and failure modes planned.
-- [ ] Implementation and unit/integration test evidence complete.
-- [ ] Independent review accepted.
+C0 permits one settlement outcome per policy entry and forbids a settlement
+without `pending_before`. A final-round new admission cannot simply be
+terminated in that same entry; an old settlement plus a newly terminated
+admission cannot occupy its single outcome slot either.
+Cancellation between rounds also needs an explicit immutable event/round
+identity and simulated time. Do not backdate, overwrite the last round, append
+an undeclared calendar round, or invent immediate financial acceptance.
 
-Next work unit to detail is `DS-02D2C2` (Replay Integration and End-to-End Evidence).
+The next planning decision must select and document a representable lifecycle
+(e.g. a separately specified terminal event), including final-round proposals,
+zero-round runs, repeated cancellation, already completed runs and atomic failure.
+Any contract addition must be registered and validated before runner work starts.
+
+### 4. Persistence integrity
+
+Extend the commit boundary additively for deferred records; no individual save
+calls may expose a partially committed round. Validate the complete candidate
+state before publishing any map or index:
+
+- run/policy ownership; expected run progress, round index and parent hash;
+- every referenced hash resolves to the correct typed record and policy;
+- pending identity and immutable schedule agree with their admission evidence;
+- settlement/transition/account links and before/after balances agree;
+- no dangling references, duplicate terminal settlements or orphan pending;
+- ID collisions with different payloads fail closed; exact commit retry behavior
+  must be defined, including a lost acknowledgement;
+- stale concurrent commits cannot advance the same parent twice.
+
+Retrieval must be run-scoped even when record IDs exist in global maps.
+Restart recovery means a fresh runner using the same in-memory store here,
+not disk durability. File/database durability remains out of scope.
+
+### 5. Evaluation and reproducibility
+
+Inspect the existing v1 evaluator: deferred outcomes/transitions are not drop-in
+replacements. Freeze an explicit adapter or typed evaluation input. Count fees
+and turnover only once for actual settlements; admission is not acceptance.
+Separate rejected proposals from rejected settlements, preserve policy isolation,
+and define revaluation/no-trade-round equity and terminal metric semantics.
+No fabricated v1 transitions may stand in for deferred execution.
+
+Byte-identical records require identical run/policy/decision identities and a
+fixed injected execution clock as well as deterministic inputs. Real wall-clock
+timestamps change round hashes. C1 can prove deterministic execution under a
+fixed clock; full replay evidence belongs to C2.
+
+## Required evidence for the future implementation
+
+- [ ] Mode and schedule configuration frozen with provenance and invalid-input cases.
+- [ ] Terminal representation, final-round admission and cancellation semantics frozen.
+- [ ] Persistence/read APIs, exact retry and stale-write behavior frozen.
+- [ ] Evaluator input and metric semantics frozen.
+- [ ] Independent review accepts the corrected implementation plan.
+- [ ] Normal admit → wait → settle → new proposal sequence using real B1/B2/C0.
+- [ ] Deadline boundary, missing target, late revision, financial rejection and HOLD/retry cases.
+- [ ] Completion/cancellation with pending, final-round proposal and repeated termination.
+- [ ] Fresh runner recovery and multi-run/multi-policy isolation.
+- [ ] Fault injection proves unchanged maps, indices, metrics and progress on failure.
+- [ ] Invalid hash/type/ownership references and duplicate terminal outcomes rejected.
+- [ ] All existing backend tests, contracts, Ruff and diff checks pass.
+- [ ] Implementation independently reviewed; only then detail C2.
+
+## Completion
+
+- [x] Initial proposal inspected against actual B1/B2/C0 and v1 persistence.
+- [x] Unsafe ordering and unsupported implementation readiness withdrawn.
+- [ ] Open decisions above closed and accepted.
+- [ ] Runtime implementation and review complete.
+
+This document is a corrected planning boundary, not a completed executable plan.
+
+Review verification: 339 backend tests pass; 20 registered schemas and 15 valid
+examples validate; backend/tool Ruff checks, formatting and diff checks pass.
+Only documentation changed. These checks preserve the existing baseline and do
+not satisfy the still-open C1 implementation evidence above.

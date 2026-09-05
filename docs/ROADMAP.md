@@ -33,7 +33,8 @@ implemented and independently reviewed after causal-target, identity and account
 - [x] Independently review B2: episode isolation, Decimal context, zero deducted fees on rejection, and account anchors.
 - [x] Freeze [C0 round-v2 bridge](roadmaps/deferred-round-records.md).
 - [x] Implement and review C0 round-v2 bridge, including identity/schema/time corrections.
-- [x] Freeze [C1 runner and persistence orchestration plan](roadmaps/deferred-runner-orchestration.md).
+- [x] Review [C1 runner and persistence proposal](roadmaps/deferred-runner-orchestration.md); readiness withdrawn.
+- [ ] Close C1 schedule, terminal-record, persistence and evaluator decisions before implementation.
 - [ ] Implement and review C1 before detailing replay integration.
 
 Build a local-first, reproducible case study showing how versioned Optees
@@ -243,7 +244,7 @@ causal execution evidence for every settled outcome.
       - [x] Implement and review settlement service (`DS-02D2B2`).
     - [ ] Integrate runner, round hashing and replay (`DS-02D2C` / `DS-D3`).
       - [x] Implement and review round-v2 record bridge (`DS-02D2C0`).
-      - [x] Detail atomic persistence and runner orchestration (`DS-02D2C1`, [spec](roadmaps/deferred-runner-orchestration.md)).
+      - [ ] Freeze corrected atomic persistence and runner orchestration (`DS-02D2C1`, [spec](roadmaps/deferred-runner-orchestration.md)).
       - [ ] Implement and review `DS-02D2C1`.
       - [ ] Detail replay and end-to-end evidence (`DS-02D2C2`).
   - [ ] Prove normalized D+2 observations execute end to end without temporal leakage (`DS-D3`).
@@ -260,7 +261,7 @@ causal execution evidence for every settled outcome.
   - [x] `DS-02D2B2`: implement and independently review settlement service.
 - [ ] `DS-02D2C`: integrate runner and replay; prove `DS-D3`.
   - [x] `DS-02D2C0`: implement and review round-v2 record bridge.
-  - [x] `DS-02D2C1`: freeze runner orchestration and persistence plan ([spec](roadmaps/deferred-runner-orchestration.md)).
+  - [ ] `DS-02D2C1`: freeze corrected runner orchestration and persistence plan ([spec](roadmaps/deferred-runner-orchestration.md)).
   - [ ] `DS-02D2C1`: implement and review runner orchestration and atomic persistence.
   - [ ] `DS-02D2C2`: replay and end-to-end evidence.
 - [ ] Authorize `DS-02E` only after both correction gates pass review.
