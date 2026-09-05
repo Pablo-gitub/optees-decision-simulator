@@ -3,7 +3,7 @@
 ## Work Unit
 
 - **ID:** `DS-02`
-- **State:** Gate `DS-D3A` satisfied; `DS-02D2B1` implemented and reviewed; `DS-02D2B2` settlement service plan frozen, implementation not started
+- **State:** Gate `DS-D3A` satisfied; `DS-02D2B1` implemented and reviewed; `DS-02D2B2` implemented, independent review pending
 - **Type:** backend data provenance, market interpretation and baseline evidence; no UI
 - **Parent roadmap:** `../ROADMAP.md`
 - **Prerequisite:** `DS-K` satisfied by `DS-01`
@@ -815,10 +815,14 @@ accounting. Do not modify runner or replay in this unit.
 - [x] `DS-02D2B1` planning: [admission service specification](deferred-admission-services.md).
 - [x] `DS-02D2B1` implementation and review complete after retry corrections (270 backend tests passed).
 - [x] `DS-02D2B2` planning: [settlement service specification](deferred-settlement-services.md).
-- [ ] `DS-02D2B2` implementation and independent review.
+- [x] `DS-02D2B2` implementation complete (298 backend tests passed); independent review pending.
 
 B1 is a complete admission behavior block, not settlement or durable exactly-once
-publication. B1 is reviewed; B2 must be detailed before implementation.
+publication. B1 is reviewed. B2 is implemented per its frozen plan, including an
+explicitly documented and regression-tested limitation (a target bar that was
+never ingested at all cannot be distinguished locally from one that never
+existed; closing that gap needs the round-cutoff-aware runner in `DS-02D2C`).
+B2 independent review is required before Gate `DS-D3B` is satisfied.
 
 **Gate `DS-D3B`:** deterministic services reproduce the frozen lifecycle and
 account invariants without episode orchestration.
@@ -853,8 +857,9 @@ settlement/transition links and expected cash delta. All 217 backend tests pass;
 legacy v1 schema and example bytes are unchanged. This proves the record bridge,
 not runtime settlement enforcement, which remains in D2B/D2C.
 
-`DS-02D2A1`, `DS-02D2A2`, and `DS-02D2B1` implementation are complete. The
-[DS-02D2B2 settlement service plan](deferred-settlement-services.md) is frozen
-and is the next and only authorized implementation boundary.
-Gate `DS-D3B` remains open until `DS-02D2B2` implementation/review are completed.
-`DS-02E` remains blocked until `DS-D3` is satisfied.
+`DS-02D2A1`, `DS-02D2A2`, `DS-02D2B1`, and `DS-02D2B2` implementation are
+complete (298 backend tests pass). The
+[DS-02D2B2 settlement service plan](deferred-settlement-services.md) records
+one accepted, regression-tested limitation left to `DS-02D2C`.
+Gate `DS-D3B` remains open until `DS-02D2B2` is independently reviewed.
+`DS-02D2C` and `DS-02E` remain blocked until `DS-D3B`/`DS-D3` are satisfied.

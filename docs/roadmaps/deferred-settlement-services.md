@@ -3,7 +3,7 @@
 ## Work unit
 
 - ID: `DS-02D2B2`, second and final service block within `DS-02D2B`.
-- Status: planning frozen; implementation not started.
+- Status: implementation complete; independent review pending.
 - Owner (this work unit only): Claude (backend), by explicit temporary user
   reassignment. The standing UI-only ownership boundary in `CLAUDE.md` is not
   changed by this exception. Independent review: pending, not performed by the
@@ -170,12 +170,29 @@ knowledge-eligible, and must never fabricate or forward-fill a bar.
    - If one or more are eligible: pick the highest `revision` (tie-break by
      `observation_id`) — this is Probe DP-03's pre-settlement revision rule.
 
-Two required regression cases follow directly from step 6/7's "do not skip"
-guarantee: (a) an earlier bar for the series is *present* in the dataset but
-not yet knowledge-eligible while a *later* bar for the same series already is
-eligible — must return still-pending, not settle against the later bar; (b)
-the earlier bar is *entirely absent* (never ingested) while a later one is
-already eligible — must also return still-pending, not settle against it.
+One required regression case follows directly from step 6/7's "do not skip"
+guarantee: an earlier bar for the series is *present* in the dataset but not
+yet knowledge-eligible while a *later* bar for the same series already is
+eligible — must return still-pending, not settle against the later bar.
+
+**Accepted limitation, discovered during implementation and deliberately not
+closed here:** if the true first bar is *entirely absent* from
+`all_observations` (never ingested at all — e.g. an exchange halt) while a
+later bar for the same series is already present and eligible, this pure
+algorithm has no local signal to distinguish that from "the calendar's first
+slot for this series always was the later bar" and will settle against the
+later one. Closing this requires calendar knowledge (which round cutoffs were
+skipped entirely) that this unit does not have and should not invent:
+`CalendarSpec.interval_duration`/`evaluation_delay` are opaque,
+not-yet-formally-parsed strings nowhere else in the codebase, and parsing them
+here would be exactly the kind of new, unfrozen parser `AGENTS.md` warns
+against. The future runner (`DS-02D2C`) already holds the explicit
+`CalendarSpec.round_cutoffs` sequence and therefore can detect a fully-skipped
+round without parsing anything, then call `terminate_unsettled(...,
+"MISSING_EXECUTION_BAR")`. This unit's `attempt_settlement` only guarantees
+non-skipping among bars the dataset snapshot has actually ingested; genuine
+upstream gaps remain `DS-02D2C`'s responsibility. This is reported here
+explicitly rather than silently narrowed.
 
 ### 2. Execution price and fee computation
 
@@ -325,58 +342,63 @@ Tests must call the production service, not a local reproduction of its
 logic, and must reuse `DeferredAdmissionService`-produced pending records as
 fixtures where practical (proving the two services compose).
 
-- [ ] Full D+2 lifecycle (Probe DP-01): admission-produced pending settles
+- [x] Full D+2 lifecycle (Probe DP-01): admission-produced pending settles
   against a two-bar observation set; schema-valid `SettlementOutcome` and
   `DeferredTransitionRecord`; exact `economic_fill_time`/`effective_time`/
   `observation_knowledge_time` evidence; resulting account hash/balances/costs.
-- [ ] Still-pending: target bar not yet knowledge-eligible; zero mutation;
+- [x] Still-pending: target bar not yet knowledge-eligible; zero mutation;
   same `pending_transition` object returned; `is_still_pending` true.
-- [ ] No-skip regression (both variants from "Target-bar selection" above):
-  earlier bar present-but-ineligible, and earlier bar entirely absent, while a
-  later bar is already eligible — both must return still-pending.
-- [ ] `event_time` vs `open_time` regression: a bar whose `open_time` is
+- [x] No-skip regression: earlier bar present-but-ineligible while a later bar
+  for the same series is already eligible — must return still-pending, not
+  settle against the later bar.
+- [x] Accepted-limitation regression: earlier bar entirely absent (never
+  ingested) while a later bar is already eligible — documents, with an
+  explicit comment referencing this plan's "Accepted limitation" note, that
+  the service currently settles against the later bar, and that closing this
+  gap requires the round-cutoff-aware runner (`DS-02D2C`), not this unit.
+- [x] `event_time` vs `open_time` regression: a bar whose `open_time` is
   before cutoff but `event_time` (close) is after cutoff, and vice versa,
   proving `open_time` — never `event_time` — governs selection.
-- [ ] Missing bar terminal path (Probe DP-02): `terminate_unsettled(...,
+- [x] Missing bar terminal path (Probe DP-02): `terminate_unsettled(...,
   "MISSING_EXECUTION_BAR")` produces terminal `REJECTED`, zero mutation.
-- [ ] Revision handling (Probe DP-03): two revisions of the same bar, only the
+- [x] Revision handling (Probe DP-03): two revisions of the same bar, only the
   knowledge-eligible one usable; highest eligible revision wins.
-- [ ] Insufficient funds at settlement (Probe DP-04): execution price higher
+- [x] Insufficient funds at settlement (Probe DP-04): execution price higher
   than the mark used at admission time triggers
   `INSUFFICIENT_FUNDS_AT_SETTLEMENT`; zero mutation; full cash preserved;
   evidence includes `cash_available`/`cash_required`.
-- [ ] Short-sale forbidden: oversized `TRANSFER` sale triggers
+- [x] Short-sale forbidden: oversized `TRANSFER` sale triggers
   `SHORT_POSITIONS_FORBIDDEN`; zero mutation.
-- [ ] Invalid execution price: non-positive/non-finite/missing `open` field
+- [x] Invalid execution price: non-positive/non-finite/missing `open` field
   triggers `INVALID_EXECUTION_PRICE` with empty `settlement_evidence`
   (documents the domain-model constraint above); zero mutation.
-- [ ] Missing valuation mark for an untouched existing holding blocks
+- [x] Missing valuation mark for an untouched existing holding blocks
   settlement of an unrelated trade with `MISSING_VALUATION_MARK`; zero
   mutation.
-- [ ] Signed `TRANSFER` settles correctly in both credit and debit directions
+- [x] Signed `TRANSFER` settles correctly in both credit and debit directions
   with correct-sign resulting balance and cash delta; `ALLOCATE` settles with
   exact hand-computed `ROUND_HALF_EVEN`-quantized Decimal strings.
-- [ ] `terminate_unsettled` for `UNSETTLED_EPISODE_TERMINATION` (Probe DP-05)
+- [x] `terminate_unsettled` for `UNSETTLED_EPISODE_TERMINATION` (Probe DP-05)
   and `EPISODE_CANCELLED` (Probe DP-06); unrecognized `reason_code` raises
   `ValueError`.
-- [ ] Invalid caller context fails explicitly before any evaluation: foreign
+- [x] Invalid caller context fails explicitly before any evaluation: foreign
   pending, mismatched predecessor-account hash, malformed round id, non-UTC or
   causally-early `settlement_time`, and a structurally-impossible
   HOLD/ADJUST pending.
-- [ ] Every path preserves input account/pending/episode bytes/hash; nested
+- [x] Every path preserves input account/pending/episode bytes/hash; nested
   `admission_evidence`/observation-payload mutation cannot change an
   already-emitted result (deep immutability, mirrors B1 evidence #10).
-- [ ] Output schema validation against `settlement_outcome.v1.json` and
+- [x] Output schema validation against `settlement_outcome.v1.json` and
   `transition.v2.json` using the repository's `validate_data` helper; forward
   and backward bidirectional-link verification between
   `SettlementOutcome.applied_transition_id` and
   `DeferredTransitionRecord.settlement_outcome_id`; canonical hash determinism
   across repeated calls with identical inputs (Probe DP-08).
-- [ ] Shared-timestamp ordering (Probe DP-07) and second-order-while-pending
+- [x] Shared-timestamp ordering (Probe DP-07) and second-order-while-pending
   (Probe DP-09) are already covered by `test_deferred_settlement_contract.py`
   and B1's admission tests respectively; this unit does not re-derive them but
   may cross-reference them in its module docstring.
-- [ ] Full backend, architecture, contracts, lint and formatting gates pass.
+- [x] Full backend, architecture, contracts, lint and formatting gates pass.
 
 Commands (use the available environment; do not install dependencies blindly):
 
@@ -395,9 +417,20 @@ Baseline at planning: 270 backend tests passed (per B1's review-correction
 evidence); contract and Ruff gates passed. Do not use a test count as the
 acceptance criterion.
 
+Implementation evidence: 298 backend tests pass (270 baseline + 28 new
+settlement tests), including the full D+2 lifecycle, non-skipping target-bar
+selection with its accepted absent-bar limitation documented and regression
+tested, revision resolution, both feasibility rejections, the domain-model-
+forced empty-evidence behavior for `INVALID_EXECUTION_PRICE`, missing
+valuation marks, signed `TRANSFER` in both directions, all three exogenous
+`terminate_unsettled` reasons, and invalid-caller-context rejection. Contract
+validation, Ruff lint/format, and `git diff --check` all pass. No admission
+service, execution service, runner, replay, persistence, pricing adapter,
+public schema, or tool was modified.
+
 - [x] Planning: settlement semantics, scope, exclusions, identity scheme and
   evidence frozen.
-- [ ] Implementation and focused regressions complete.
+- [x] Implementation and focused regressions complete.
 - [ ] Independent review.
 
 Before a local atomic commit for implementation, update roadmap checkboxes
