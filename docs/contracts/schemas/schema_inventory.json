@@ -161,6 +161,14 @@
       "title": "DeferredRoundRecord",
       "file_path": "docs/contracts/schemas/round.v2.json",
       "description": "Immutable execution record of a single simulation round under deferred settlement with timestamps, observation hashes, policy round records, and state Merkle hash."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v1/deferred_run_terminal_record.v1.json",
+      "type_discriminator": "deferred_run_terminal_record",
+      "schema_version": "1.0.0",
+      "title": "DeferredRunTerminalRecord",
+      "file_path": "docs/contracts/schemas/deferred_run_terminal_record.v1.json",
+      "description": "Immutable record capturing final episode termination, cancellation, and terminal clearance of pending transitions under deferred settlement."
     }
   ]
 }

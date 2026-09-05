@@ -23,6 +23,18 @@ from simulator.domain.deferred_round import (
 from simulator.domain.deferred_round import (
     compute_deferred_state_merkle_hash as compute_deferred_state_merkle_hash,
 )
+from simulator.domain.deferred_terminal import (
+    DeferredRunTerminalRecord as DeferredRunTerminalRecord,
+)
+from simulator.domain.deferred_terminal import (
+    PolicyTerminalRecord as PolicyTerminalRecord,
+)
+from simulator.domain.deferred_terminal import (
+    compute_terminal_record_id as compute_terminal_record_id,
+)
+from simulator.domain.deferred_terminal import (
+    compute_terminal_state_merkle_hash as compute_terminal_state_merkle_hash,
+)
 from simulator.domain.errors import (
     DuplicateIdentityError,
 )

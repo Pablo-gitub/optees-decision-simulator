@@ -867,9 +867,13 @@ legacy v1 schema and example bytes are unchanged. This proves the record bridge,
 not runtime settlement enforcement, which remains in D2B/D2C.
 
 `DS-02D2A1`, `DS-02D2A2`, `DS-02D2B1`, and `DS-02D2B2` implementation are
-complete and reviewed. The corrected
-Gate `DS-D3B` is satisfied. `DS-02D2C0` implementation and review are complete.
-The [DS-02D2C1 runner orchestration and persistence plan](deferred-runner-orchestration.md)
-freezes reviewed schedule, valuation, terminal-record, persistence and evaluator
-decisions. C1 implementation is the next authorized block. C2 still requires
-detailed planning. `DS-02E` remains blocked until `DS-D3` is satisfied.
+complete and reviewed. Gate `DS-D3B` is satisfied. `DS-02D2C0` implementation
+and review are complete.
+
+The foundations and atomic persistence work unit `DS-02D2C1A`
+([spec](deferred-runner-orchestration.md)) is implemented and verified.
+The next and only authorized implementation step is `DS-02D2C1B`
+(EpisodeRunner deferred flow and evaluator integration). `DS-02D2C1` overall
+remains in progress until C1B is implemented and independently reviewed.
+C2 still requires detailed planning. `DS-02E` remains blocked until `DS-D3`
+is satisfied.

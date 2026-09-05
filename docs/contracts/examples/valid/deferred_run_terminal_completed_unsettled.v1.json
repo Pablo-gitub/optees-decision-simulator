@@ -1,0 +1,28 @@
+{
+  "$type": "deferred_run_terminal_record",
+  "schema_version": "1.0.0",
+  "terminal_record_id": "term_fc0a4b6ba5917f21a0fd1ebc76049b632c97032e7a1a069c70ea9d5c05c22c39",
+  "run_id": "ep-run_00000001",
+  "episode_id": "ep-def_00000001",
+  "terminal_status": "COMPLETED",
+  "reason_code": "UNSETTLED_EPISODE_TERMINATION",
+  "reason_message": "Final round completed with active pending transition terminated as rejected.",
+  "simulation_frontier_time": "2026-08-05T00:00:00Z",
+  "execution_timestamp": "2026-08-05T00:00:01Z",
+  "parent_round_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "policy_terminal_records": [
+    {
+      "policy_id": "pol-def_alpha",
+      "account_state_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "pending_transition_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "settlement_outcome_hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    {
+      "policy_id": "pol-def_beta",
+      "account_state_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pending_transition_hash": null,
+      "settlement_outcome_hash": null
+    }
+  ],
+  "terminal_state_merkle_hash": "sha256:0be7639a4992a762cffc818fb9959f0aa49714edf4f568f2dcdfff0e4b6b58c6"
+}

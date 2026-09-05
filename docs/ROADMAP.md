@@ -249,6 +249,8 @@ causal execution evidence for every settled outcome.
       - [x] Freeze and independently review corrected atomic persistence and
         runner orchestration (`DS-02D2C1`, [spec](roadmaps/deferred-runner-orchestration.md)).
       - [ ] Implement and review `DS-02D2C1`.
+        - [x] Implement deferred foundations and atomic persistence (`DS-02D2C1A`).
+        - [ ] Implement EpisodeRunner deferred flow and evaluator integration (`DS-02D2C1B`).
       - [ ] Detail replay and end-to-end evidence (`DS-02D2C2`).
   - [ ] Prove normalized D+2 observations execute end to end without temporal leakage (`DS-D3`).
 
@@ -267,6 +269,8 @@ causal execution evidence for every settled outcome.
   - [x] `DS-02D2C1`: freeze and independently review corrected runner
     orchestration and persistence plan ([spec](roadmaps/deferred-runner-orchestration.md)).
   - [ ] `DS-02D2C1`: implement and review runner orchestration and atomic persistence.
+    - [x] `DS-02D2C1A`: deferred foundations, terminal record, account valuation, and atomic persistence.
+    - [ ] `DS-02D2C1B`: EpisodeRunner deferred flow and evaluator integration.
   - [ ] `DS-02D2C2`: replay and end-to-end evidence.
 - [ ] Authorize `DS-02E` only after both correction gates pass review.
 

@@ -3,13 +3,15 @@
 ## Work unit
 
 - ID: `DS-02D2C1`.
-- State: corrected plan independently reviewed; implementation is the next
-  authorized work unit.
+- State: `DS-02D2C1A` (deferred foundations, terminal record, account valuation,
+  and atomic persistence) implemented and verified; `DS-02D2C1B` (EpisodeRunner
+  deferred flow and evaluator integration) is the next authorized work unit.
+  `DS-02D2C1` overall is in progress.
 - Prerequisites: reviewed B1/B2 (`d365cd8`) and C0 (`d2243bb`);
   `DS-D3B` satisfied.
 - Contracts: [deferred settlement](../contracts/deferred-settlement-contract.md)
   and [terminal record](../contracts/deferred-run-terminal-contract.md).
-- C2 replay and DS-02E evidence remain blocked until C1 is implemented and
+- C2 replay and DS-02E evidence remain blocked until C1 is fully implemented and
   reviewed.
 
 C1 integrates the existing admission, settlement and round-v2 components.
@@ -283,10 +285,15 @@ Report the incompatibility for a new reviewed planning unit.
 
 ## Gate
 
-The plan and terminal design are independently reviewed. The next and only
-authorized step is implementation of `DS-02D2C1` within this boundary.
-Completion requires all evidence above and a separate independent review.
+The foundations and persistence stage `DS-02D2C1A` is implemented and verified:
+typed deferred configuration, terminal record domain model and schema/examples,
+account valuation service, and atomic persistence with rollback and exact-retry
+idempotency.
 
-Planning-review verification: 339 backend tests, the 20-schema/15-example
-contract validator, Ruff, formatting and diff checks pass. These protect the
-existing implementation; they are not C1 runtime evidence.
+The next and only authorized step is implementation of `DS-02D2C1B`
+(EpisodeRunner deferred flow and evaluator integration). Completion of `DS-02D2C1`
+requires `DS-02D2C1B` implementation and separate independent review.
+
+`DS-02D2C1A` verification: 380 backend tests, the 21-schema/19-example contract
+validator, Ruff, formatting and diff checks pass. Existing synchronous and
+v1 behaviors remain completely untouched.

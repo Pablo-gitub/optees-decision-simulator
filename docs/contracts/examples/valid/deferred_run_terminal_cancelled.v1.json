@@ -1,0 +1,28 @@
+{
+  "$type": "deferred_run_terminal_record",
+  "schema_version": "1.0.0",
+  "terminal_record_id": "term_1741c65c1b27e30d54390bcb300b86381583cfce4b5ccba14043af974a064b54",
+  "run_id": "ep-run_00000001",
+  "episode_id": "ep-def_00000001",
+  "terminal_status": "CANCELLED",
+  "reason_code": "EPISODE_CANCELLED",
+  "reason_message": "Episode run was cancelled by user while order was pending.",
+  "simulation_frontier_time": "2026-08-05T00:00:00Z",
+  "execution_timestamp": "2026-08-05T00:00:01Z",
+  "parent_round_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "policy_terminal_records": [
+    {
+      "policy_id": "pol-def_alpha",
+      "account_state_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "pending_transition_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "settlement_outcome_hash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    {
+      "policy_id": "pol-def_beta",
+      "account_state_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pending_transition_hash": null,
+      "settlement_outcome_hash": null
+    }
+  ],
+  "terminal_state_merkle_hash": "sha256:5aa37088f017be07266bccd281228d0a4736773e6134baa8949c862f4e01fbd8"
+}

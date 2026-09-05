@@ -5,16 +5,22 @@ from dataclasses import dataclass
 
 from simulator.domain.models import (
     DecisionOutcome,
+    DeferredRoundRecord,
+    DeferredRunTerminalRecord,
+    DeferredTransitionRecord,
     DivergenceReport,
     EpisodeDefinition,
     EpisodeRun,
     MetricRecord,
     OpteesCallReceipt,
+    PendingStateReference,
+    PendingTransitionRecord,
     PolicyDefinition,
     PolicyVersion,
     ProposedDecision,
     ReplayReport,
     RoundRecord,
+    SettlementOutcome,
     TransitionRecord,
     VirtualAccountState,
 )
@@ -25,11 +31,26 @@ class RoundCommit:
     """All records that become visible atomically for one completed round."""
 
     run: EpisodeRun
-    round_record: RoundRecord
-    proposed_decisions: tuple[ProposedDecision, ...]
-    decision_outcomes: tuple[DecisionOutcome, ...]
-    transitions: tuple[TransitionRecord, ...]
-    account_states: tuple[VirtualAccountState, ...]
+    round_record: RoundRecord | DeferredRoundRecord
+    proposed_decisions: tuple[ProposedDecision, ...] = ()
+    decision_outcomes: tuple[DecisionOutcome, ...] = ()
+    transitions: tuple[TransitionRecord, ...] = ()
+    account_states: tuple[VirtualAccountState, ...] = ()
+    metrics: tuple[MetricRecord, ...] = ()
+    pending_transitions: tuple[PendingTransitionRecord, ...] = ()
+    settlement_outcomes: tuple[SettlementOutcome, ...] = ()
+    deferred_transitions: tuple[DeferredTransitionRecord, ...] = ()
+    terminal_record: DeferredRunTerminalRecord | None = None
+
+
+@dataclass(frozen=True)
+class TerminalCommit:
+    """Atomic publication of mid-episode or genesis cancellation."""
+
+    expected_run_hash: str
+    run: EpisodeRun
+    terminal_record: DeferredRunTerminalRecord
+    settlement_outcomes: tuple[SettlementOutcome, ...] = ()
     metrics: tuple[MetricRecord, ...] = ()
 
 
@@ -157,4 +178,53 @@ class PersistencePort(ABC):
 
     @abstractmethod
     def get_divergence_reports(self, replay_report_id: str) -> list[DivergenceReport]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def commit_terminal(self, commit: TerminalCommit) -> None:
+        """Publish mid-episode or genesis cancellation as one atomic unit."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_pending_transition(self, pending_id: str) -> PendingTransitionRecord | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_pending_transitions(
+        self, run_id: str, policy_id: str | None = None
+    ) -> list[PendingTransitionRecord]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_settlement_outcome(self, outcome_id: str) -> SettlementOutcome | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_settlement_outcomes(
+        self, run_id: str, policy_id: str | None = None
+    ) -> list[SettlementOutcome]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_deferred_transition(self, transition_id: str) -> DeferredTransitionRecord | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_deferred_transitions(
+        self, run_id: str, policy_id: str | None = None
+    ) -> list[DeferredTransitionRecord]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_account_state_by_hash(self, run_id: str, state_hash: str) -> VirtualAccountState | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_active_pending_reference(
+        self, run_id: str, policy_id: str
+    ) -> PendingStateReference | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_terminal_record(self, run_id: str) -> DeferredRunTerminalRecord | None:
         raise NotImplementedError
