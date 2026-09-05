@@ -3,14 +3,14 @@
 ## Work Unit
 
 - **ID:** `DS-02`
-- **State:** Gate `DS-D3A` satisfied; `DS-02D2B1` admission service plan ready, implementation not started
+- **State:** Gate `DS-D3A` satisfied; `DS-02D2B1` admission service implemented, independent review pending
 - **Type:** backend data provenance, market interpretation and baseline evidence; no UI
 - **Parent roadmap:** `../ROADMAP.md`
 - **Prerequisite:** `DS-K` satisfied by `DS-01`
 - **Parallel Optees work:** scenario capability and UI complete; forecasting awaits Simulator evidence
 - **Implementation owner:** Gemini
 - **Review:** Codex after every micro-gate
-- **Completion gate:** `DS-D` (gates through `DS-D3A` satisfied; `DS-02D2B` next)
+- **Completion gate:** `DS-D` (gates through `DS-D3A` satisfied; `DS-02D2B` in progress)
 
 ## Objective
 
@@ -813,7 +813,7 @@ rule, zero mutation before settlement, terminal rejection paths and exactly-once
 accounting. Do not modify runner or replay in this unit.
 
 - [x] `DS-02D2B1` planning: [admission service specification](deferred-admission-services.md).
-- [ ] `DS-02D2B1` implementation and independent review.
+- [x] `DS-02D2B1` implementation complete; independent review pending.
 - [ ] `DS-02D2B2` settlement/accounting detail, to be frozen after B1 review.
 - [ ] `DS-02D2B2` implementation and independent review.
 
@@ -853,7 +853,6 @@ settlement/transition links and expected cash delta. All 217 backend tests pass;
 legacy v1 schema and example bytes are unchanged. This proves the record bridge,
 not runtime settlement enforcement, which remains in D2B/D2C.
 
-`DS-02D2A1` and `DS-02D2A2` are complete, satisfying Gate `DS-D3A`.
-`DS-02D2B1` ([admission services](deferred-admission-services.md)) is the next and
-only authorized implementation boundary. Gate `DS-D3B` remains open until B2 review.
+`DS-02D2A1`, `DS-02D2A2`, and `DS-02D2B1` implementation are complete.
+Gate `DS-D3B` remains open until `DS-02D2B1` review and `DS-02D2B2` implementation/review are completed.
 `DS-02E` remains blocked until `DS-D3` is satisfied.

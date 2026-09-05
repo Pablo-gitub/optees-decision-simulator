@@ -21,11 +21,11 @@
 - [x] Identify open-time normalization as `1.1.0` and prevent legacy receipt reuse.
 
 These corrections preserve the record-foundation gate. The
-[DS-02D2B1 admission plan](roadmaps/deferred-admission-services.md) is ready for
-Gemini; deferred services and runner behavior are not implemented.
+[DS-02D2B1 admission plan](roadmaps/deferred-admission-services.md) has been
+implemented; independent review and subsequent settlement detailing are pending.
 
 - [x] Freeze B1 admission scope, action semantics, retry behavior and test gate.
-- [ ] Implement and independently review B1 before detailing B2 settlement.
+- [x] Implement B1 admission service; independent review pending before detailing B2 settlement.
 
 Build a local-first, reproducible case study showing how versioned Optees
 capabilities can be orchestrated into repeated decisions over time. The same
@@ -90,7 +90,7 @@ The record bridge is complete; runtime enforcement remains DS-02D2B/DS-02D2C.
 | --- | --- | --- |
 | [x] | `DS-00` — Core Contracts And Threat Model | `DS-C` satisfied |
 | [x] | `DS-01` — Deterministic Episode Kernel | `DS-K` satisfied |
-| [ ] | `DS-02` — Market Dataset And Baseline Evidence | `DS-D3A` satisfied; `DS-02D2B` application services next |
+| [ ] | `DS-02` — Market Dataset And Baseline Evidence | `DS-D3A` satisfied; `DS-02D2B1` implemented (review pending) |
 | [ ] | `DS-03` — Persistence, API, And Existing Optees Capabilities | Not started |
 | [ ] | `DS-04` — Convex QP Policy Family | QP prerequisite satisfied; not started |
 | [ ] | `DS-05` — Scenario Min-max And Max-min Policies | Awaiting `ROBUST-C` |
@@ -229,6 +229,8 @@ causal execution evidence for every settled outcome.
       - [x] Add pending/settlement records and retain open time (`DS-02D2A1`).
       - [x] Add the versioned deferred-transition reverse link (`DS-02D2A2`).
     - [ ] Implement pure admission and settlement application services (`DS-02D2B` / `DS-D3B`).
+      - [x] Implement admission service (`DS-02D2B1`, review pending).
+      - [ ] Detail and implement settlement service (`DS-02D2B2`).
     - [ ] Integrate runner, round hashing and replay (`DS-02D2C` / `DS-D3`).
   - [ ] Prove normalized D+2 observations execute end to end without temporal leakage (`DS-D3`).
 
@@ -239,6 +241,8 @@ causal execution evidence for every settled outcome.
   - [x] `DS-02D2A1`: pending/settlement records and open-time retention.
   - [x] `DS-02D2A2`: versioned deferred-transition bridge.
 - [ ] `DS-02D2B`: implement admission and settlement services; prove `DS-D3B`.
+  - [x] `DS-02D2B1`: implement admission service; independent review pending.
+  - [ ] `DS-02D2B2`: detail and implement settlement service.
 - [ ] `DS-02D2C`: integrate runner and replay; prove `DS-D3`.
 - [ ] Authorize `DS-02E` only after both correction gates pass review.
 

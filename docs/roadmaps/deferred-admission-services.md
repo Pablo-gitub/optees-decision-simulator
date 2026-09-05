@@ -3,7 +3,7 @@
 ## Work unit
 
 - ID: `DS-02D2B1`, first coherent service block within `DS-02D2B`.
-- Status: ready for implementation; no service is shipped by this document.
+- Status: implementation complete; independent review pending.
 - Owner: Gemini (backend). Independent review: Codex.
 - Prerequisite: reviewed `DS-D3A`, including commit `e9f425e`.
 - Parent: [market plan](market-dataset-and-baseline-evidence.md).
@@ -149,26 +149,26 @@ ExecutionService to simulate admission and then discard its transition.
 Tests must call the production service, not a local reproduction of its logic.
 Use explicit expected values and actual authoritative schemas for emitted records.
 
-- [ ] Positive buy and signed sell produce expected immutable pending links,
+- [x] Positive buy and signed sell produce expected immutable pending links,
   account hash, series rule, evidence and deterministic IDs.
-- [ ] Unaffordable buy and sale exceeding holdings are admitted without pricing.
-- [ ] HOLD without/with active pending has an accepted outcome, no transition,
+- [x] Unaffordable buy and sale exceeding holdings are admitted without pricing.
+- [x] HOLD without/with active pending has an accepted outcome, no transition,
   no new pending; original pending is preserved by identity when present.
-- [ ] Policy contamination (including parameters), wrong pinned version, round,
+- [x] Policy contamination (including parameters), wrong pinned version, round,
   cutoff and generated_at are rejected; equivalent UTC spellings are tested.
-- [ ] Empty/multiple actions, desired allocations, unsupported ADJUST/parameters,
+- [x] Empty/multiple actions, desired allocations, unsupported ADJUST/parameters,
   zero trades, nonzero HOLD, unknown resource and direct cash trade are rejected.
-- [ ] Boolean/float/non-finite and wrong-sign ALLOCATE inputs cannot escape as
+- [x] Boolean/float/non-finite and wrong-sign ALLOCATE inputs cannot escape as
   valid pending records; signed TRANSFER remains accepted.
-- [ ] Transition count limit 0/1 and unset is tested, including HOLD.
-- [ ] New decision while pending is rejected; identical retry reuses the pending;
+- [x] Transition count limit 0/1 and unset is tested, including HOLD.
+- [x] New decision while pending is rejected; identical retry reuses the pending;
   same-ID changed quantity/resource/version/target/predecessor cannot be admitted.
-- [ ] Invalid caller context fails explicitly, including foreign-policy pending.
-- [ ] Every path preserves input account bytes/hash/balances/costs; nested
+- [x] Invalid caller context fails explicitly, including foreign-policy pending.
+- [x] Every path preserves input account bytes/hash/balances/costs; nested
   configuration mutation cannot change an already emitted record or result.
-- [ ] Output schema validation, canonical hash determinism and repeated execution
+- [x] Output schema validation, canonical hash determinism and repeated execution
   tests use the repository helpers. Unknown schema vocabulary must not be ignored.
-- [ ] Full backend, architecture, contracts, lint and formatting gates pass.
+- [x] Full backend, architecture, contracts, lint and formatting gates pass.
 
 Commands (use the available environment; do not install dependencies blindly):
 
@@ -188,7 +188,7 @@ Do not use a test count as the acceptance criterion. Report exact commands,
 results, changed files, schema evidence, and any skipped/blocked checks.
 
 - [x] Planning: admission semantics, scope, exclusions and evidence frozen.
-- [ ] Implementation and focused regressions complete.
+- [x] Implementation and focused regressions complete.
 - [ ] Independent review accepted.
 
 Before a local atomic commit, update roadmap checkboxes honestly: implementation
