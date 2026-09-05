@@ -76,6 +76,11 @@ The v1 contracts are formally specified using JSON Schema Draft 2020-12 located 
 13. [`optees_call_receipt.v1.json`](schemas/optees_call_receipt.v1.json)
 14. [`replay_report.v1.json`](schemas/replay_report.v1.json)
 15. [`divergence_report.v1.json`](schemas/divergence_report.v1.json)
+16. [`acquisition_receipt.v1.json`](schemas/acquisition_receipt.v1.json)
+17. [`pending_transition.v1.json`](schemas/pending_transition.v1.json)
+18. [`settlement_outcome.v1.json`](schemas/settlement_outcome.v1.json)
+19. [`transition.v2.json`](schemas/transition.v2.json)
+20. [`round.v2.json`](schemas/round.v2.json)
 
 ### 2.3 Record Immutability and Episode Freeze
 

@@ -1,0 +1,40 @@
+{
+  "$type": "round",
+  "schema_version": "2.0.0",
+  "round_id": "rnd_00000001",
+  "run_id": "ep-run_00000001",
+  "round_index": 1,
+  "parent_round_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "knowledge_cutoff": "2026-08-01T00:00:00Z",
+  "execution_start_time": "2026-08-01T00:00:01Z",
+  "execution_end_time": "2026-08-01T00:00:02Z",
+  "effective_time": "2026-08-01T00:00:02Z",
+  "eligible_observation_hashes": [
+    "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  ],
+  "policy_round_records": [
+    {
+      "policy_id": "pol-def_alpha",
+      "account_state_before_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "account_state_after_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "pending_before": {
+        "pending_transition_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "admission_account_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "expected_open_time": "2026-08-01T00:00:00Z",
+        "settlement_deadline": "2026-08-01T00:05:00Z"
+      },
+      "pending_after": {
+        "pending_transition_hash": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "admission_account_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "expected_open_time": "2026-08-01T01:00:00Z",
+        "settlement_deadline": "2026-08-01T01:05:00Z"
+      },
+      "settlement_outcome_hash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "deferred_transition_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "proposed_decision_hash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+      "decision_outcome_hash": null,
+      "optees_call_receipt_hashes": []
+    }
+  ],
+  "state_merkle_hash": "sha256:8cf25b801d8a3791727ba84011cca9b7b6f93a60ede8f6131aec9a4a0da392c8"
+}

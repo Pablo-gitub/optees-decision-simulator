@@ -153,6 +153,14 @@
       "title": "DeferredTransitionRecord",
       "file_path": "docs/contracts/schemas/transition.v2.json",
       "description": "Immutable record of state changes, resource deltas, and incurred costs applied to a policy virtual account for deferred paper settlement."
+    },
+    {
+      "schema_id": "https://optees.org/schemas/simulator/v2/round.v2.json",
+      "type_discriminator": "round",
+      "schema_version": "2.0.0",
+      "title": "DeferredRoundRecord",
+      "file_path": "docs/contracts/schemas/round.v2.json",
+      "description": "Immutable execution record of a single simulation round under deferred settlement with timestamps, observation hashes, policy round records, and state Merkle hash."
     }
   ]
 }

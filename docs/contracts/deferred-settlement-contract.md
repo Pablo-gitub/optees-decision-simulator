@@ -317,17 +317,33 @@ To maintain strict contract integrity:
      `economic_fill_time` from settlement `effective_time`. `transition.v1.json`
      remains frozen for the synchronous lifecycle. A synthetic v1
      `DecisionOutcome` must not be created merely to satisfy its `dec-out_` field.
-   - Cancellation is represented as terminal `REJECTED` with reason
-     `EPISODE_CANCELLED`; the contract does not introduce a third terminal status.
-   This dedicated pair is the selected lossless design. `DS-02D2` must not replace it with
-   a mutable record or extend the v1 decision outcome enum in place.
-3. **Round Merkle Chaining:**
-   - In the round where the proposal is admitted (Round $r$):
-     `policy_round_records[i].transition_hash = null` (no transition applied yet).
-     `account_state_after_hash` equals the hash of the unmutated account.
+     - Cancellation is represented as terminal `REJECTED` with reason
+       `EPISODE_CANCELLED`; the contract does not introduce a third terminal status.
+     This dedicated pair is the selected lossless design. `DS-02D2` must not replace it with
+     a mutable record or extend the v1 decision outcome enum in place.
+    - Add `round.v2.json` (`DeferredRoundRecord`) with dedicated `DeferredPolicyRoundRecord`
+      entries. Disentangles prior pending settlement from new proposal admission:
+      - `pending_before`, `pending_after`: nullable `PendingStateReference` objects retaining
+        `pending_transition_hash`, `admission_account_hash`, frozen `expected_open_time`, and
+        `settlement_deadline`.
+      - `settlement_outcome_hash`: hash of B2 `SettlementOutcome` for `pending_before`.
+      - `deferred_transition_hash`: hash of B2 `DeferredTransitionRecord` (only for `SETTLED`).
+      - `proposed_decision_hash`: hash of new B1 `ProposedDecision`.
+      - `decision_outcome_hash`: hash of immediate outcome (rejection or `HOLD`) for that proposal.
+      - `account_state_before_hash`, `account_state_after_hash`: initial and terminal account hashes.
+3. **Round Merkle Chaining (`round.v2`):**
+   - Pure helper `compute_deferred_state_merkle_hash(parent_round_hash, policy_round_records)`
+     computes the Merkle hash over `compute_record_hash(policy_entry.to_dict())` for policies in
+     strict lexicographic `policy_id` order, using `compute_state_merkle_hash` with `parent_round_hash`.
+   - In the round where a proposal is admitted (Round $r$):
+     `pending_before = null`, `pending_after = ref(pending)`, `decision_outcome_hash = null`.
+   - In intermediate rounds while waiting (Round $r+1$):
+     `pending_before = ref(pending)`, `pending_after = ref(pending)` (carried unchanged),
+     `settlement_outcome_hash = null`, `deferred_transition_hash = null`.
    - In the round where settlement occurs (Round $r+2$):
-     `policy_round_records[i].transition_hash` equals the hash of the newly minted `TransitionRecord`.
-     `account_state_after_hash` equals the hash of the settled account.
+     `pending_before = ref(pending_old)`, `settlement_outcome_hash = hash(settle_out)`,
+     `deferred_transition_hash = hash(def_trans)`, and either `pending_after = null` or
+     `pending_after = ref(pending_new)` if a new proposal is admitted in the same round.
 4. **Replay Invariants:**
    - **`RECORD_REPLAY`:** Replays transitions in strictly non-decreasing order of $t_{\text{settle}}$. Asserts that applying transitions reproduces the exact identical sequence of `VirtualAccountState` hashes.
    - **`DETERMINISTIC_RE_EXECUTION`:** Re-executing policy code against the same dataset reproduces the exact sequence of proposals, admission hashes, settlement evaluations, transition hashes, and round Merkle hashes bit-for-bit.

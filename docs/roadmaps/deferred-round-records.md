@@ -1,6 +1,6 @@
 # Deferred Round Record Bridge
 
-- ID: `DS-02D2C0`; status: ready for implementation, not implemented.
+- ID: `DS-02D2C0`; status: implemented, independent review pending.
 - Owner: Gemini; independent review afterwards.
 - Parent: [market plan](market-dataset-and-baseline-evidence.md).
 - Prerequisite: reviewed B1/B2, Gate DS-D3B, commit d365cd8.
@@ -106,17 +106,17 @@ choose rejection here (constructor requires lexicographic order).
 
 ## Required evidence
 
-- [ ] Strict schema/codec round-trip and deterministic hashes for new admission,
+- [x] Strict schema/codec round-trip and deterministic hashes for new admission,
   waiting with HOLD, waiting without proposal, settlement without new proposal,
   settlement followed by new admission, immediate rejection and terminal rejection.
-- [ ] Use real B1/B2 output in at least one multi-round synthetic record chain.
+- [x] Use real B1/B2 output in at least one multi-round synthetic record chain.
   Resolve hashes and assert old settlement and new proposal remain distinct.
-- [ ] Negative tests for impossible combinations above, unknown fields/versions,
+- [x] Negative tests for impossible combinations above, unknown fields/versions,
   duplicate policies, noncanonical order, mutable nested state and malformed time.
-- [ ] A changed pending, target opening, deadline, anchor or phase hash changes the
+- [x] A changed pending, target opening, deadline, anchor or phase hash changes the
   Merkle hash; wrong supplied Merkle hash is rejected. No local mock hash algorithm.
-- [ ] v1 schema/fixture hashes unchanged; all backend tests remain green.
-- [ ] Contract validation, architecture, Ruff/format and diff checks pass.
+- [x] v1 schema/fixture hashes unchanged; all backend tests remain green.
+- [x] Contract validation, architecture, Ruff/format and diff checks pass.
 
 Before code, summarize the field mapping and reuse points. If a required valid
 lifecycle cannot be represented without adding another field, STOP and report
@@ -126,7 +126,7 @@ record an accepted limitation.
 ## Completion and next boundary
 
 - [x] Record shape, compatibility, hash sequencing and exclusions planned.
-- [ ] Implement record bridge and required evidence.
+- [x] Implement record bridge and required evidence.
 - [ ] Independent review accepted.
 
 Baseline: 314 backend tests. Run PYTHONPATH=apps/backend/src python -m pytest

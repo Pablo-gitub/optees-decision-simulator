@@ -31,9 +31,9 @@ implemented and independently reviewed after causal-target, identity and account
 - [x] Freeze B2 settlement scope, target-bar selection, feasibility and identity rules.
 - [x] Implement B2 settlement with explicit scheduled target; absent bars never cause a later fill.
 - [x] Independently review B2: episode isolation, Decimal context, zero deducted fees on rejection, and account anchors.
-- [ ] Detail D2C runner/replay integration; no implementation authorized yet.
 - [x] Freeze [C0 round-v2 bridge](roadmaps/deferred-round-records.md).
-- [ ] Implement and review C0 before detailing atomic runner integration.
+- [x] Implement C0 round-v2 bridge (independent review pending).
+- [ ] Detail atomic persistence and runner orchestration (C1) after C0 review.
 
 Build a local-first, reproducible case study showing how versioned Optees
 capabilities can be orchestrated into repeated decisions over time. The same
@@ -236,11 +236,14 @@ causal execution evidence for every settled outcome.
     - [x] Complete immutable runtime linkage and exact open-time evidence (`DS-02D2A` / `DS-D3A`).
       - [x] Add pending/settlement records and retain open time (`DS-02D2A1`).
       - [x] Add the versioned deferred-transition reverse link (`DS-02D2A2`).
-    - [ ] Implement pure admission and settlement application services (`DS-02D2B` / `DS-D3B`).
+    - [x] Implement pure admission and settlement application services (`DS-02D2B` / `DS-D3B`).
       - [x] Implement and review admission service (`DS-02D2B1`).
       - [x] Freeze settlement service plan (`DS-02D2B2`, [spec](roadmaps/deferred-settlement-services.md)).
       - [x] Implement and review settlement service (`DS-02D2B2`).
     - [ ] Integrate runner, round hashing and replay (`DS-02D2C` / `DS-D3`).
+      - [x] Implement round-v2 record bridge (`DS-02D2C0`, review pending).
+      - [ ] Detail atomic persistence and runner orchestration (`DS-02D2C1`).
+      - [ ] Detail replay and end-to-end evidence (`DS-02D2C2`).
   - [ ] Prove normalized D+2 observations execute end to end without temporal leakage (`DS-D3`).
 
 `DS-02D` correction sequence:
@@ -249,11 +252,14 @@ causal execution evidence for every settled outcome.
 - [x] `DS-02D2A`: complete runtime records and exact open-time evidence; prove `DS-D3A`.
   - [x] `DS-02D2A1`: pending/settlement records and open-time retention.
   - [x] `DS-02D2A2`: versioned deferred-transition bridge.
-- [ ] `DS-02D2B`: implement admission and settlement services; prove `DS-D3B`.
+- [x] `DS-02D2B`: implement admission and settlement services; prove `DS-D3B`.
   - [x] `DS-02D2B1`: implement and independently review admission service.
   - [x] `DS-02D2B2`: freeze [settlement service plan](roadmaps/deferred-settlement-services.md).
   - [x] `DS-02D2B2`: implement and independently review settlement service.
 - [ ] `DS-02D2C`: integrate runner and replay; prove `DS-D3`.
+  - [x] `DS-02D2C0`: implement round-v2 record bridge (review pending).
+  - [ ] `DS-02D2C1`: atomic persistence and runner orchestration.
+  - [ ] `DS-02D2C2`: replay and end-to-end evidence.
 - [ ] Authorize `DS-02E` only after both correction gates pass review.
 
 `DS-D2A`, `DS-D2B`, and `DS-D2C` completion checklist:

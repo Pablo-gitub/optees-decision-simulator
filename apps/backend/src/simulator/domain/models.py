@@ -11,6 +11,18 @@ from simulator.domain.canonical import (
     compute_record_hash,
     format_decimal,
 )
+from simulator.domain.deferred_round import (
+    DeferredPolicyRoundRecord as DeferredPolicyRoundRecord,
+)
+from simulator.domain.deferred_round import (
+    DeferredRoundRecord as DeferredRoundRecord,
+)
+from simulator.domain.deferred_round import (
+    PendingStateReference as PendingStateReference,
+)
+from simulator.domain.deferred_round import (
+    compute_deferred_state_merkle_hash as compute_deferred_state_merkle_hash,
+)
 from simulator.domain.errors import (
     DuplicateIdentityError,
 )
